@@ -12,10 +12,13 @@ install: ## load python3 packages (requires `pip3`)
 
 ../config:
 	(cd ..; git clone https://gist.github.com/42f78b8beec9e98434b55438f9983ecc.git config)
+	  
+	  
+#	  --logo="https://raw.githubusercontent.com/4src/fishn/main/docs/ice.png" \
 
 doc: ## generate documentation
 	python3 -B -m pdoc  \
-	  --logo="https://raw.githubusercontent.com/4src/fishn/main/docs/ice.png" \
+		--logo "https://hub.urgenci.net/wp-content/uploads/2021/10/fisheries.png" \
 	  -o docs --template-dir  docs \
 	  fishn.py
 	#cd docs; mv fishn.html index.html
