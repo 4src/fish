@@ -16,6 +16,7 @@ install: ## load python3 packages (requires `pip3`)
 doc: ## generate documentation
 	python3 -B -m pdoc  \
 	  --logo="https://raw.githubusercontent.com/4src/fishn/main/docs/ice.png" \
+	  -o docs \
 	  fishn.py
 	cd docs; mv fishn.html index.html
 
