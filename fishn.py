@@ -1,7 +1,7 @@
 #!/usr/bin/env python3 -B
 # vim: set ts=2 sw=2 et:
 """
-fishn.py: multi-objective explanation, optimization    
+fishn.py: look a little, catch some good stuff    
 (c) 2023, Tim Menzies, <timm@ieee.org>  BSD-2    
     
               O  o    
@@ -33,14 +33,15 @@ from termcolor import colored
 from copy      import deepcopy
 import random, math, ast, sys, re, os
 
-the= {m[1]:m[2] for m in re.finditer(r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)",__doc__)}
-
 class obj(object):
   id=0
   def __init__(i, **d): i.__dict__.update(**i.slots(**d)); i.id = obj.id = obj.id+1
   def slots(i,**d)    : return d
   def __repr__(i)     : return i.__class__.__name__+showd(i.__dict__)
   def __hash__(i)     : return i.id
+
+the= obj(**{m[1]:m[2] for m in 
+             re.finditer(r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)",__doc__)})
 #-----------------------------------------------------------------------------
 class BIN(obj):
   def slots(i, at=0, txt="", lo=1E60, hi=None): 
@@ -103,7 +104,7 @@ class SYM(col):
 #-------------------------------------------------------------------------------
 class NUM(col):
   def slots(i,at=0,txt=" ",w=1) : 
-     return super().slots(at=at,txt=txt) | dict(w=1, mu=0,m2=0,sd=0,lo=1E60,hi=-1E60)
+    return super().slots(at=at,txt=txt) | dict(w=1,mu=0,m2=0,sd=0,lo=1E60,hi=-1E60)
 
   def mid(i): return i.mu
   def div(i): return i.sd
@@ -186,8 +187,8 @@ class DATA(obj):
     return i
 
   def stats(i, cols=None, div=False, rnd=2):
-    return DICT(N=len(i.rows), **{col.txt: col.stats(div=div, rnd=rnd) 
-                                  for col in (cols or i.y)})  
+    return obj(N=len(i.rows), **{col.txt: col.stats(div=div, rnd=rnd)
+                                 for col in (cols or i.y)})
 
   def betters(i):
     rows = sorted(i.rows, key=cmp2key(lambda r1,r2: r1.better(r2,i)))
@@ -219,11 +220,6 @@ def show(x):
   if isinstance(x,float) : return f"{x:.2f}"
   return x
 
-class DICT(dict):
-  __getattr__ = dict.get
-  __setattr__ = dict.__setitem__
-  __repr__    = showd
-
 def prin(*l) :  print(*l,end="")
 def round2(x):  return round(x, ndigits=2)
 def yell(c,*s): print(colored(''.join(s),"light_"+c,attrs=["bold"]),end="")
@@ -238,31 +234,31 @@ def main(the):
   if the.help            : return yell("cyan",__doc__.split("\nNOTES")[0])
   if the.xecute == "pull": return os.system("git pull")
   if the.xecute == "push": return os.system("git commit -am saving; git push")
-  sys.exit(sum([eg(s,the) for s in dir(Egs) 
+  sys.exit(sum([eg(s,the) for s in dir(Egs)
                 if s[0] !="_" and (the.go=="." or the.go==s)]))
 
 def cli(d):
-  for k,v in d.items():
+  for k,v in d.__dict__.items():
     v = str(v)
     for i,x in enumerate(sys.argv):
       if ("-"+k[0]) == x or ("--"+k) == x:
         v= "False" if v=="True" else ("True" if v=="False" else sys.argv[i+1])
-    d[k] = coerce(v)
+    d.__dict__[k] = coerce(v)
   return d
 
 def eg(name, the):
-  b4 = {k:v for k,v in the.items()}
+  b4 = {k:v for k,v in the.__dict__.items()}
   f  = getattr(Egs,name," ")
   yell("yellow","# ",name," ")
   random.seed(the.seed)
   tmp = f()
   yell("red"," FAIL\n") if tmp==False else yell("green", " PASS\n")
-  for k,v in b4.items(): the[k]=v
+  for k in b4: the.__dict__[k] = b4[k]
   return 1 if tmp==False else 0
 #-------------------------------------------------------------------------------
 class Egs:
   def they(): print(str(the)[:30],"...",end=" ")
-  
+
   def num():
     num = NUM().adds(random.random() for _ in range(10**3))
     print(num)
@@ -291,5 +287,5 @@ class Egs:
       for bin in col.bins:
         print("\t",bin.lo,bin.hi,showd(bin.ys))
 #-------------------------------------------------------------------------------
-the = DICT(**{k:coerce(v) for k,v in the.items()})
+the = obj(**{k:coerce(v) for k,v in the.__dict__.items()})
 if __name__ == "__main__": main(the)
