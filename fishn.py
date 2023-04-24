@@ -23,28 +23,13 @@ OPTIONS:
       -r  --rest    expand to len(list)*rest               = 4    
       -s  --seed    random number seed                     = 1234567891    
       -w --want     goal: plan,watch,xplore,doubt          = plan   
-      -x  --xecute  execute some  system action            = nothing | push | pull    
 
 NOTES:    
 - ass    
 """
-from functools      import cmp_to_key as cmp2key
-from typing         import Dict, Any, List
-from termcolor      import colored
-from copy           import deepcopy
-import random, math, ast, sys, re, os
-
-
-class obj(object):
-  id=0
-  def __init__(i, **d): i.__dict__.update(**i.slots(**d)); i.id = obj.id = obj.id+1
-  def slots(i,**d)    : return d
-  def __repr__(i)     : return i.__class__.__name__+showd(i.__dict__)
-  def __hash__(i)     : return i.id
-
-the= obj(**{m[1]:m[2] for m in
+from lib import *
+the= obj(**{m[1]:coerce(m[2]) for m in
             re.finditer(r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)",__doc__)})
-
 #-----------------------------------------------------------------------------
 class BIN(obj):
   def slots(i, at=0, txt="", lo=1E60, hi=None):
@@ -227,105 +212,9 @@ def rules(data1,data2):
   print([x.score for x in a])
 
 def want(b,r,B,R):
-  b   += 1E-60
-  r   += 1E-60
-  B   += 1E-60
-  R   += 1E-60
-  b, r = b/B, r/R
-  return dict(plan   = lambda : b**2/(b+r),
-              watch  = lambda : r**2/(b+r),
-              xplore = lambda : 1/(b+r),
-              doubt  = lambda : (b+r)/abs(b - r))[the.want]()
-
-#-------------------------------------------------------------------------------
-def entropy(d):
-  N = sum((d[k] for k in d))
-  return -sum((n/N*math.log(n/N,2) for n in d.values() if n > 0))
-
-def showd(d): return "{"+(" ".join([f":{k} {show(v)}"
-                         for k,v in sorted(d.items()) if k[0]!="_"]))+"}"
-
-def show(x):
-  if callable(x)         : return x.__name__+'()'
-  if isinstance(x,float) : return f"{x:.2f}"
-  return x
-
-def prin(*l) :  print(*l,end="")
-def round2(x):  return round(x, ndigits=2)
-def yell(c,*s): print(colored(''.join(s),"light_"+c,attrs=["bold"]),end="")
-
-def coerce(x):
-  try   : x = ast.literal_eval(x)
-  except: pass
-  return x
-
-def main(the):
-  cli(the)
-  if the.help            : return yell("cyan",__doc__.split("\nNOTES")[0])
-  if the.xecute == "pull": return os.system("git pull")
-  if the.xecute == "push": return os.system("git commit -am saving; git push")
-  sys.exit(sum([eg(s,the) for s in dir(Egs)
-                if s[0] !="_" and (the.go=="." or the.go==s)]))
-
-def cli(d):
-  for k,v in d.__dict__.items():
-    v = str(v)
-    for i,x in enumerate(sys.argv):
-      if ("-"+k[0]) == x or ("--"+k) == x:
-        v= "False" if v=="True" else ("True" if v=="False" else sys.argv[i+1])
-    d.__dict__[k] = coerce(v)
-  return d
-
-def eg(name, the):
-  b4 = {k:v for k,v in the.__dict__.items()}
-  f  = getattr(Egs,name," ")
-  yell("yellow","# ",name," ")
-  random.seed(the.seed)
-  tmp = f()
-  yell("red"," FAIL\n") if tmp==False else yell("green", " PASS\n")
-  for k in b4: the.__dict__[k] = b4[k]
-  return 1 if tmp==False else 0
-
-#-------------------------------------------------------------------------------
-class Egs:
-  def they(): print(str(the)[:30],"...",end=" ")
-
-  def num():
-    num = NUM().adds(random.random() for _ in range(10**3))
-    print(num)
-    return .28 < num.div() < .3 and .49 < num.mid() < .51
-
-  def sym():
-    sym = SYM().adds("aaaabbc")
-    return 1.37 < sym.div() < 1.39 and sym.mid()=='a'
-
-  def read():
-    prin(DATA().read(the.file).stats())
-
-  def betters():
-    data = DATA().read(the.file)
-    best,rest = data.betters()
-    print(data.stats())
-    print(best.stats())
-    prin(rest.stats())
-
-  def contrast():
-    data = DATA().read(the.file)
-    best,rest = data.betters()
-    b4 = None
-    for bin in contrasts(best,rest):
-      if bin.at != b4:
-        print("")
-        print(bin.at, bin.txt)
-      b4 = bin.at
-      print("\t", bin.lo, bin.hi, showd(bin.ys), round(bin.score,3))
-
-  def rules():
-    data = DATA().read(the.file)
-    best,rest = data.betters()
-    bins = sorted((bin for bin in contrasts(best,rest)), key=lambda x:x.score)[-10:]
-    print([bin.score for bin in bins])
-
-#-------------------------------------------------------------------------------
-the = obj(**{k:coerce(v) for k,v in the.__dict__.items()})
-if __name__ == "__main__": main(the)
+  b, r = b/(B+1E-60), r/(R+1E-60)
+  match the.want:
+    case "plan":   return b**2/(b+r)
+    case "watch":  return r**2/(b+r)
+    case "xplore": return 1/(b+r)
+    case "doubt":  return (b+r)/abs(b - r)
