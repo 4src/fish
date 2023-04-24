@@ -205,12 +205,6 @@ def contrasts(data1,data2):
                        len(data1.rows), len(data2.rows))
       yield bin
 
-#-------------------------------------------------------------------------------
-def rules(data1,data2):
-  a = sorted((bin for bin in contrasts(data1,data2)),
-             reversed=True, key=lambda x:x.score)
-  print([x.score for x in a])
-
 def want(b,r,B,R):
   b, r = b/(B+1E-60), r/(R+1E-60)
   match the.want:
@@ -218,3 +212,10 @@ def want(b,r,B,R):
     case "watch":  return r**2/(b+r)
     case "xplore": return 1/(b+r)
     case "doubt":  return (b+r)/abs(b - r)
+
+def rules(data1,data2):
+  a = sorted((bin for bin in contrasts(data1,data2)),
+             reversed=True, key=lambda x:x.score)
+  print([x.score for x in a])
+
+
