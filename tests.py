@@ -42,4 +42,4 @@ class Egs:
     print([bin.score for bin in bins])
 
 if __name__ == "__main__": 
-  sys.exit(main(cli(help),the,Egs))
+  sys.exit(main(help,cli(the),Egs))

@@ -34,17 +34,18 @@ def coerce(x):
   return x
 
 def main(help,the,egs):
+  print(help)
   if the.help: return yell("cyan",help.split("\nNOTES")[0])
-  return sum([eg(name,the,egs) for name in egs
-             if name[0] !="_" and (the.go=="." or the.go==s)])
+  return sum([eg(name,the,egs) for name in dir(egs)
+             if name[0] !="_" and (the.go=="." or the.go==name)])
 
 def cli(d):
   for k,v in d.__dict__.items():
     v = str(v)
-    for i,x in enumerate(sys.argv):
+    for j,x in enumerate(sys.argv):
       if ("-"+k[0]) == x or ("--"+k) == x:
-        v= "False" if v=="True" else ("True" if v=="False" else sys.argv[i+1])
-    d.__dict__[k] = coerce(v)
+        v= "False" if v=="True" else ("True" if v=="False" else sys.argv[j+1])
+        d.__dict__[k] = coerce(v)
   return d
 
 def eg(name, the,egs):
