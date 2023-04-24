@@ -34,10 +34,9 @@ def coerce(x):
   return x
 
 def main(help,the,egs):
-  cli(the)
   if the.help: return yell("cyan",help.split("\nNOTES")[0])
   return sum([eg(name,the,egs) for name in egs
-             if name[0] !="_" and (the.go=="." or the.go==name)])
+             if name[0] !="_" and (the.go=="." or the.go==s)])
 
 def cli(d):
   for k,v in d.__dict__.items():
@@ -57,5 +56,3 @@ def eg(name, the,egs):
   yell("red"," FAIL\n") if tmp==False else yell("green", " PASS\n")
   for k in b4: the.__dict__[k] = b4[k]
   return 1 if tmp==False else 0
-
-

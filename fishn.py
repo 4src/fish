@@ -185,12 +185,13 @@ class DATA(obj):
                                  for col in (cols or i.y)})
 
   def betters(i):
-    want = len(rows)**min
     rows = sorted(i.rows, key=cmp2key(lambda r1,r2: r1.better(r2,i)))
-    best = rows[-want:]
-    rest = random.sample(rows[-want:], want*the.rest)
-    for row in best: row.y=True
-    for row in rest: row.y=False
+    cut  = len(rows) - int(len(rows))**the.min
+    best,rest = [],[]
+    for j,row in enumerate(rows):
+      row.y = j > cut
+      (best if j > cut else rest).append(row)
+    rest = random.sample(rest, len(best)*the.rest)
     return i.clone(best), i.clone(rest)
 
 #-------------------------------------------------------------------------------
