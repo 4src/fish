@@ -27,6 +27,7 @@ doc: ## generate documentation
 	#cd docs; mv fishn.html index.html
 
 doc3: ## generate documentation
+	(echo "<center>"; cat docs/head.mako; echo "</center>"; cat docs/logo.mako) > docs/index.html
 	pdoc3 -f --html -o docs --template-dir docs *.py
 
 tests: ## run test suite
