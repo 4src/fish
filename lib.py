@@ -28,6 +28,9 @@ def prin(*l) :  print(*l,end="")
 def round2(x):  return round(x, ndigits=2)
 def yell(c,*s): print(colored(''.join(s),"light_"+c,attrs=["bold"]),end="")
 
+def magic(s,pat):
+  return obj(**{m[1]:coerce(m[2]) for m in re.finditer(pat,s)})
+
 def coerce(x):
   try   : x = ast.literal_eval(x)
   except: pass
@@ -56,3 +59,11 @@ def eg(name, the,egs):
   yell("red"," FAIL\n") if tmp==False else yell("green", " PASS\n")
   for k in b4: the.__dict__[k] = b4[k]
   return 1 if tmp==False else 0
+
+def flip(m):
+   return "\n\n# "+ re.sub("\n","\n# ",m[4].strip("\s"))+""+m[2]+m[1]
+
+if __name__ == "__main__":
+  with open(sys.argv[1]) as fp:
+    print(re.sub(r'\n(([\s]*)(def|\nclass)[^\n]+)\n[\s]*"""([^"]+)[\n]?"""[\s]*\n',
+                  flip,fp.read()))

@@ -49,10 +49,10 @@ This code keeps code to 100 chars wide. It also uses `i` in place of `self`
 and classes get initialized from a `slots` (why? causes its shorter). Also,
 this code does not conform to PEP8 standards (why? causes that would be longer).
 """
-from lib import *
-the= obj(**{m[1]:coerce(m[2]) for m in
-            re.finditer(r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)",__doc__)})
+from lib import obj,entropy,showd,prin,round1,yell,magic,coerce
+the= magic(__doc__,r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)")
 #-----------------------------------------------------------------------------
+
 class BIN(obj):
   """Summarizes  column one as `lo` to `hi` and column two by the symbols
   in that column. Keeps the rows seen."""
@@ -60,7 +60,7 @@ class BIN(obj):
     return dict(at=at,txt=txt,lo=lo,hi= hi or lo,n=0,_rows=[],ys={},score=0)
 
   def add(i,x,y,row):
-    "Updates `i.lo` to `i.hi` from `i.x` and  `ys` from `y`."
+    """Updates `i.lo` to `i.hi` from `i.x` and  `ys` from `y`."""
     if x=="?": return x
     i.n += 1
     i.lo = min(i.lo,x)
@@ -69,7 +69,7 @@ class BIN(obj):
     i.ys[y] = 1 + i.ys.get(y,0)
 
   def merge(i,j):
-    "Merge two adjacent bins."
+    """Merge two adjacent bins."""
     out = BIN(at=i.at, txt=i.txt, lo=i.lo, hi=j.hi)
     out._rows = i._rows + j._rows
     out.n = i.n + j.n
