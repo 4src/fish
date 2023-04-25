@@ -34,8 +34,7 @@ def coerce(x):
   return x
 
 def main(help,the,egs):
-  print(help)
-  if the.help: return yell("cyan",help.split("\nNOTES")[0])
+  if the.help: return yell("cyan",help.split("\nNOTES:")[0])
   return sum([eg(name,the,egs) for name in dir(egs)
              if name[0] !="_" and (the.go=="." or the.go==name)])
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3 -B
 # vim: set ts=2 sw=2 et:
 """
 fishn.py: look a little, catch some good stuff    
@@ -10,7 +9,7 @@ fishn.py: look a little, catch some good stuff
       //\___=    
          ''    
 
-USAGE: ./fishn.py [OPTIONS] [-g ACTIONs]    
+USAGE: ./tests.py [OPTIONS] [-g ACTIONs]    
 
 OPTIONS:    
 
@@ -25,25 +24,26 @@ OPTIONS:
       -s  --seed    random number seed                     = 1234567891    
       -w --want     goal: plan,watch,xplore,doubt          = plan   
 
-NOTES:    
+NOTES: This code reads CSV files with a header row listing column names,
+numeric columns, symbolic columns and goals. For example, in this
+data set, we want to learn what values of `name,Age,Shoesize`
+are associated with most  `Salary` and least `Weight`.
 
-This code reads CSV files with a header row listing column names,   
-numeric columns, symbolic columns and goals. For example:   
+         name,  Age,  Shoesize, Salary+,  Weight-
+          tim,   31,        11,  200000,      30
+        susan,   41,         8,  300000,      50
+         jane,   20,        20,  100000,      40
+          ...   ...        ...      ...      ...
 
-         name,  Age,  Shoesize, Salary+,  Weight-   
-          tim,   31,        11,  200000,      30   
-        susan,   41,         8,  300000,      50   
-         jane,   20,        20,  100000,      40   
+Nums start with upper case (and everything else is a Sym). Goals
+end in "`-`" or "`+`" for things to minimize or maximize. Anything ending
+with `X` is ignored.
 
-Nums start with upper case (and everything else is a Sym). Goals   
-end in `-+` for things to minimize or maximize. Anything ending   
-with `X` is ignored.   
-
-Rows are then ranked on the goals, using a multi-objective domination   
-predicate (from Zitzler's 2004 work).  Attribute ranges are    
-binned, favoring those most different in the best and worst ranked   
-rows.  All $2^n$ subsets of the best $n$ bins are then explored to find   
-the smallest subset that most selects for top ranked rows.   
+Rows are then ranked on the goals, using a multi-objective domination
+predicate (from Zitzler's 2004 work).  Attribute ranges are
+binned, favoring those most different in the best and worst ranked
+rows.  All $2^n$ subsets of the best $n$ bins are then explored to find
+the smallest subset that most selects for top ranked rows.
 
 """
 from lib import *

@@ -1,4 +1,5 @@
-# vim: set ts=2 sw=2 et:
+#!/usr/bin/env python3 -B
+## vim: set ts=2 sw=2 et:
 from fishn import __doc__ as help
 from fishn import *
 
@@ -42,4 +43,5 @@ class Egs:
     print([bin.score for bin in bins])
 
 if __name__ == "__main__": 
-  sys.exit(main(help,cli(the),Egs))
+  sys.exit(
+    main(help,cli(the),Egs))
