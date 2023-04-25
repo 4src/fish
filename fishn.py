@@ -49,7 +49,7 @@ This code keeps code to 100 chars wide. It also uses `i` in place of `self`
 and classes get initialized from a `slots` (why? causes its shorter). Also,
 this code does not conform to PEP8 standards (why? causes that would be longer).
 """
-from lib import obj,entropy,showd,prin,round1,yell,magic,coerce
+from lib import obj,entropy,showd,prin,round2,yell,magic,coerce
 the= magic(__doc__,r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)")
 #-----------------------------------------------------------------------------
 
