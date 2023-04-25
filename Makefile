@@ -21,6 +21,7 @@ doc: ## generate documentation
 		--logo "https://raw.githubusercontent.com/4src/fishn/main/docs/fisheries.png" \
 		--favicon "https://raw.githubusercontent.com/4src/fishn/main/docs/favicon.ico" \
 		--logo-link "https://4src.github.io/fishn" \
+		 --footer-text "sadsd" \
 	  --math -o docs -t docs \
 	  *.py
 	#cd docs; mv fishn.html index.html
