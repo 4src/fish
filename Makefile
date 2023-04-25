@@ -26,5 +26,8 @@ doc: ## generate documentation
 	  *.py
 	#cd docs; mv fishn.html index.html
 
+doc3: ## generate documentation
+	pdoc3 -f --html -o docs --template-dir docs *.py
+
 tests: ## run test suite
 	python3 -B fishn.py -g .
