@@ -18,7 +18,8 @@ install: ## load python3 packages (requires `pip3`)
 
 doc: ## generate documentation
 	python3 -B -m pdoc  \
-		--logo "https://hub.urgenci.net/wp-content/uploads/2021/10/fisheries.png" \
+		--logo "https://raw.githubusercontent.com/4src/fishn/main/docs/fisheries.png" \
+		--favicon "https://raw.githubusercontent.com/4src/fishn/main/docs/favicon.ico" \
 		--logo-link "https://4src.github.io/fishn" \
 	  --math -o docs -t docs \
 	  *.py
