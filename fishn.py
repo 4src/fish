@@ -45,16 +45,22 @@ binned, favoring those most different in the best and worst ranked
 rows.  All $2^n$ subsets of the best $n$ bins are then explored to find
 the smallest subset that most selects for top ranked rows.
 
+This code keeps code to 100 chars wide. It also uses `i` in place of `self`
+and classes get initialized from a `slots` (why? causes its shorter). Also,
+this code does not conform to PEP8 standards (why? causes that would be longer).
 """
 from lib import *
 the= obj(**{m[1]:coerce(m[2]) for m in
             re.finditer(r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)",__doc__)})
 #-----------------------------------------------------------------------------
 class BIN(obj):
+  """Summarizes  column one as `lo` to `hi` and column two by the symbols
+  in that column. Keeps the rows seen."""
   def slots(i, at=0, txt="", lo=1E60, hi=None):
     return dict(at=at,txt=txt,lo=lo,hi= hi or lo,n=0,_rows=[],ys={},score=0)
 
   def add(i,x,y,row):
+    "Updates `i.lo` to `i.hi` from `i.x` and  `ys` from `y`."
     if x=="?": return x
     i.n += 1
     i.lo = min(i.lo,x)
@@ -63,6 +69,7 @@ class BIN(obj):
     i.ys[y] = 1 + i.ys.get(y,0)
 
   def merge(i,j):
+    "Merge two adjacent bins."
     out = BIN(at=i.at, txt=i.txt, lo=i.lo, hi=j.hi)
     out._rows = i._rows + j._rows
     out.n = i.n + j.n
@@ -73,6 +80,7 @@ class BIN(obj):
 
 #-----------------------------------------------------------------------------
 def COLS(names):
+  "Factory for turning column names into COLs."
   cols,x,y = [COL(at=i,txt=s) for i,s in enumerate(names)], [], []
   for col in cols:
     if col.txt[-1] != "X":
@@ -80,20 +88,28 @@ def COLS(names):
   return names,cols,x,y
 
 def COL(at=0,txt=" "):
+  "Factory for turning one column name into a NUM or SYM."
   w = -1 if txt[-1] == "-" else 1
   return NUM(at=at,txt=txt,w=w) if txt[0].isupper() else SYM(at=at,txt=txt)
 
 class col(obj):
-  def slots(i,at=0,txt=" "): return dict(at=at, txt=txt, bins={}, n=0)
-  def adds(i,lst): [i.add(x) for x in lst]; return i
+  "Super class of NUM and SYM."
+  def slots(i,at=0,txt=" "):
+    "Cols have at least a name and a position in the row."
+    return dict(at=at, txt=txt, bins={}, n=0)
+
+  def adds(i,lst): 
+    "Add many things to a COL."
+    [i.add(x) for x in lst]; return i
 
   def add(i,x,inc=1):
+    "Add thing `x` to a COL (ignoring empty cells)."
     if x=="?": return x
     i.n += inc
     i.add1(x,inc)
 
   def bin(i,x,y,row):
-    k = i.bin1(x)
+    k = i.descretize(x)
     if not k in i.bins: i.bins[k] = BIN(at=i.at, txt=i.txt, lo=x)
     i.bins[k].add(x,y,row)
 
@@ -110,7 +126,7 @@ class SYM(col):
     tmp = i.has[x] = inc + i.has.get(x,0)
     if tmp > i.most: i.most,i.mode = tmp,x
 
-  def bin1(i,x): return x
+  def descretize(i,x): return x
   def merges(i,bins): return bins
 
 #-------------------------------------------------------------------------------
@@ -123,7 +139,7 @@ class NUM(col):
   def norm(i,x): return x if x=="?" else (x - i.lo) / (i.hi - i.lo + 1E-60)
   def stats(i,div=False,rnd=2): return round(i.div() if div else i.mid(), rnd)
 
-  def bin1(i,x):
+  def descretize(i,x):
     z = int((x - i.mu) / (i.sd + 1E-60) /(4/the.bins))
     z = max(the.bins/ -2, min( the.bins/2, z))
     return  z
