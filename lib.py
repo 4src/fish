@@ -60,10 +60,9 @@ def eg(name, the,egs):
   for k in b4: the.__dict__[k] = b4[k]
   return 1 if tmp==False else 0
 
-def flip(m):
-   return "\n\n# "+ re.sub("\n","\n# ",m[4].strip("\s"))+""+m[2]+m[1]
+def flip(s):
+  fn=lambda m:"\n\n# "+ re.sub("\n","\n# ",m[4].strip("\s"))+""+m[2]+m[1]
+  return re.sub(r'\n(([\s]*)(def|\nclass)[^\n]+)\n[\s]*"""([^"]+)[\n]?"""[\s]*\n',f,s)
 
 if __name__ == "__main__":
-  with open(sys.argv[1]) as fp:
-    print(re.sub(r'\n(([\s]*)(def|\nclass)[^\n]+)\n[\s]*"""([^"]+)[\n]?"""[\s]*\n',
-                  flip,fp.read()))
+  with open(sys.argv[1]) as fp: print(flip(fp.read()))
