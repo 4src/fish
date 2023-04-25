@@ -61,8 +61,8 @@ def eg(name, the,egs):
   return 1 if tmp==False else 0
 
 def flip(s):
-  fn=lambda m:"\n\n# "+ re.sub("\n","\n# ",m[4].strip("\s"))+""+m[2]+m[1]
-  return re.sub(r'\n(([\s]*)(def|\nclass)[^\n]+)\n[\s]*"""([^"]+)[\n]?"""[\s]*\n',f,s)
+  f=lambda m:"\n\n# "+ re.sub("\n","\n# ",m[4].strip("[\s]+"))+"\n"+m[2]+m[1]+"\n"
+  return re.sub(r'\n(([ \t]*)(def|class)[^\n]+)\n[ \t]*"""([^"]+)[\n]?"""[\s]*\n',f,s)
 
 if __name__ == "__main__":
   with open(sys.argv[1]) as fp: print(flip(fp.read()))

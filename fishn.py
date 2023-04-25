@@ -56,7 +56,9 @@ the= magic(__doc__,r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)")
 class BIN(obj):
   """Summarizes  column one as `lo` to `hi` and column two by the symbols
   in that column. Keeps the rows seen."""
+
   def slots(i, at=0, txt="", lo=1E60, hi=None):
+    """BIN contents."""
     return dict(at=at,txt=txt,lo=lo,hi= hi or lo,n=0,_rows=[],ys={},score=0)
 
   def add(i,x,y,row):
