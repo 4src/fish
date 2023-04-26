@@ -5,13 +5,13 @@ fishn.py: look a little, catch some good stuff
 
               O  o    
          _\_   o    
-      \\\\/  o\ .    
+      \\/   o\ .    
       //\___=    
          ''    
 
 USAGE: 
 
-      ./tests.py [OPTIONS] [-g ACTIONs]    
+      ./gofish.py [OPTIONS] [-g ACTIONs]    
 
 OPTIONS:    
 
@@ -279,17 +279,18 @@ def rules(data1,data2):
 
 #-------------------------------------------------------------------------------
 # # Misc Stuff
+
 def entropy(d):
   N = sum((d[k] for k in d))
   return -sum((n/N*math.log(n/N,2) for n in d.values() if n > 0))
 
-def showd(d): return "{"+(" ".join([f":{k} {show(v)}"
-                         for k,v in sorted(d.items()) if k[0]!="_"]))+"}"
+def showd(d):
+   return "{"+(" ".join([f":{k} {show(v)}" for k,v in sorted(d.items()) if k[0]!="_"]))+"}"
 
-def show(x):
-  if callable(x)         : return x.__name__+'()'
-  if isinstance(x,float) : return f"{x:.2f}"
-  return x
+ def show(x):
+    if callable(x)         : return x.__name__+'()'
+    if isinstance(x,float) : return f"{x:.2f}"
+    return x
 
 def prin(*l) :  print(*l,end="")
 def round2(x):  return round(x, ndigits=2)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3 -B
-# vim: set ts=2 sw=2 et:
-from fishn import __doc__ as help
-from fishn import *
+#<!-- vim: set ts=2 sw=2 et: -->
+from fish import __doc__ as help
+from fish import *
 
 def cli(d):
   for k,v in d.__dict__.items():

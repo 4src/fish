@@ -5,6 +5,6 @@ src="https://img.shields.io/badge/platform-osx,linux-pink">
 
 <img align=right width=250 src="/docs/ice.png">
 
-# Fishn
+# Fish
 
 Look around a little, catch good stuff.
