@@ -3,6 +3,32 @@
 from fishn import __doc__ as help
 from fishn import *
 
+def cli(d):
+  for k,v in d.__dict__.items():
+    v = str(v)
+    for j,x in enumerate(sys.argv):
+      if ("-"+k[0]) == x or ("--"+k) == x:
+        v= "False" if v=="True" else ("True" if v=="False" else sys.argv[j+1])
+        d.__dict__[k] = coerce(v)
+  return d
+
+def main(help,the,egs):
+  if the.help: return yell("cyan",help.split("\nNOTES:")[0])
+  return sum([eg(name,the,egs) for name in dir(egs)
+             if name[0] !="_" and (the.go=="." or the.go==name)])
+
+def eg(name, the,egs):
+  b4 = {k:v for k,v in the.__dict__.items()}
+  f  = getattr(egs,name," ")
+  yell("yellow","# ",name," ")
+  random.seed(the.seed)
+  tmp = f()
+  yell("red"," FAIL\n") if tmp==False else yell("green", " PASS\n")
+  for k in b4: the.__dict__[k] = b4[k]
+  return 1 if tmp==False else 0
+
+def yell(c,*s): print(colored(''.join(s),"light_"+c,attrs=["bold"]),end="")
+#-------------------------------------------------------------------------------
 class Egs:
   def they(): print(str(the)[:30],"...",end=" ")
 

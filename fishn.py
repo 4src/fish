@@ -49,10 +49,26 @@ This code keeps code to 100 chars wide. It also uses `i` in place of `self`
 and classes get initialized from a `slots` (why? causes its shorter). Also,
 this code does not conform to PEP8 standards (why? causes that would be longer).
 """
-from lib import obj,entropy,showd,prin,round2,yell,magic,coerce
-the= magic(__doc__,r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)")
-#-----------------------------------------------------------------------------
+from functools      import cmp_to_key as cmp2key
+from typing         import Dict, Any, List
+from termcolor      import colored
+from copy           import deepcopy
+import random, math, ast, sys, re, os
 
+class obj(object):
+  id=0
+  def __init__(i, **d): i.__dict__.update(**i.slots(**d)); i.id = obj.id = obj.id+1
+  def slots(i,**d)    : return d
+  def __repr__(i)     : return i.__class__.__name__+showd(i.__dict__)
+  def __hash__(i)     : return i.id
+
+def coerce(x):
+  try   : return ast.literal_eval(x)
+  except: return x
+
+the= obj(**{m[1]:coerce(m[2]) for m in re.finditer(
+            r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)", __doc__)})
+#-----------------------------------------------------------------------------
 class BIN(obj):
   """Summarizes  column one as `lo` to `hi` and column two by the symbols
   in that column. Keeps the rows seen."""
@@ -256,4 +272,26 @@ def rules(data1,data2):
              reversed=True, key=lambda x:x.score)
   print([x.score for x in a])
 
+#-------------------------------------------------------------------------------
+# # Misc Stuff
+def entropy(d):
+  N = sum((d[k] for k in d))
+  return -sum((n/N*math.log(n/N,2) for n in d.values() if n > 0))
 
+def showd(d): return "{"+(" ".join([f":{k} {show(v)}"
+                         for k,v in sorted(d.items()) if k[0]!="_"]))+"}"
+
+def show(x):
+  if callable(x)         : return x.__name__+'()'
+  if isinstance(x,float) : return f"{x:.2f}"
+  return x
+
+def prin(*l) :  print(*l,end="")
+def round2(x):  return round(x, ndigits=2)
+
+def flip(file):
+  with open(file) as fp:
+    s= fp.read()
+    f= lambda m:"\n\n# "+ re.sub("\n","\n# ",m[4].strip("[\s]+"))+"\n"+m[2]+m[1]+"\n"
+    return re.sub(
+              r'\n(([ \t]*)(def|class)[^\n]+)\n[ \t]*"""([^"]+)[\n]?"""[\s]*\n',f,s)
