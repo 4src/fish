@@ -36,11 +36,6 @@ def coerce(x):
   except: pass
   return x
 
-def main(help,the,egs):
-  if the.help: return yell("cyan",help.split("\nNOTES:")[0])
-  return sum([eg(name,the,egs) for name in dir(egs)
-             if name[0] !="_" and (the.go=="." or the.go==name)])
-
 def cli(d):
   for k,v in d.__dict__.items():
     v = str(v)
@@ -49,6 +44,11 @@ def cli(d):
         v= "False" if v=="True" else ("True" if v=="False" else sys.argv[j+1])
         d.__dict__[k] = coerce(v)
   return d
+
+def main(help,the,egs):
+  if the.help: return yell("cyan",help.split("\nNOTES:")[0])
+  return sum([eg(name,the,egs) for name in dir(egs)
+             if name[0] !="_" and (the.go=="." or the.go==name)])
 
 def eg(name, the,egs):
   b4 = {k:v for k,v in the.__dict__.items()}
@@ -60,9 +60,11 @@ def eg(name, the,egs):
   for k in b4: the.__dict__[k] = b4[k]
   return 1 if tmp==False else 0
 
-def flip(s):
-  f=lambda m:"\n\n# "+ re.sub("\n","\n# ",m[4].strip("[\s]+"))+"\n"+m[2]+m[1]+"\n"
-  return re.sub(r'\n(([ \t]*)(def|class)[^\n]+)\n[ \t]*"""([^"]+)[\n]?"""[\s]*\n',f,s)
+def flip(file):
+  with open(file) as fp:
+    s= fp.read()
+    f= lambda m:"\n\n# "+ re.sub("\n","\n# ",m[4].strip("[\s]+"))+"\n"+m[2]+m[1]+"\n"
+    return re.sub(r'\n(([ \t]*)(def|class)[^\n]+)\n[ \t]*"""([^"]+)[\n]?"""[\s]*\n',f,s)
 
 if __name__ == "__main__":
-  with open(sys.argv[1]) as fp: print(flip(fp.read()))
+  print(flip(sys.argv[1]))
