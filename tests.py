@@ -1,5 +1,5 @@
 #!/usr/bin/env python3 -B
-## vim: set ts=2 sw=2 et:
+# vim: set ts=2 sw=2 et:
 from fishn import __doc__ as help
 from fishn import *
 

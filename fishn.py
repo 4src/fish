@@ -49,10 +49,10 @@ This code keeps code to 100 chars wide. It also uses `i` in place of `self`
 and classes get initialized from a `slots` (why? causes its shorter). Also,
 this code does not conform to PEP8 standards (why? causes that would be longer).
 """
-from functools      import cmp_to_key as cmp2key
-from typing         import Dict, Any, List
-from termcolor      import colored
-from copy           import deepcopy
+from functools import cmp_to_key as cmp2key
+from typing    import Dict, Any, List
+from termcolor import colored
+from copy      import deepcopy
 import random, math, ast, sys, re, os
 
 class obj(object):
