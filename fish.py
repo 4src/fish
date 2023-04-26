@@ -163,9 +163,8 @@ class NUM(col):
   def stats(i,div=False,rnd=2): return round(i.div() if div else i.mid(), rnd)
 
   def descretize(i,x):
-    z = int((x - i.mu) / (i.sd + 1E-60) /(4/the.bins))
-    z = max(the.bins/ -2, min( the.bins/2, z))
-    return  z
+    lo,hi = i.mu - 2*i.sd, i.mu + 2*i.sd
+    return int(the.bins*(x - lo)/(hi-lo))
 
   def add1(i,x,n):
     i.lo  = min(i.lo, x)
