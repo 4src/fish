@@ -3,7 +3,7 @@ src="https://img.shields.io/badge/python-3.11-yellow"> <img
 src="https://img.shields.io/badge/purpose-se--ai-blueviolet"> <img
 src="https://img.shields.io/badge/platform-osx,linux-pink">
 
-<img align=right width=250 src="/docs/fisheries.png">
+<img align=right width=400 src="/docs/fisheries.png">
 
 # Fish
 
