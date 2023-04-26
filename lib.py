@@ -28,15 +28,13 @@ def prin(*l) :  print(*l,end="")
 def round2(x):  return round(x, ndigits=2)
 def yell(c,*s): print(colored(''.join(s),"light_"+c,attrs=["bold"]),end="")
 
+def magic(s,pat):
+  return obj(**{m[1]:coerce(m[2]) for m in re.finditer(pat,s)})
+
 def coerce(x):
   try   : x = ast.literal_eval(x)
   except: pass
   return x
-
-def main(help,the,egs):
-  if the.help: return yell("cyan",help.split("\nNOTES:")[0])
-  return sum([eg(name,the,egs) for name in dir(egs)
-             if name[0] !="_" and (the.go=="." or the.go==name)])
 
 def cli(d):
   for k,v in d.__dict__.items():
@@ -47,6 +45,11 @@ def cli(d):
         d.__dict__[k] = coerce(v)
   return d
 
+def main(help,the,egs):
+  if the.help: return yell("cyan",help.split("\nNOTES:")[0])
+  return sum([eg(name,the,egs) for name in dir(egs)
+             if name[0] !="_" and (the.go=="." or the.go==name)])
+
 def eg(name, the,egs):
   b4 = {k:v for k,v in the.__dict__.items()}
   f  = getattr(egs,name," ")
@@ -56,3 +59,12 @@ def eg(name, the,egs):
   yell("red"," FAIL\n") if tmp==False else yell("green", " PASS\n")
   for k in b4: the.__dict__[k] = b4[k]
   return 1 if tmp==False else 0
+
+def flip(file):
+  with open(file) as fp:
+    s= fp.read()
+    f= lambda m:"\n\n# "+ re.sub("\n","\n# ",m[4].strip("[\s]+"))+"\n"+m[2]+m[1]+"\n"
+    return re.sub(r'\n(([ \t]*)(def|class)[^\n]+)\n[ \t]*"""([^"]+)[\n]?"""[\s]*\n',f,s)
+
+if __name__ == "__main__":
+  print(flip(sys.argv[1]))
