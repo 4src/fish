@@ -1,4 +1,4 @@
-# vim: set ts=2 sw=2 et:
+#<!-- vim: set ts=2 sw=2 et: -->
 """
 fishn.py: look a little, catch some good stuff    
 (c) 2023, Tim Menzies, <timm@ieee.org>  BSD-2    
@@ -9,7 +9,9 @@ fishn.py: look a little, catch some good stuff
       //\___=    
          ''    
 
-USAGE: ./tests.py [OPTIONS] [-g ACTIONs]    
+USAGE: 
+
+      ./tests.py [OPTIONS] [-g ACTIONs]    
 
 OPTIONS:    
 
@@ -24,7 +26,9 @@ OPTIONS:
       -s  --seed    random number seed                     = 1234567891    
       -w --want     goal: plan,watch,xplore,doubt          = plan   
 
-NOTES: This code reads CSV files with a header row listing column names,
+NOTES:
+
+This code reads CSV files with a header row listing column names,
 numeric columns, symbolic columns and goals. For example, in this
 data set, we want to learn what values of `name,Age,Shoesize`
 are associated with most  `Salary` and least `Weight`.
@@ -69,16 +73,17 @@ def coerce(x):
 the= obj(**{m[1]:coerce(m[2]) for m in re.finditer(
             r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)", __doc__)})
 #-----------------------------------------------------------------------------
-class BIN(obj):
-  """Summarizes  column one as `lo` to `hi` and column two by the symbols
-  in that column. Keeps the rows seen."""
 
+# Summarizes  column one as `lo` to `hi` and column two by the symbols
+#  in that column. Keeps the rows seen. 
+class BIN(obj):
+
+  # BIN contents.
   def slots(i, at=0, txt="", lo=1E60, hi=None):
-    """BIN contents."""
     return dict(at=at,txt=txt,lo=lo,hi= hi or lo,n=0,_rows=[],ys={},score=0)
 
   def add(i,x,y,row):
-    """Updates `i.lo` to `i.hi` from `i.x` and  `ys` from `y`."""
+    "Updates `i.lo` to `i.hi` from `i.x` and  `ys` from `y`."
     if x=="?": return x
     i.n += 1
     i.lo = min(i.lo,x)

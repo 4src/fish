@@ -30,5 +30,9 @@ doc3: ## generate documentation
 	(echo "<center>"; cat docs/head.mako; echo "</center>"; cat docs/logo.mako) > docs/index.html
 	pdoc3 -f --html -o docs --template-dir docs *.py
 
+pyco:
+	pycco -d ~/tmp -i *.py
+	cp docs/dot.css ~/tmp/pycco.css
+
 tests: ## run test suite
 	python3 -B fishn.py -g .
