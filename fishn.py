@@ -42,7 +42,7 @@ with `X` is ignored.
 Rows are then ranked on the goals, using a multi-objective domination
 predicate (from Zitzler's 2004 work).  Attribute ranges are
 binned, favoring those most different in the best and worst ranked
-rows.  All $2^n$ subsets of the best $n$ bins are then explored to find
+rows.  All \(2^n\) subsets of the best _n_ bins are then explored to find
 the smallest subset that most selects for top ranked rows.
 
 This code keeps code to 100 chars wide. It also uses `i` in place of `self`
