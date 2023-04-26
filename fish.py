@@ -287,10 +287,10 @@ def entropy(d):
 def showd(d):
    return "{"+(" ".join([f":{k} {show(v)}" for k,v in sorted(d.items()) if k[0]!="_"]))+"}"
 
- def show(x):
-    if callable(x)         : return x.__name__+'()'
-    if isinstance(x,float) : return f"{x:.2f}"
-    return x
+def show(x):
+  if callable(x)         : return x.__name__+'()'
+  if isinstance(x,float) : return f"{x:.2f}"
+  return x
 
 def prin(*l) :  print(*l,end="")
 def round2(x):  return round(x, ndigits=2)
