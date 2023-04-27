@@ -16,7 +16,9 @@ USAGE:
 OPTIONS:    
 
       -b  --bins    number of bins                         = 16    
+      -B  --bootstrap number of bootstap samples           = 512  
       -c  --cohen   'not different' if under the.cohen*sd  = .2    
+      -C  --Cliffs  Cliff's Delta limit                    = .147  
       -f  --file    data csv file                          = ../data/auto93.csv    
       -g  --go      start up action                        = nothing    
       -h  --help    show help                              = False    
@@ -24,6 +26,7 @@ OPTIONS:
       -n  -n        explore all subsets of top ''n bins    = 7
       -r  --rest    expand to len(list)*rest               = 4    
       -s  --seed    random number seed                     = 1234567891    
+      -S  --Some    max items kept in SOME                 = 512  
       -w --want     goal: plan,watch,xplore,doubt          = plan   
 
 NOTES:
@@ -79,8 +82,10 @@ the= obj(**{m[1]:coerce(m[2]) for m in re.finditer(
 class BIN(obj):
 
   # BIN contents.
-  def slots(i, at=0, txt="", lo=1E60, hi=None):
-    return dict(at=at,txt=txt,lo=lo,hi= hi or lo,n=0,_rows=[],ys={},score=0)
+  def slots(i, at=0, txt="", lo=None, hi=None):
+    lo = lo or inf
+    hi = hi or lo
+    return dict(at=at,txt=txt,lo=lo,hi= hi,n=0,_rows=[],ys={},score=0)
 
   def add(i,x,y,row):
     "Updates `i.lo` to `i.hi` from `i.x` and  `ys` from `y`."
@@ -100,6 +105,15 @@ class BIN(obj):
       for key in d:
         out.ys[key] = d[key] + out.ys.get(key,0)
     return out
+
+  def merged(i,j,num):
+    out   = i.merge(j)
+    small = num.n / the.bins
+    eps   = num.sd*the.cohen
+    if i.n <= small or i.hi - i.lo < eps : return out
+    if j.n <= small or j.hi - j.lo < eps : return out
+    e1, e2, e3 = entropy(i.ys), entropy(j.ys), entropy(out.ys)
+    if e3 <= (i.n*e1 + j.n*e2)/out.n : return out
 
 #-----------------------------------------------------------------------------
 def COLS(names):
@@ -155,16 +169,16 @@ class SYM(col):
 #-------------------------------------------------------------------------------
 class NUM(col):
   def slots(i,at=0,txt=" ",w=1) :
-    return super().slots(at=at,txt=txt) | dict(w=1,mu=0,m2=0,sd=0,lo=1E60,hi=-1E60)
+    return super().slots(at=at,txt=txt) | dict(w=1,mu=0,m2=0,sd=0,lo=inf,hi=ninf)
 
   def mid(i): return i.mu
   def div(i): return i.sd
-  def norm(i,x): return x if x=="?" else (x - i.lo) / (i.hi - i.lo + 1E-60)
+  def norm(i,x): return x if x=="?" else (x - i.lo) / (i.hi - i.lo + tiny)
   def stats(i,div=False,rnd=2): return round(i.div() if div else i.mid(), rnd)
 
   def descretize(i,x):
     lo,hi = i.mu - 2*i.sd, i.mu + 2*i.sd
-    return int(the.bins*(x - lo)/(hi-lo))
+    return int(the.bins*(x - lo)/(hi-lo + tiny))
 
   def add1(i,x,n):
     i.lo  = min(i.lo, x)
@@ -174,32 +188,57 @@ class NUM(col):
     i.m2 += d*(x - i.mu)
     i.sd  = 0 if i.n<2 else (i.m2/(i.n - 1))**.5
 
-  def merged(i,bin1,bin2):
-    out   = bin1.merge(bin2)
-    small = i.n / the.bins
-    if bin1.n <= small or bin2.n <= small : return out
-    if bin1.hi - bin1.lo < i.sd*the.cohen : return out
-    if bin2.hi - bin2.lo < i.sd*the.cohen : return out
-    e1,e2,e3 = entropy(bin1.ys), entropy(bin2.ys), entropy(out.ys)
-    if e3 <= (bin1.n*e1 + bin2.n*e2)/out.n : return out
-
   def merges(i,bins):
-    now,j = [],0
-    while j < len(bins):
-      bin = bins[j]
-      if j < len(bins) - 1:
-        if new := i.merged(bin, bins[j+1]):
-          bin = new
-          j += 1
-      now += [bin]
-      j += 1
-    if len(now) < len(bins):
-      bins = i.merges(now)
-    else:
-      for j in range(len(bins)-1): bins[j].hi = bins[j+1].lo
-      bins[ 0].lo = -1E60
-      bins[-1].hi =  1E60
+    bins = recrusivelyMergeNeighbors(bins,i)
+    for j in range(len(bins)-1): bins[j].hi = bins[j+1].lo
+    bins[ 0].lo = ninf
+    bins[-1].hi =  inf
     return bins
+
+  def function delta(i,j):
+    return abs(i.mu - j.mu) / ((i.sd^2/i.n + j.sd^2/j.n)**.5 + tiny)
+
+class SOME(col):
+  def slots(i) return {ok=True, _has=[]}
+
+  def add1(i,x,_):
+    a = i._has
+    if   len(a) < the.Some  : i.ok=False; a += [x]
+    elif r() < the.Some/i.n : i.ok=False; a[ int(len(a)*r()) ] = x
+
+  def has(i):
+    if not i.ok: i._has=sorted(i._has)
+    i.sorted=True
+    return i._has
+
+  def same(i,j):
+    return i.cliffsDelta(j) and i.bootstrap(j)
+
+  def cliffsDelta(i,j):
+    n,x,y = 0,i._has, j._has
+    if len(x) > 10*len(y): x = random.choices(x,10*len(y))
+    if len(y) > 10*len(x): y = random.choices(y,10*len(x))
+    for x1 in x:
+      for y1 in y:
+        n = n + 1
+        if x1 > y1 then gt = gt + 1 end
+        if x1 < y1 then lt = lt + 1 end end end
+    return abs(lt - gt)/n > the.cliffs end
+
+  def bootstrap(i,j,conf=0..5):
+    y0,z0   = i._has, j._has
+    x, y, z = NUM(), NUM(), NUM()
+    for y1 in y0: x.add(y1); y.add(y1) end
+    for z1 in z0: x.add(z1); z.add(z1) end
+    yhat    = [y1 - y.mu + x.mu for y1 in y0]
+    zhat    = [z1 - z.mu + x.mu for z1 in z0]
+    overall = y.delta(z)
+    n       = 0
+    for _ in range(the.bootstrap):
+      ynum = NUM().adds(sample(yhat))
+      znum = NUM().adds(sample(zhat))
+      if ynum.delta(znum)  > overall: n += 1
+    return n / the.bootstrap >= conf
 
 #-------------------------------------------------------------------------------
 class ROW(obj):
@@ -264,7 +303,7 @@ def contrasts(data1,data2):
       yield bin
 
 def want(b,r,B,R):
-  b, r = b/(B+1E-60), r/(R+1E-60)
+  b, r = b/(B+tiny), r/(R+tiny)
   match the.want:
     case "plan":   return b**2/(b+r)
     case "watch":  return r**2/(b+r)
@@ -273,11 +312,29 @@ def want(b,r,B,R):
 
 def rules(data1,data2):
   a = sorted((bin for bin in contrasts(data1,data2)),
-             reversed=True, key=lambda x:x.score)
+              reversed=True, key=lambda x:x.score)
   print([x.score for x in a])
 
 #-------------------------------------------------------------------------------
 # # Misc Stuff
+
+inf  = 1E60
+tiny = 1/inf
+ninf = -inf
+
+def sample(a):
+  return random.choices(a,k=len(a))
+
+def recrusivelyMergeNeighbors(a, *l):
+  b,j = [],0
+  while j < len(a):
+    now = a[j]
+    if j < len(a) - 1:
+      if new := now.merged(a[j+1], *l):
+        now, j = new, j+1
+    b += [now]
+    j += 1
+  return a if len(a) == len(b) else recrusivelyMergeNeighbors(b, *l)
 
 def entropy(d):
   N = sum((d[k] for k in d))
@@ -293,6 +350,7 @@ def show(x):
 
 def prin(*l) :  print(*l,end="")
 def round2(x):  return round(x, ndigits=2)
+
 
 def flip(file):
   with open(file) as fp:
