@@ -1,6 +1,6 @@
 #<!-- vim: set ts=2 sw=2 et: -->
 """
-fishn.py: look a little, catch some good stuff    
+fish.py: look a little, catch some good stuff    
 (c) 2023, Tim Menzies, <timm@ieee.org>  BSD-2    
 
               O  o    
