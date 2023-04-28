@@ -196,13 +196,13 @@ class NUM(col):
     return bins
 
   def delta(i,j):
-    return abs(i.mu - j.mu) / ((i.sd^2/i.n + j.sd^2/j.n)**.5 + tiny)
+    return abs(i.mu - j.mu) / ((i.sd**2/i.n + j.sd**2/j.n)**.5 + tiny)
 
 class SOME(col):
-  def slots(i): return dict(ok=True, w=1, _has=[])
+  def slots(i,w=1): return super().slots() | dict(ok=True, w=w, _has=[])
 
   def add1(i,x,_):
-    a = i._has
+    a, r = i._has, random.random
     if   len(a) < the.Some  : i.ok=False; a += [x]
     elif r() < the.Some/i.n : i.ok=False; a[ int(len(a)*r()) ] = x
 
@@ -218,12 +218,13 @@ class SOME(col):
     n,x,y = 0,i._has, j._has
     if len(x) > 10*len(y): x = random.choices(x,10*len(y))
     if len(y) > 10*len(x): y = random.choices(y,10*len(x))
+    lt,gt = 0,0
     for x1 in x:
       for y1 in y:
         n = n + 1
         if x1 > y1: gt = gt + 1 
         if x1 < y1: lt = lt + 1 
-    return abs(lt - gt)/n > the.cliffs 
+    return abs(lt - gt)/n > the.Cliffs 
 
   def bootstrap(i,j,conf=.05):
     y0,z0   = i._has, j._has
@@ -238,7 +239,7 @@ class SOME(col):
       ynum = NUM().adds(sample(yhat))
       znum = NUM().adds(sample(zhat))
       if ynum.delta(znum)  > overall: n += 1
-    return n / the.bootstrap >= conf
+    return n / the.bootstrap < conf
 
 #-------------------------------------------------------------------------------
 class ROW(obj):
