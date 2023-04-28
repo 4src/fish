@@ -199,7 +199,7 @@ class NUM(col):
     return abs(i.mu - j.mu) / ((i.sd^2/i.n + j.sd^2/j.n)**.5 + tiny)
 
 class SOME(col):
-  def slots(i): return {ok=True, w=1, _has=[]}
+  def slots(i): return dict(ok=True, w=1, _has=[])
 
   def add1(i,x,_):
     a = i._has
@@ -221,15 +221,15 @@ class SOME(col):
     for x1 in x:
       for y1 in y:
         n = n + 1
-        if x1 > y1 then gt = gt + 1 end
-        if x1 < y1 then lt = lt + 1 end end end
-    return abs(lt - gt)/n > the.cliffs end
+        if x1 > y1: gt = gt + 1 
+        if x1 < y1: lt = lt + 1 
+    return abs(lt - gt)/n > the.cliffs 
 
-  def bootstrap(i,j,conf=0..5):
+  def bootstrap(i,j,conf=.05):
     y0,z0   = i._has, j._has
     x, y, z = NUM(), NUM(), NUM()
-    for y1 in y0: x.add(y1); y.add(y1) end
-    for z1 in z0: x.add(z1); z.add(z1) end
+    for y1 in y0: x.add(y1); y.add(y1) 
+    for z1 in z0: x.add(z1); z.add(z1) 
     yhat    = [y1 - y.mu + x.mu for y1 in y0]
     zhat    = [z1 - z.mu + x.mu for z1 in z0]
     overall = y.delta(z)
