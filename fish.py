@@ -195,11 +195,11 @@ class NUM(col):
     bins[-1].hi =  inf
     return bins
 
-  def function delta(i,j):
+  def delta(i,j):
     return abs(i.mu - j.mu) / ((i.sd^2/i.n + j.sd^2/j.n)**.5 + tiny)
 
 class SOME(col):
-  def slots(i) return {ok=True, _has=[]}
+  def slots(i): return {ok=True, w=1, _has=[]}
 
   def add1(i,x,_):
     a = i._has
