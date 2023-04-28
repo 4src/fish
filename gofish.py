@@ -48,14 +48,14 @@ class Egs:
     print(some.has())
 
   def cliffs():
-    r  = random.random
-    a  = [r() for _ in range(100)]
-    b  = 1
-    while b < 1.25:
+    r = random.random
+    a = [r()**2 for _ in range(100)]
+    b = 1
+    while b < 1.5:
       t1 = SOME().adds(a)
       t2 = SOME().adds([x*b for x in a])
       print(f"{b:g}", t1.cliffsDelta(t2),t1.bootstrap(t2))
-      b += 0.02
+      b += 0.04
 
   def read():
     prin(DATA().read(the.file).stats())
