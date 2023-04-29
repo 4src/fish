@@ -41,6 +41,9 @@ class Egs:
     sym = SYM().adds("aaaabbc")
     return 1.37 < sym.div() < 1.39 and sym.mid()=='a'
 
+  def powerset():
+    for x in powerset("abcd"): print(x)
+
   def some():
     the.Some = 64
     some=SOME()
@@ -53,9 +56,9 @@ class Egs:
     b = 1
     print("")
     while b < 1.5:
-      t1 = SOME().adds(a)
-      t2 = SOME().adds([x*b for x in a])
-      print(f"{b:-3.2f}", t1.cliffsDelta(t2),t1.bootstrap(t2))
+      s1= SOME().adds(a)
+      s2 = SOME().adds([x*b for x in a])
+      print(f"{b:-3.2f}", s1.cliffsDelta(s2),s1.bootstrap(s2))
       b += 0.05
 
   def read():
@@ -82,7 +85,7 @@ class Egs:
   def rules():
     data = DATA().read(the.file)
     best,rest = data.betters()
-    bins = sorted((bin for bin in contrasts(best,rest)), key=lambda x:x.score)[-10:]
+    bins = rules(best,rest)[:10]
     print([bin.score for bin in bins])
 
 if __name__ == "__main__": 

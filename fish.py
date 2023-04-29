@@ -313,9 +313,8 @@ def want(b,r,B,R):
     case "doubt":  return (b+r)/abs(b - r)
 
 def rules(data1,data2):
-  a = sorted((bin for bin in contrasts(data1,data2)),
-              reversed=True, key=lambda x:x.score)
-  print([x.score for x in a])
+  return sorted((bin for bin in contrasts(data1,data2)),
+                 key=lambda z:z.score, reverse=True)
 
 #-------------------------------------------------------------------------------
 # # Misc Stuff
@@ -323,6 +322,11 @@ def rules(data1,data2):
 inf  = 1E60
 tiny = 1/inf
 ninf = -inf
+
+def powerset(s):
+  r = [[]]
+  for e in s: r += [x+[e] for x in r]
+  return r
 
 def sample(a):
   return random.choices(a,k=len(a))
@@ -358,5 +362,4 @@ def flip(file):
   with open(file) as fp:
     s= fp.read()
     f= lambda m:"\n\n# "+ re.sub("\n","\n# ",m[4].strip("[\s]+"))+"\n"+m[2]+m[1]+"\n"
-    return re.sub(
-              r'\n(([ \t]*)(def|class)[^\n]+)\n[ \t]*"""([^"]+)[\n]?"""[\s]*\n',f,s)
+    return re.sub(r'\n(([ \t]*)(def|class)[^\n]+)\n[ \t]*"""([^"]+)[\n]?"""[\s]*\n',f,s)
