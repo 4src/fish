@@ -47,15 +47,16 @@ class Egs:
     for i in range(10**3): some.add(i)
     print(some.has())
 
-  def cliffs():
+  def stats():
     r = random.random
     a = [r()**2 for _ in range(100)]
     b = 1
+    print("")
     while b < 1.5:
       t1 = SOME().adds(a)
       t2 = SOME().adds([x*b for x in a])
-      print(f"{b:g}", t1.cliffsDelta(t2),t1.bootstrap(t2))
-      b += 0.04
+      print(f"{b:-3.2f}", t1.cliffsDelta(t2),t1.bootstrap(t2))
+      b += 0.05
 
   def read():
     prin(DATA().read(the.file).stats())

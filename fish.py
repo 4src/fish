@@ -26,11 +26,11 @@ OPTIONS:
       -n  -n        explore all subsets of top ''n bins    = 7
       -r  --rest    expand to len(list)*rest               = 4    
       -s  --seed    random number seed                     = 1234567891    
-      -S  --Some    max items kept in SOME                 = 512  
+      -S  --Some    max items kept in SOME                 = 256  
       -w --want     goal: plan,watch,xplore,doubt          = plan   
 
 NOTES:
-
+ 
 This code reads CSV files with a header row listing column names,
 numeric columns, symbolic columns and goals. For example, in this
 data set, we want to learn what values of `name,Age,Shoesize`
@@ -211,7 +211,7 @@ class SOME(col):
     i.sorted=True
     return i._has
 
-  def same(i,j):
+  def different(i,j):
     return i.cliffsDelta(j) and i.bootstrap(j)
 
   def cliffsDelta(i,j):
@@ -222,24 +222,25 @@ class SOME(col):
     for x1 in x:
       for y1 in y:
         n = n + 1
-        if x1 > y1: gt = gt + 1 
-        if x1 < y1: lt = lt + 1 
-    return abs(lt - gt)/n > the.Cliffs 
+        if x1 > y1: gt = gt + 1
+        if x1 < y1: lt = lt + 1
+    return abs(lt - gt)/n > the.Cliffs # true if different
 
   def bootstrap(i,j,conf=.05):
     y0,z0   = i._has, j._has
     x, y, z = NUM(), NUM(), NUM()
-    for y1 in y0: x.add(y1); y.add(y1) 
-    for z1 in z0: x.add(z1); z.add(z1) 
+    for y1 in y0: x.add(y1); y.add(y1)
+    for z1 in z0: x.add(z1); z.add(z1)
     yhat    = [y1 - y.mu + x.mu for y1 in y0]
     zhat    = [z1 - z.mu + x.mu for z1 in z0]
-    overall = y.delta(z)
+    delta   = y.delta(z)
     n       = 0
     for _ in range(the.bootstrap):
       ynum = NUM().adds(sample(yhat))
       znum = NUM().adds(sample(zhat))
-      if ynum.delta(znum)  > overall: n += 1
-    return n / the.bootstrap < conf
+      if ynum.delta(znum)  > delta:
+        n += 1
+    return n / the.bootstrap < conf # true if different
 
 #-------------------------------------------------------------------------------
 class ROW(obj):
