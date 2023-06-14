@@ -1,6 +1,6 @@
 
 &copy;2023 Tim Menzies,
-<a href="mailto:timm@ieee.org">timm@ieee.org</a> <img
+<a href="mailto:timm@ieee.org">timm@ieee.org</a> <br><img
 src="https://img.shields.io/badge/purpose-se--ai-blueviolet"> <img
 src="https://img.shields.io/badge/platform-osx,linux-pink"> <img
 src="https://img.shields.io/badge/license-BSD2-ff69b4"> <img
