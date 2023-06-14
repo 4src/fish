@@ -1,3 +1,2 @@
 termcolor
 pdoc3
-pycco
