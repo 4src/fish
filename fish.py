@@ -99,7 +99,7 @@ class SYM(COL):
     return x
 #---------------------------------------------
 class COLS(pretty):
-  "Convert a list of names into NUMs and SYMs (kept different binds of cols in different lists)." 
+  "Convert a list of names into NUMs and SYMs (kept different binds of cols in different lists)."
   def __init__(i,names):
     i.x, i.y, i.names = [],[],names
     i.all = [(NUM if s[0].isupper() else SYM)(at=n,txt=s) for n,s in enumerate(names)]
@@ -153,7 +153,7 @@ negate = { ">"  :  "<=",
 #---------------------------------------------
 # tree generation
 def tree(data):
-  "Recursively split on the cut (that most distinguishes different klasses)." 
+  "Recursively split on the cut (that most distinguishes different klasses)."
   def grow(rows, stop, t):
     t.left,t.right = None,None
     if len(rows) >= stop:
@@ -197,7 +197,7 @@ def cut(data,cols,rows):
     for n,row in enumerate(rows):
       left.add(  y(row) )
       right.sub( y(row) )
-      if left.n > small and right.n > small: 
+      if left.n > small and right.n > small:
         if x(row) != x(rows[n+1]):
           if x(row) - x(rows[0]) > eps and x(rows[-1]) - x(row) > eps:
             xpect = (left.n*left.div() + right.n*right.div()) / (left.n+right.n)
@@ -229,7 +229,7 @@ def csv(file, filter=lambda x:x):
       if line:
         yield filter([coerce(s.strip()) for s in line.split(",")])
 
-def rows(file): 
+def rows(file):
   "Returns an iterator that returns ROWS"
   return csv(file, ROW)
 
@@ -254,7 +254,7 @@ class Egs:
     "print the settings"
     print(the)
 
-  def Rnd(): 
+  def Rnd():
     "rnd to 2 decimals"
     return 3.14 == rnd(math.pi,2)
 
@@ -299,7 +299,6 @@ class Egs:
     m   = int(len(lst)**.5)
     best= d.clone(lst[-m:]); print("best",stats(best.cols.y))
     rest= d.clone(lst[:-m]);  print("rest",stats(rest.cols.y))
-
 
   def ok():
     "Run everything (except ok,h). Return how often something fails."

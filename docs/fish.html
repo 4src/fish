@@ -174,7 +174,7 @@ class SYM(COL):
     return x
 #---------------------------------------------
 class COLS(pretty):
-  &#34;Convert a list of names into NUMs and SYMs (kept different binds of cols in different lists).&#34; 
+  &#34;Convert a list of names into NUMs and SYMs (kept different binds of cols in different lists).&#34;
   def __init__(i,names):
     i.x, i.y, i.names = [],[],names
     i.all = [(NUM if s[0].isupper() else SYM)(at=n,txt=s) for n,s in enumerate(names)]
@@ -228,7 +228,7 @@ negate = { &#34;&gt;&#34;  :  &#34;&lt;=&#34;,
 #---------------------------------------------
 # tree generation
 def tree(data):
-  &#34;Recursively split on the cut (that most distinguishes different klasses).&#34; 
+  &#34;Recursively split on the cut (that most distinguishes different klasses).&#34;
   def grow(rows, stop, t):
     t.left,t.right = None,None
     if len(rows) &gt;= stop:
@@ -272,7 +272,7 @@ def cut(data,cols,rows):
     for n,row in enumerate(rows):
       left.add(  y(row) )
       right.sub( y(row) )
-      if left.n &gt; small and right.n &gt; small: 
+      if left.n &gt; small and right.n &gt; small:
         if x(row) != x(rows[n+1]):
           if x(row) - x(rows[0]) &gt; eps and x(rows[-1]) - x(row) &gt; eps:
             xpect = (left.n*left.div() + right.n*right.div()) / (left.n+right.n)
@@ -304,7 +304,7 @@ def csv(file, filter=lambda x:x):
       if line:
         yield filter([coerce(s.strip()) for s in line.split(&#34;,&#34;)])
 
-def rows(file): 
+def rows(file):
   &#34;Returns an iterator that returns ROWS&#34;
   return csv(file, ROW)
 
@@ -329,7 +329,7 @@ class Egs:
     &#34;print the settings&#34;
     print(the)
 
-  def Rnd(): 
+  def Rnd():
     &#34;rnd to 2 decimals&#34;
     return 3.14 == rnd(math.pi,2)
 
@@ -374,7 +374,6 @@ class Egs:
     m   = int(len(lst)**.5)
     best= d.clone(lst[-m:]); print(&#34;best&#34;,stats(best.cols.y))
     rest= d.clone(lst[:-m]);  print(&#34;rest&#34;,stats(rest.cols.y))
-
 
   def ok():
     &#34;Run everything (except ok,h). Return how often something fails.&#34;
@@ -442,7 +441,7 @@ if __name__ == &#34;__main__&#34;:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def tree(data):
-  &#34;Recursively split on the cut (that most distinguishes different klasses).&#34; 
+  &#34;Recursively split on the cut (that most distinguishes different klasses).&#34;
   def grow(rows, stop, t):
     t.left,t.right = None,None
     if len(rows) &gt;= stop:
@@ -496,7 +495,7 @@ if __name__ == &#34;__main__&#34;:
     for n,row in enumerate(rows):
       left.add(  y(row) )
       right.sub( y(row) )
-      if left.n &gt; small and right.n &gt; small: 
+      if left.n &gt; small and right.n &gt; small:
         if x(row) != x(rows[n+1]):
           if x(row) - x(rows[0]) &gt; eps and x(rows[-1]) - x(row) &gt; eps:
             xpect = (left.n*left.div() + right.n*right.div()) / (left.n+right.n)
@@ -560,7 +559,7 @@ if __name__ == &#34;__main__&#34;:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def rows(file): 
+<pre><code class="python">def rows(file):
   &#34;Returns an iterator that returns ROWS&#34;
   return csv(file, ROW)</code></pre>
 </details>
@@ -942,7 +941,7 @@ if __name__ == &#34;__main__&#34;:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class COLS(pretty):
-  &#34;Convert a list of names into NUMs and SYMs (kept different binds of cols in different lists).&#34; 
+  &#34;Convert a list of names into NUMs and SYMs (kept different binds of cols in different lists).&#34;
   def __init__(i,names):
     i.x, i.y, i.names = [],[],names
     i.all = [(NUM if s[0].isupper() else SYM)(at=n,txt=s) for n,s in enumerate(names)]
@@ -1106,7 +1105,7 @@ if __name__ == &#34;__main__&#34;:
     &#34;print the settings&#34;
     print(the)
 
-  def Rnd(): 
+  def Rnd():
     &#34;rnd to 2 decimals&#34;
     return 3.14 == rnd(math.pi,2)
 
@@ -1151,7 +1150,6 @@ if __name__ == &#34;__main__&#34;:
     m   = int(len(lst)**.5)
     best= d.clone(lst[-m:]); print(&#34;best&#34;,stats(best.cols.y))
     rest= d.clone(lst[:-m]);  print(&#34;rest&#34;,stats(rest.cols.y))
-
 
   def ok():
     &#34;Run everything (except ok,h). Return how often something fails.&#34;
@@ -1222,7 +1220,7 @@ if __name__ == &#34;__main__&#34;:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def Rnd(): 
+<pre><code class="python">def Rnd():
   &#34;rnd to 2 decimals&#34;
   return 3.14 == rnd(math.pi,2)</code></pre>
 </details>
