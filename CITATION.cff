@@ -3,7 +3,7 @@ message: "If you use this software, please cite it as below."
 authors:
   - family-names: Tim
     given-names: Menzies
-    orcid: https://orcid.org/0000-0002-5040-3196
-title: 4src/fish: another release to make zenodo to index this site
-version: v0.0.2
+    orcid: "https://orcid.org/0000-0002-5040-3196"
+title: "4src/fish: another release to make zenodo to index this site"
+version: "v0.0.2"
 date-released: 2023-06-14
