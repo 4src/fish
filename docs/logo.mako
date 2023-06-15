@@ -1,11 +1,5 @@
 <center>
-<img src="https://iiif.micr.io/Upyjx/full/%5E1200,/0/default.jpg"
-width=300><br>
-
-<p>
-&copy;2023 Tim Menzies,
-<a href="mailto:timm@ieee.org">timm@ieee.org</a>
-</p>
+<img src="https://iiif.micr.io/Upyjx/full/%5E1200,/0/default.jpg" width=300>
 <p>
 <img 
 src="https://img.shields.io/badge/license-BSD2-ff69b4"> <a 
