@@ -40,6 +40,7 @@ class pretty(object):
 class ROW(pretty):
   "Place to store cells and meta-knowledge about those cells."
   def __init__(i, cells=[]): i.cells,i.klass = cells,None
+  def at(i,col): return i.cells[col.at]
 #---------------------------------------------
 class COL(pretty):
   "COLumns know the name, position and the count of rows seen."
@@ -111,7 +112,7 @@ class COLS(pretty):
   def add(i,row):
     "Add a row's data to all the non-skipped columns."
     for cols in [i.x, i.y]:
-      for col in cols: col.add(row.cells[col.at])
+      for col in cols: col.add(row.at(col))
     return row
 #---------------------------------------------
 class DATA(pretty):
@@ -130,7 +131,7 @@ class DATA(pretty):
     "Return True if `row1` better than `row2`."
     s1, s2, n = 0, 0, len(i.cols.y)
     for col in i.cols.y:
-      a, b = col.norm(row1.cells[col.at]), col.norm(row2.cells[col.at])
+      a, b = col.norm(row1.at(col)), col.norm(row2.at(col))
       s1  -= math.exp(col.w * (a - b) / n)
       s2  -= math.exp(col.w * (b - a) / n)
     return s1 / n < s2 / n
@@ -179,33 +180,33 @@ def cut(data,cols,rows):
   def sym(col):
     d = {}
     for row in rows:
-      x1 = row.cells[col.at]
-      if x1 != "?":
-        if x1 not in d: d[x1] = SYM()
-        d[x1].add(row.klass)
-    return sorted((d[k].div(),col.at,"==",col.txt) for k in d)[0]
+      x = cell(row,col)
+      if x !=  "?":
+        if x not in d: d[x] = SYM()
+        d[x].add(row.klass)
+    syms = sorted(d.values(), key=lambda s:s.div())
+    return syms[0].div(), col.at,"==",col.txt
   #-----------
   def num(col):
-    lo = eps= col.div()*the.cohen
-    small   = len(rows)**the.min
-    x       = lambda row: row.cells[col.at]
-    y       = lambda row: row.klass
-    rows    = sorted([row for row in rows if x(row) != "?"], key=x)
-    left,right = SYM(), SYM()
+    eps   = col.div()*the.cohen
+    small = len(rows)**the.min
+    rows = [row for row in rows if row.at(col) != "?"]
+    rows = sorted(rows, key=lambda row: row.at(col))
+    lo,cut,left,right = col.div(),None,SYM(), SYM()
     [right.add(y(row)) for row in rows]
-    cut = None
     for n,row in enumerate(rows):
-      left.add(  y(row) )
-      right.sub( y(row) )
+      x = row.at(col)
+      left.add(  row.klass )
+      right.sub( row.klass )
       if left.n > small and right.n > small:
-        if x(row) != x(rows[n+1]):
-          if x(row) - x(rows[0]) > eps and x(rows[-1]) - x(row) > eps:
+        if x != rows[n+1].at(col):
+          if x - rows[0].at(col) > eps and rows[-1].at(coL) - x > eps:
             xpect = (left.n*left.div() + right.n*right.div()) / (left.n+right.n)
             if xpect < lo:
-              cut,lo = x(row),xpect
+              cut,lo = x,xpect
     return lo,col.at,"<=",cut,col.txt
   #----------------------------------
-  return sorted(((num(col) if isa(col,NUM) else sym(col)) for col in cols))[0]
+  return sorted(((num if isa(col,NUM) else sym)(col)) for col in cols))[0]
 
 def showTree(t, lvl="",b4=""):
   if t:
