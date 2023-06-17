@@ -1,4 +1,4 @@
-<img align=right width=350 src="/docs/Fly-Fishing_art.png">
+<img align=left  width=350 src="/docs/Fly-Fishing_art.png">
 
 <img
 src="https://img.shields.io/badge/license-BSD2-ff69b4"> <a 
