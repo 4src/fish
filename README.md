@@ -1,3 +1,4 @@
+<img align=right width=350 src="/docs/Fly-Fishing_art.png">
 
 <img
 src="https://img.shields.io/badge/license-BSD2-ff69b4"> <a 
@@ -8,7 +9,6 @@ src="https://img.shields.io/badge/platform-osx,linux-pink">  <img
 src="https://img.shields.io/badge/language-python3.11-yellow"> <img
 src="docs/results.png"> 
 
-<img align=right width=350 src="/docs/Fly-Fishing_art.png">
 
 # Fish
 
