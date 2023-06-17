@@ -10,6 +10,7 @@ OPTIONS:
   -b  --bins    max number of bins    = 16  
   -c  --cohen   size significant separation = .35  
   -f  --file    data csv file         = "../data/auto93.csv"  
+  -g  --go      start-up action       = "nothing"
   -h  --help    show help             = False  
   -l  --lazy    lazy mode             = False  
   -m  --min     min size              = .5  
@@ -19,18 +20,11 @@ OPTIONS:
   -w  --want    goal                  = "mitigate"  
 """
 from fileinput import FileInput as file_or_stdin
-import traceback,random,math,sys,ast,re
+import traceback,random,math,sys,re
 from termcolor import colored
 from functools import cmp_to_key
 from ast import literal_eval
 #---------------------------------------------
-class BAG(dict):
-  "Dictionaries that can be accessed via `x[\"slot\"]` or `x.slot`."
-  __getattr__ = dict.get
-
-the = BAG(**{m[1]:literal_eval(m[2])
-             for m in re.finditer(r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)",__doc__)})
-"""Config settings, parsed from the __doc__."""
 #---------------------------------------------
 class pretty(object):
   "Objects that support pretty print."
@@ -153,77 +147,97 @@ negate = { ">"  :  "<=",
 """Negation of operators."""
 #---------------------------------------------
 # tree generation
-def tree(data):
+class TREE(object):
   "Recursively split on the cut (that most distinguishes different klasses)."
-  def grow(rows, stop, t):
+  def __init__(i,data):
+    lst   = data.sorted()
+    n     = len(lst)**the.min
+    bests = lst[-n:]
+    rests = random.sample(lst[:-n], the.rest * n)
+    for row in bests: row.klass = True
+    for row in rests: row.klass = False
+    i.root =  grow(bests + rests, 2*(n**the.min), BAG(here=data, at=None))
+
+  def grow(i,rows, stop, t):
     t.left,t.right = None,None
     if len(rows) >= stop:
-      _,at,op,cut,s = cut(data,data.cols.x,rows)
+      _,at,op,cut,s = i.cut(data,data.cols.x,rows)
       if cut:
         left,right = [],[]
         [(left if ops[op](row.cells[at], cut) else right).append(row) for row in rows]
         if len(left) != len(rows) and len(right) != len(rows):
-          t.left = grow(left, stop, BAG(here=data.clone(left),  at=at,cut=cut,txt=s,op=op))
-          t.right= grow(right,stop, BAG(here=data.clone(right), at=at,cut=cut,txt=s,op=negate[op]))
+          t.left = i.grow(left, stop, BAG(here=data.clone(left),  at=at,cut=cut,txt=s,op=op))
+          t.right= i.grow(right,stop, BAG(here=data.clone(right), at=at,cut=cut,txt=s,op=negate[op]))
     return t
-  #---------
-  lst   = data.sorted()
-  n     = len(lst)**the.min
-  bests = lst[-n:]
-  rests = random.sample(lst[:-n], the.rest * n)
-  for row in bests: row.klass = True
-  for row in rests: row.klass = False
-  return grow(bests + rests, 2*(n**the.min), BAG(here=data, at=None))
 
-def cut(data,cols,rows):
-  "Return best `div,at,op,cut,txt` that most divides the klasses in `rows`."
-  def sym(col):
-    d = {}
-    for row in rows:
-      x = cell(row,col)
-      if x !=  "?":
-        if x not in d: d[x] = SYM()
-        d[x].add(row.klass)
-    syms = sorted(d.values(), key=lambda s:s.div())
-    return syms[0].div(), col.at,"==",col.txt
-  #-----------
-  def num(col):
-    eps   = col.div()*the.cohen
-    small = len(rows)**the.min
-    rows = [row for row in rows if row.at(col) != "?"]
-    rows = sorted(rows, key=lambda row: row.at(col))
-    lo,cut,left,right = col.div(),None,SYM(), SYM()
-    [right.add(y(row)) for row in rows]
-    for n,row in enumerate(rows):
-      x = row.at(col)
-      left.add(  row.klass )
-      right.sub( row.klass )
-      if left.n > small and right.n > small:
-        if x != rows[n+1].at(col):
-          if x - rows[0].at(col) > eps and rows[-1].at(coL) - x > eps:
-            xpect = (left.n*left.div() + right.n*right.div()) / (left.n+right.n)
-            if xpect < lo:
-              cut,lo = x,xpect
-    return lo,col.at,"<=",cut,col.txt
-  #----------------------------------
-  return sorted(((num if isa(col,NUM) else sym)(col)) for col in cols)[0]
+  def cut(i,data,cols,rows):
+    "Return best `div,at,op,cut,txt` that most divides the klasses in `rows`."
+    def sym(col):
+      "For syms, just return the one with least diversity of klasses."
+      d = {}
+      for row in rows:
+        x = cell(row,col)
+        if x !=  "?":
+          if x not in d: d[x] = SYM()
+          d[x].add(row.klass)
+      syms = sorted(d.values(), key=lambda s:s.div())
+      return syms[0].div(), col.at,"==",col.txt
+    #-----------
+    def num(col):
+      "For nums, just return the cut that most reduces expected diversity."
+      eps   = col.div()*the.cohen
+      small = len(rows)**the.min
+      rows = [row for row in rows if row.at(col) != "?"]
+      rows = sorted(rows, key=lambda row: row.at(col))
+      lo,cut,left,right = col.div(),None,SYM(), SYM()
+      [right.add(y(row)) for row in rows]
+      for n,row in enumerate(rows):
+        x = row.at(col)
+        right.sub( row.klass )   # take from the right
+        left.add(  row.klass )   # give to the left
+        if left.n > small and right.n > small:
+          if x != rows[n+1].at(col):
+            if x - rows[0].at(col) > eps and rows[-1].at(coL) - x > eps:
+              xpect = (left.n*left.div() + right.n*right.div()) / (left.n+right.n)
+              if xpect < lo:
+                cut,lo = x,xpect
+      return lo,col.at,"<=",cut,col.txt
+    #------------------------------------
+    return sorted([(i.num(col) if isa(col,NUM) else sym(col)) for col in cols])[0]
 
-def showTree(t, lvl="",b4=""):
-  if t:
-    print(lvl + b4,str(len(t.here.rows)))
-    pre= f"if {t.txt} {t.op.__doc__} {t.val}" if t.left or t.right else ""
-    showTree(t.left,  lvl+"|.. ", pre)
-    showTree(t.right, lvl+"|.. ", "else")
+  def showTree(i,t, lvl="",above=None):
+    if t:
+      print(lvl + b4,str(len(t.here.rows)))
+      pre= f"if {t.txt} {t.op.__doc__} {t.val}" if t.left or t.right else ""
+      showTree(t.left,  lvl+"|.. ", pre)
+      showTree(t.right, lvl+"|.. ", "else")
 #---------------------------------------------
 R   = random.random      # short cut to random number generator
 isa = isinstance         # short cut for checking types
+
 big = 1E30
 """large numbers"""
+
+class BAG(dict):
+  "Dictionaries that can be accessed via `x[\"slot\"]` or `x.slot`."
+  __getattr__ = dict.get
+
+def cli(bag):
+  "Update value in `bag` for slpt `x` if there is a command-line flag `-x`."
+  for k,v in bag.items():
+    v = str(v)
+    for i,x in enumerate(sys.argv):
+      if ("-"+k[0]) == x or ("--"+k) == x:
+        v = "True" if v=="False" else ("False" if v=="True" else sys.argv[i+1])
+        bag[k]= coerce(v)
+  return bag
+
+def coerce(x):
+  try: return literal_eval(x)
+  except: return x
+
 def csv(file, filter=lambda x:x):
   "Returns an iterator that returns lists from standard input (-) or a file."
-  def coerce(x):
-    try: return literal_eval(x)
-    except: return x
   with file_or_stdin(file) as src:
     for line in src:
       line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
@@ -247,9 +261,28 @@ class Egs:
   "Place to store the examples."
   all = locals()
 
-  def h():
-    "print help text"
-    print(__doc__)
+  def ok():
+    "Run everything (except ok,h). Return how often something fails."
+    fails, saved = 0, {k:v for k,v in the.items()}
+    for what,fun in Egs.all.items():
+      if what[0].isupper():
+        yell(what + " ","yellow")
+        fail = Egs.failure(saved,fun)
+        yell(" FAIL\n","red") if fail else yell(" PASS\n","green")
+        fails += fail
+    yell(f"TOTAL FAILURE(s) = {fails}\n", "red" if fails > 0 else "cyan")
+    sys.exit(fails)
+
+  def failure(saved,fun):
+    """Called by `Egs.ok`. `Fun` fails if it returns `False` or if it crashes.
+    If it crashes, print the stack dump but then continue on
+    Before running it, reset the system to  initial conditions."""
+    for k,v in saved.items(): the[k] = v
+    random.seed(the.seed)
+    fail = True
+    try:    fail = fun() != False  # here, fail might be reset to True
+    except: traceback.print_exc()
+    return fail
 
   def The():
     "print the settings"
@@ -301,31 +334,14 @@ class Egs:
     best= d.clone(lst[-m:]); print("best",stats(best.cols.y))
     rest= d.clone(lst[:-m]);  print("rest",stats(rest.cols.y))
 
-  def ok():
-    "Run everything (except ok,h). Return how often something fails."
-    fails, saved = 0, {k:v for k,v in the.items()}
-    for what,fun in Egs.all.items():
-      if what[0].isupper():
-        yell(what + " ","yellow")
-        fail = Egs.failure(saved,fun)
-        yell(" FAIL\n","red") if fail else yell(" PASS\n","green")
-        fails += fail
-    yell(f"TOTAL FAILURE(s) = {fails}\n", "red" if fails > 0 else "cyan")
-    sys.exit(fails)
-
-  def failure(saved,fun):
-    """Called by `Egs.ok`. `Fun` fails if it returns `False` or if it crashes.
-    If it crashes, print the stack dump but then continue on
-    Before running it, reset the system to  initial conditions."""
-    for k,v in saved.items(): the[k] = v
-    random.seed(the.seed)
-    fail = True
-    try:    fail = fun() != False  # here, fail might be reset to True
-    except: traceback.print_exc()
-    return fail
-
 #---------------------------------------------
+the = BAG(**{m[1]:literal_eval(m[2])
+             for m in re.finditer(r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)",__doc__)})
+"""Config options, parsed from `__doc__`"""
+
 random.seed(the.seed)    # set random number seed
 
 if __name__ == "__main__":
-  a=sys.argv[1:]; a and a[0][1:] in Egs.all and Egs.all[a[0][1:]]()
+  the= cli(the)
+  if the.help: print(__doc__)
+  elif the.go in Egs.all: Egs.all[the.go]()
