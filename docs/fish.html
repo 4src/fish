@@ -115,6 +115,7 @@ class pretty(object):
 class ROW(pretty):
   &#34;Place to store cells and meta-knowledge about those cells.&#34;
   def __init__(i, cells=[]): i.cells,i.klass = cells,None
+  def at(i,col): return i.cells[col.at]
 #---------------------------------------------
 class COL(pretty):
   &#34;COLumns know the name, position and the count of rows seen.&#34;
@@ -186,7 +187,7 @@ class COLS(pretty):
   def add(i,row):
     &#34;Add a row&#39;s data to all the non-skipped columns.&#34;
     for cols in [i.x, i.y]:
-      for col in cols: col.add(row.cells[col.at])
+      for col in cols: col.add(row.at(col))
     return row
 #---------------------------------------------
 class DATA(pretty):
@@ -205,7 +206,7 @@ class DATA(pretty):
     &#34;Return True if `row1` better than `row2`.&#34;
     s1, s2, n = 0, 0, len(i.cols.y)
     for col in i.cols.y:
-      a, b = col.norm(row1.cells[col.at]), col.norm(row2.cells[col.at])
+      a, b = col.norm(row1.at(col)), col.norm(row2.at(col))
       s1  -= math.exp(col.w * (a - b) / n)
       s2  -= math.exp(col.w * (b - a) / n)
     return s1 / n &lt; s2 / n
@@ -254,33 +255,33 @@ def cut(data,cols,rows):
   def sym(col):
     d = {}
     for row in rows:
-      x1 = row.cells[col.at]
-      if x1 != &#34;?&#34;:
-        if x1 not in d: d[x1] = SYM()
-        d[x1].add(row.klass)
-    return sorted((d[k].div(),col.at,&#34;==&#34;,col.txt) for k in d)[0]
+      x = cell(row,col)
+      if x !=  &#34;?&#34;:
+        if x not in d: d[x] = SYM()
+        d[x].add(row.klass)
+    syms = sorted(d.values(), key=lambda s:s.div())
+    return syms[0].div(), col.at,&#34;==&#34;,col.txt
   #-----------
   def num(col):
-    lo = eps= col.div()*the.cohen
-    small   = len(rows)**the.min
-    x       = lambda row: row.cells[col.at]
-    y       = lambda row: row.klass
-    rows    = sorted([row for row in rows if x(row) != &#34;?&#34;], key=x)
-    left,right = SYM(), SYM()
+    eps   = col.div()*the.cohen
+    small = len(rows)**the.min
+    rows = [row for row in rows if row.at(col) != &#34;?&#34;]
+    rows = sorted(rows, key=lambda row: row.at(col))
+    lo,cut,left,right = col.div(),None,SYM(), SYM()
     [right.add(y(row)) for row in rows]
-    cut = None
     for n,row in enumerate(rows):
-      left.add(  y(row) )
-      right.sub( y(row) )
+      x = row.at(col)
+      left.add(  row.klass )
+      right.sub( row.klass )
       if left.n &gt; small and right.n &gt; small:
-        if x(row) != x(rows[n+1]):
-          if x(row) - x(rows[0]) &gt; eps and x(rows[-1]) - x(row) &gt; eps:
+        if x != rows[n+1].at(col):
+          if x - rows[0].at(col) &gt; eps and rows[-1].at(coL) - x &gt; eps:
             xpect = (left.n*left.div() + right.n*right.div()) / (left.n+right.n)
             if xpect &lt; lo:
-              cut,lo = x(row),xpect
+              cut,lo = x,xpect
     return lo,col.at,&#34;&lt;=&#34;,cut,col.txt
   #----------------------------------
-  return sorted(((num(col) if isa(col,NUM) else sym(col)) for col in cols))[0]
+  return sorted(((num if isa(col,NUM) else sym)(col)) for col in cols)[0]
 
 def showTree(t, lvl=&#34;&#34;,b4=&#34;&#34;):
   if t:
@@ -477,33 +478,33 @@ if __name__ == &#34;__main__&#34;:
   def sym(col):
     d = {}
     for row in rows:
-      x1 = row.cells[col.at]
-      if x1 != &#34;?&#34;:
-        if x1 not in d: d[x1] = SYM()
-        d[x1].add(row.klass)
-    return sorted((d[k].div(),col.at,&#34;==&#34;,col.txt) for k in d)[0]
+      x = cell(row,col)
+      if x !=  &#34;?&#34;:
+        if x not in d: d[x] = SYM()
+        d[x].add(row.klass)
+    syms = sorted(d.values(), key=lambda s:s.div())
+    return syms[0].div(), col.at,&#34;==&#34;,col.txt
   #-----------
   def num(col):
-    lo = eps= col.div()*the.cohen
-    small   = len(rows)**the.min
-    x       = lambda row: row.cells[col.at]
-    y       = lambda row: row.klass
-    rows    = sorted([row for row in rows if x(row) != &#34;?&#34;], key=x)
-    left,right = SYM(), SYM()
+    eps   = col.div()*the.cohen
+    small = len(rows)**the.min
+    rows = [row for row in rows if row.at(col) != &#34;?&#34;]
+    rows = sorted(rows, key=lambda row: row.at(col))
+    lo,cut,left,right = col.div(),None,SYM(), SYM()
     [right.add(y(row)) for row in rows]
-    cut = None
     for n,row in enumerate(rows):
-      left.add(  y(row) )
-      right.sub( y(row) )
+      x = row.at(col)
+      left.add(  row.klass )
+      right.sub( row.klass )
       if left.n &gt; small and right.n &gt; small:
-        if x(row) != x(rows[n+1]):
-          if x(row) - x(rows[0]) &gt; eps and x(rows[-1]) - x(row) &gt; eps:
+        if x != rows[n+1].at(col):
+          if x - rows[0].at(col) &gt; eps and rows[-1].at(coL) - x &gt; eps:
             xpect = (left.n*left.div() + right.n*right.div()) / (left.n+right.n)
             if xpect &lt; lo:
-              cut,lo = x(row),xpect
+              cut,lo = x,xpect
     return lo,col.at,&#34;&lt;=&#34;,cut,col.txt
   #----------------------------------
-  return sorted(((num(col) if isa(col,NUM) else sym(col)) for col in cols))[0]</code></pre>
+  return sorted(((num if isa(col,NUM) else sym)(col)) for col in cols)[0]</code></pre>
 </details>
 </dd>
 <dt id="fish.showTree"><code class="name flex">
@@ -651,12 +652,28 @@ if __name__ == &#34;__main__&#34;:
 </summary>
 <pre><code class="python">class ROW(pretty):
   &#34;Place to store cells and meta-knowledge about those cells.&#34;
-  def __init__(i, cells=[]): i.cells,i.klass = cells,None</code></pre>
+  def __init__(i, cells=[]): i.cells,i.klass = cells,None
+  def at(i,col): return i.cells[col.at]</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="fish.pretty" href="#fish.pretty">pretty</a></li>
 </ul>
+<h3>Methods</h3>
+<dl>
+<dt id="fish.ROW.at"><code class="name flex">
+<span>def <span class="ident">at</span></span>(<span>i, col)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def at(i,col): return i.cells[col.at]</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="fish.COL"><code class="flex name class">
 <span>class <span class="ident">COL</span></span>
@@ -953,7 +970,7 @@ if __name__ == &#34;__main__&#34;:
   def add(i,row):
     &#34;Add a row&#39;s data to all the non-skipped columns.&#34;
     for cols in [i.x, i.y]:
-      for col in cols: col.add(row.cells[col.at])
+      for col in cols: col.add(row.at(col))
     return row</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -974,7 +991,7 @@ if __name__ == &#34;__main__&#34;:
 <pre><code class="python">def add(i,row):
   &#34;Add a row&#39;s data to all the non-skipped columns.&#34;
   for cols in [i.x, i.y]:
-    for col in cols: col.add(row.cells[col.at])
+    for col in cols: col.add(row.at(col))
   return row</code></pre>
 </details>
 </dd>
@@ -1006,7 +1023,7 @@ if __name__ == &#34;__main__&#34;:
     &#34;Return True if `row1` better than `row2`.&#34;
     s1, s2, n = 0, 0, len(i.cols.y)
     for col in i.cols.y:
-      a, b = col.norm(row1.cells[col.at]), col.norm(row2.cells[col.at])
+      a, b = col.norm(row1.at(col)), col.norm(row2.at(col))
       s1  -= math.exp(col.w * (a - b) / n)
       s2  -= math.exp(col.w * (b - a) / n)
     return s1 / n &lt; s2 / n
@@ -1062,7 +1079,7 @@ if __name__ == &#34;__main__&#34;:
   &#34;Return True if `row1` better than `row2`.&#34;
   s1, s2, n = 0, 0, len(i.cols.y)
   for col in i.cols.y:
-    a, b = col.norm(row1.cells[col.at]), col.norm(row2.cells[col.at])
+    a, b = col.norm(row1.at(col)), col.norm(row2.at(col))
     s1  -= math.exp(col.w * (a - b) / n)
     s2  -= math.exp(col.w * (b - a) / n)
   return s1 / n &lt; s2 / n</code></pre>
@@ -1400,7 +1417,7 @@ initial conditions.</p></div>
 </article>
 <nav id="sidebar">
 <center>
-<img src="https://iiif.micr.io/Upyjx/full/%5E1200,/0/default.jpg" width=300>
+<img src="Fly-Fishing_art.png" width=300>
 <p>
 <img
 src="https://img.shields.io/badge/license-BSD2-ff69b4"> <a
@@ -1449,6 +1466,9 @@ src="results.png">
 </li>
 <li>
 <h4><code><a title="fish.ROW" href="#fish.ROW">ROW</a></code></h4>
+<ul class="">
+<li><code><a title="fish.ROW.at" href="#fish.ROW.at">at</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="fish.COL" href="#fish.COL">COL</a></code></h4>

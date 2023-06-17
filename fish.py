@@ -206,7 +206,7 @@ def cut(data,cols,rows):
               cut,lo = x,xpect
     return lo,col.at,"<=",cut,col.txt
   #----------------------------------
-  return sorted(((num if isa(col,NUM) else sym)(col)) for col in cols))[0]
+  return sorted(((num if isa(col,NUM) else sym)(col)) for col in cols)[0]
 
 def showTree(t, lvl="",b4=""):
   if t:

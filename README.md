@@ -8,7 +8,7 @@ src="https://img.shields.io/badge/platform-osx,linux-pink">  <img
 src="https://img.shields.io/badge/language-python3.11-yellow"> <img
 src="docs/results.png"> 
 
-<img align=right width=400 src="/docs/fisheries.png">
+<img align=right width=350 src="/docs/Fly-Fishing_art.png">
 
 # Fish
 
