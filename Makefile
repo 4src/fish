@@ -19,6 +19,10 @@ tests: ## run test suite
 		else cp docs/fail.png docs/results.png; \
   fi
 
+html: docs/fish.html
+
+pdf: $(HOME)/tmp/fish.pdf
+
 docs/fish.html: fish.py
-	 python3 -m pdoc -c sort_identifiers=False  \
+	 python3 -Bm pdoc -c sort_identifiers=False  \
 		       --template-dir docs --force --html -o docs $<

@@ -26,8 +26,9 @@
 <p>less: look around just a little, guess where to search.<br>
 (c) 2023 Tim Menzies <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#116;&#105;&#109;&#109;&#64;&#105;&#101;&#101;&#101;&#46;&#111;&#114;&#103;">&#116;&#105;&#109;&#109;&#64;&#105;&#101;&#101;&#101;&#46;&#111;&#114;&#103;</a>, BSD-2
 </p>
-<p>USAGE: ./less.py [OPTIONS]
-</p>
+<p>USAGE:
+./fish.py -f csvfile [OPTIONS] <br>
+cat csvfile | ./fish.py [OPTIONS]</p>
 <p>OPTIONS:<br>
 -b
 &ndash;bins
@@ -56,6 +57,11 @@ lazy mode
 &ndash;min
 min size
 = .5<br>
+-p
+&ndash;p
+distance coeffecient
+= 2
+<br>
 -r
 &ndash;rest
 ratio best:rest
@@ -83,7 +89,9 @@ goal
 less: look around just a little, guess where to search.  
 (c) 2023 Tim Menzies &lt;timm@ieee.org&gt;, BSD-2  
 
-USAGE: ./less.py [OPTIONS]   
+USAGE: 
+  ./fish.py -f csvfile [OPTIONS]   
+  cat csvfile | ./fish.py [OPTIONS]
 
 OPTIONS:  
   -b  --bins    max number of bins    = 16  
@@ -93,6 +101,7 @@ OPTIONS:
   -h  --help    show help             = False  
   -l  --lazy    lazy mode             = False  
   -m  --min     min size              = .5  
+  -p  --p       distance coeffecient  = 2    
   -r  --rest    ratio best:rest       = 4  
   -s  --seed    random number seed    = 1234567891  
   -t  --top     explore top  ranges   = 8  
@@ -104,9 +113,8 @@ from termcolor import colored
 from functools import cmp_to_key
 from ast import literal_eval
 #---------------------------------------------
-#---------------------------------------------
 class pretty(object):
-  &#34;Objects that support pretty print.&#34;
+  &#34;Objects support pretty print, hiding privates slots (those starting with `_`)&#34;
   def __repr__(i):
     return i.__class__.__name__+str({k:v for k,v in i.__dict__.items() if k[0] != &#34;_&#34;})
 #---------------------------------------------
@@ -166,7 +174,7 @@ class SYM(COL):
     &#34;Return central tendency.&#34;
     return i.mode
   def sub(i,x):
-    &#34;Decrement counts.&#34;
+    &#34;Decrements counts.&#34;
     i.n -= 1
     i.counts[x] -= 1
     assert 0 &lt;= i.counts[x]
@@ -211,7 +219,11 @@ class DATA(pretty):
   def sorted(i,rows=[]):
     &#34;Sort all `rows`.&#34;
     return sorted(rows or i.rows, key=cmp_to_key(lambda a,b: i.sort2(a,b)))
-#---------------------------------------------
+  def stats(i,cols, fun=&#34;mid&#34;, decimals=2):
+    &#34;Report statistics on a set of `col`umns (defaults to `i.cols.y`.&#34;
+    def what(col): return col.mid(decimals) if fun==&#34;mid&#34; else col.div(decimals)
+    return dict(mid=BAG(N=cols[1].n, **{col.txt:what(col) for col in cols or i.cols.y}))
+#---------------------------------------------
 # operators, used in trees
 ops = {&#34;&gt;&#34;  : lambda x,y: x==&#34;?&#34; and y==&#34;?&#34; or x&gt;y,
        &#34;&lt;=&#34; : lambda x,y: x==&#34;?&#34; and y==&#34;?&#34; or x&lt;=y,
@@ -257,29 +269,28 @@ class TREE(object):
       for row in rows:
         x = cell(row,col)
         if x !=  &#34;?&#34;:
-          if x not in d: d[x] = SYM()
+          d[x] = d[x].get(x, None) or SYM()
+          d[x].cut = x
           d[x].add(row.klass)
-      syms = sorted(d.values(), key=lambda s:s.div())
-      return syms[0].div(), col.at,&#34;==&#34;,col.txt
+      best = sorted(d.values(), key=lambda s:s.div())[0]
+      return best.div(), col.at,&#34;==&#34;,best.cut,col.txt
     #-----------
     def num(col):
       &#34;For nums, just return the cut that most reduces expected diversity.&#34;
-      eps   = col.div()*the.cohen
-      small = len(rows)**the.min
-      rows = [row for row in rows if row.at(col) != &#34;?&#34;]
-      rows = sorted(rows, key=lambda row: row.at(col))
-      lo,cut,left,right = col.div(),None,SYM(), SYM()
-      [right.add(y(row)) for row in rows]
-      for n,row in enumerate(rows):
-        x = row.at(col)
-        right.sub( row.klass )   # take from the right
-        left.add(  row.klass )   # give to the left
-        if left.n &gt; small and right.n &gt; small:
-          if x != rows[n+1].at(col):
-            if x - rows[0].at(col) &gt; eps and rows[-1].at(coL) - x &gt; eps:
-              xpect = (left.n*left.div() + right.n*right.div()) / (left.n+right.n)
-              if xpect &lt; lo:
-                cut,lo = x,xpect
+      X     = lambda row: cell(row,col)
+      eps   = div(col)*the.cohen
+      small = col.n**the.min
+      rows  = sorted([row for row in rows if X(row) != &#34;?&#34;], key=X)
+      d1,d2,a,z = SYM(), SYM(), X(rows[0]), X(rows[-1])
+      [d2.add(row.label) for row in rows]
+      n2,lo = len(rows),div(col)
+      for n1,row in enumerate(rows):
+        n2, x, y = n2-1, X(row), row.label
+        d2.sub( d1.add(y) )
+        if n1 &gt; small and n2 &gt; small and x != X(rows[n+1]) and x-a &gt; eps and z-x &gt; eps:
+          xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
+          if xpect &lt; lo:
+            cut,col.at = x,xpect
       return lo,col.at,&#34;&lt;=&#34;,cut,col.txt
     #------------------------------------
     return sorted([(i.num(col) if isa(col,NUM) else sym(col)) for col in cols])[0]
@@ -290,7 +301,7 @@ class TREE(object):
       pre= f&#34;if {t.txt} {t.op.__doc__} {t.val}&#34; if t.left or t.right else &#34;&#34;
       showTree(t.left,  lvl+&#34;|.. &#34;, pre)
       showTree(t.right, lvl+&#34;|.. &#34;, &#34;else&#34;)
-#---------------------------------------------
+#---------------------------------------------
 R   = random.random      # short cut to random number generator
 isa = isinstance         # short cut for checking types
 
@@ -301,15 +312,19 @@ class BAG(dict):
   &#34;Dictionaries that can be accessed via `x[\&#34;slot\&#34;]` or `x.slot`.&#34;
   __getattr__ = dict.get
 
-def cli(bag):
-  &#34;Update value in `bag` for slpt `x` if there is a command-line flag `-x`.&#34;
-  for k,v in bag.items():
-    v = str(v)
-    for i,x in enumerate(sys.argv):
-      if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
-        v = &#34;True&#34; if v==&#34;False&#34; else (&#34;False&#34; if v==&#34;True&#34; else sys.argv[i+1])
-        bag[k]= coerce(v)
-  return bag
+class SETTINGS(BAG):
+  &#34;Parse settings from string.&#34;
+  def __init__(i,s):
+    for m in re.finditer(r&#34;\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)&#34;,s): i[m[1]] = coerce(m[2])
+  def cli(i):
+    &#34;&#34;&#34;For k,v in i, update `v` if there is a command-line flag `-k[0]` or `--k`. Note
+    that bookean values need no argument (since we will just negate `v`).&#34;&#34;&#34;
+    for k,v in i.items():
+      v = str(v)
+      for j,x in enumerate(sys.argv):
+        if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
+          v = &#34;True&#34; if v==&#34;False&#34; else (&#34;False&#34; if v==&#34;True&#34; else sys.argv[j+1])
+      i[k] = coerce(v)
 
 def coerce(x):
   try: return literal_eval(x)
@@ -317,20 +332,19 @@ def coerce(x):
 
 def csv(file, filter=lambda x:x):
   &#34;Returns an iterator that returns lists from standard input (-) or a file.&#34;
+  if file==&#34;-&#34;: file=None
   with file_or_stdin(file) as src:
     for line in src:
       line = re.sub(r&#39;([\n\t\r&#34;\&#39; ]|#.*)&#39;, &#39;&#39;, line)
       if line:
         yield filter([coerce(s.strip()) for s in line.split(&#34;,&#34;)])
 
+def rnd(x,decimals=2):
+  return x if x==None else round(x,decimals)
+
 def rows(file):
   &#34;Returns an iterator that returns ROWS&#34;
   return csv(file, ROW)
-
-def stats(cols, fun=&#34;mid&#34;, decimals=2):
-  &#34;Report statistics on a set of `col`umns.&#34;
-  def what(col): return (col.mid if fun==&#34;mid&#34; else col.div)(decimals)
-  return dict(mid=BAG(N=cols[1].n, **{col.txt:what(col) for col in cols}))
 
 def yell(s,c):
   &#34;Print string `s`, colored by `c`.&#34;
@@ -385,7 +399,7 @@ class Egs:
 
   def Stats():
     &#34;test stats&#34;
-    print(stats([symEg(&#34;sym1&#34;),numEg(&#34;num1&#34;),numEg(&#34;num2&#34;),symEg(&#34;sym2&#34;)]))
+    print(COLS([symEg(&#34;sym1&#34;),numEg(&#34;num1&#34;),numEg(&#34;num2&#34;),symEg(&#34;sym2&#34;)]))
 
   def Rows():
     &#34;Check we can load rows from file.&#34;
@@ -397,7 +411,7 @@ class Egs:
 
   def Data():
     &#34;Can we load data and get its stats?&#34;
-    rint(stats(DATA(rows(the.file)).cols.y))
+    DATA(rows(the.file)).stats()
 
   def Clone():
     &#34;Can we replicate a DATA&#39;s structure?&#34;
@@ -412,16 +426,13 @@ class Egs:
     m   = int(len(lst)**.5)
     best= d.clone(lst[-m:]); print(&#34;best&#34;,stats(best.cols.y))
     rest= d.clone(lst[:-m]);  print(&#34;rest&#34;,stats(rest.cols.y))
-
 #---------------------------------------------
-the = BAG(**{m[1]:literal_eval(m[2])
-             for m in re.finditer(r&#34;\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)&#34;,__doc__)})
+the = SETTINGS(__doc__)
 &#34;&#34;&#34;Config options, parsed from `__doc__`&#34;&#34;&#34;
-
 random.seed(the.seed)    # set random number seed
 
 if __name__ == &#34;__main__&#34;:
-  the= cli(the)
+  the.cli()
   if the.help: print(__doc__)
   elif the.go in Egs.all: Egs.all[the.go]()</code></pre>
 </details>
@@ -458,26 +469,6 @@ if __name__ == &#34;__main__&#34;:
 <dd>
 <div class="desc"><p>random() -&gt; x in the interval [0, 1).</p></div>
 </dd>
-<dt id="fish.cli"><code class="name flex">
-<span>def <span class="ident">cli</span></span>(<span>bag)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Update value in <code>bag</code> for slpt <code>x</code> if there is a command-line flag <code>-x</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cli(bag):
-  &#34;Update value in `bag` for slpt `x` if there is a command-line flag `-x`.&#34;
-  for k,v in bag.items():
-    v = str(v)
-    for i,x in enumerate(sys.argv):
-      if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
-        v = &#34;True&#34; if v==&#34;False&#34; else (&#34;False&#34; if v==&#34;True&#34; else sys.argv[i+1])
-        bag[k]= coerce(v)
-  return bag</code></pre>
-</details>
-</dd>
 <dt id="fish.coerce"><code class="name flex">
 <span>def <span class="ident">coerce</span></span>(<span>x)</span>
 </code></dt>
@@ -503,11 +494,25 @@ if __name__ == &#34;__main__&#34;:
 </summary>
 <pre><code class="python">def csv(file, filter=lambda x:x):
   &#34;Returns an iterator that returns lists from standard input (-) or a file.&#34;
+  if file==&#34;-&#34;: file=None
   with file_or_stdin(file) as src:
     for line in src:
       line = re.sub(r&#39;([\n\t\r&#34;\&#39; ]|#.*)&#39;, &#39;&#39;, line)
       if line:
         yield filter([coerce(s.strip()) for s in line.split(&#34;,&#34;)])</code></pre>
+</details>
+</dd>
+<dt id="fish.rnd"><code class="name flex">
+<span>def <span class="ident">rnd</span></span>(<span>x, decimals=2)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def rnd(x,decimals=2):
+  return x if x==None else round(x,decimals)</code></pre>
 </details>
 </dd>
 <dt id="fish.rows"><code class="name flex">
@@ -522,21 +527,6 @@ if __name__ == &#34;__main__&#34;:
 <pre><code class="python">def rows(file):
   &#34;Returns an iterator that returns ROWS&#34;
   return csv(file, ROW)</code></pre>
-</details>
-</dd>
-<dt id="fish.stats"><code class="name flex">
-<span>def <span class="ident">stats</span></span>(<span>cols, fun='mid', decimals=2)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Report statistics on a set of <code>col</code>umns.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stats(cols, fun=&#34;mid&#34;, decimals=2):
-  &#34;Report statistics on a set of `col`umns.&#34;
-  def what(col): return (col.mid if fun==&#34;mid&#34; else col.div)(decimals)
-  return dict(mid=BAG(N=cols[1].n, **{col.txt:what(col) for col in cols}))</code></pre>
 </details>
 </dd>
 <dt id="fish.yell"><code class="name flex">
@@ -562,13 +552,13 @@ if __name__ == &#34;__main__&#34;:
 <span>class <span class="ident">pretty</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Objects that support pretty print.</p></div>
+<div class="desc"><p>Objects support pretty print, hiding privates slots (those starting with <code>_</code>)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class pretty(object):
-  &#34;Objects that support pretty print.&#34;
+  &#34;Objects support pretty print, hiding privates slots (those starting with `_`)&#34;
   def __repr__(i):
     return i.__class__.__name__+str({k:v for k,v in i.__dict__.items() if k[0] != &#34;_&#34;})</code></pre>
 </details>
@@ -803,7 +793,7 @@ if __name__ == &#34;__main__&#34;:
     &#34;Return central tendency.&#34;
     return i.mode
   def sub(i,x):
-    &#34;Decrement counts.&#34;
+    &#34;Decrements counts.&#34;
     i.n -= 1
     i.counts[x] -= 1
     assert 0 &lt;= i.counts[x]
@@ -864,13 +854,13 @@ if __name__ == &#34;__main__&#34;:
 <span>def <span class="ident">sub</span></span>(<span>i, x)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Decrement counts.</p></div>
+<div class="desc"><p>Decrements counts.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sub(i,x):
-  &#34;Decrement counts.&#34;
+  &#34;Decrements counts.&#34;
   i.n -= 1
   i.counts[x] -= 1
   assert 0 &lt;= i.counts[x]
@@ -969,7 +959,11 @@ if __name__ == &#34;__main__&#34;:
     return s1 / n &lt; s2 / n
   def sorted(i,rows=[]):
     &#34;Sort all `rows`.&#34;
-    return sorted(rows or i.rows, key=cmp_to_key(lambda a,b: i.sort2(a,b)))</code></pre>
+    return sorted(rows or i.rows, key=cmp_to_key(lambda a,b: i.sort2(a,b)))
+  def stats(i,cols, fun=&#34;mid&#34;, decimals=2):
+    &#34;Report statistics on a set of `col`umns (defaults to `i.cols.y`.&#34;
+    def what(col): return col.mid(decimals) if fun==&#34;mid&#34; else col.div(decimals)
+    return dict(mid=BAG(N=cols[1].n, **{col.txt:what(col) for col in cols or i.cols.y}))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1039,6 +1033,21 @@ if __name__ == &#34;__main__&#34;:
   return sorted(rows or i.rows, key=cmp_to_key(lambda a,b: i.sort2(a,b)))</code></pre>
 </details>
 </dd>
+<dt id="fish.DATA.stats"><code class="name flex">
+<span>def <span class="ident">stats</span></span>(<span>i, cols, fun='mid', decimals=2)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Report statistics on a set of <code>col</code>umns (defaults to <code>i.cols.y</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stats(i,cols, fun=&#34;mid&#34;, decimals=2):
+  &#34;Report statistics on a set of `col`umns (defaults to `i.cols.y`.&#34;
+  def what(col): return col.mid(decimals) if fun==&#34;mid&#34; else col.div(decimals)
+  return dict(mid=BAG(N=cols[1].n, **{col.txt:what(col) for col in cols or i.cols.y}))</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 <dt id="fish.TREE"><code class="flex name class">
@@ -1082,29 +1091,28 @@ if __name__ == &#34;__main__&#34;:
       for row in rows:
         x = cell(row,col)
         if x !=  &#34;?&#34;:
-          if x not in d: d[x] = SYM()
+          d[x] = d[x].get(x, None) or SYM()
+          d[x].cut = x
           d[x].add(row.klass)
-      syms = sorted(d.values(), key=lambda s:s.div())
-      return syms[0].div(), col.at,&#34;==&#34;,col.txt
+      best = sorted(d.values(), key=lambda s:s.div())[0]
+      return best.div(), col.at,&#34;==&#34;,best.cut,col.txt
     #-----------
     def num(col):
       &#34;For nums, just return the cut that most reduces expected diversity.&#34;
-      eps   = col.div()*the.cohen
-      small = len(rows)**the.min
-      rows = [row for row in rows if row.at(col) != &#34;?&#34;]
-      rows = sorted(rows, key=lambda row: row.at(col))
-      lo,cut,left,right = col.div(),None,SYM(), SYM()
-      [right.add(y(row)) for row in rows]
-      for n,row in enumerate(rows):
-        x = row.at(col)
-        right.sub( row.klass )   # take from the right
-        left.add(  row.klass )   # give to the left
-        if left.n &gt; small and right.n &gt; small:
-          if x != rows[n+1].at(col):
-            if x - rows[0].at(col) &gt; eps and rows[-1].at(coL) - x &gt; eps:
-              xpect = (left.n*left.div() + right.n*right.div()) / (left.n+right.n)
-              if xpect &lt; lo:
-                cut,lo = x,xpect
+      X     = lambda row: cell(row,col)
+      eps   = div(col)*the.cohen
+      small = col.n**the.min
+      rows  = sorted([row for row in rows if X(row) != &#34;?&#34;], key=X)
+      d1,d2,a,z = SYM(), SYM(), X(rows[0]), X(rows[-1])
+      [d2.add(row.label) for row in rows]
+      n2,lo = len(rows),div(col)
+      for n1,row in enumerate(rows):
+        n2, x, y = n2-1, X(row), row.label
+        d2.sub( d1.add(y) )
+        if n1 &gt; small and n2 &gt; small and x != X(rows[n+1]) and x-a &gt; eps and z-x &gt; eps:
+          xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
+          if xpect &lt; lo:
+            cut,col.at = x,xpect
       return lo,col.at,&#34;&lt;=&#34;,cut,col.txt
     #------------------------------------
     return sorted([(i.num(col) if isa(col,NUM) else sym(col)) for col in cols])[0]
@@ -1157,29 +1165,28 @@ if __name__ == &#34;__main__&#34;:
     for row in rows:
       x = cell(row,col)
       if x !=  &#34;?&#34;:
-        if x not in d: d[x] = SYM()
+        d[x] = d[x].get(x, None) or SYM()
+        d[x].cut = x
         d[x].add(row.klass)
-    syms = sorted(d.values(), key=lambda s:s.div())
-    return syms[0].div(), col.at,&#34;==&#34;,col.txt
+    best = sorted(d.values(), key=lambda s:s.div())[0]
+    return best.div(), col.at,&#34;==&#34;,best.cut,col.txt
   #-----------
   def num(col):
     &#34;For nums, just return the cut that most reduces expected diversity.&#34;
-    eps   = col.div()*the.cohen
-    small = len(rows)**the.min
-    rows = [row for row in rows if row.at(col) != &#34;?&#34;]
-    rows = sorted(rows, key=lambda row: row.at(col))
-    lo,cut,left,right = col.div(),None,SYM(), SYM()
-    [right.add(y(row)) for row in rows]
-    for n,row in enumerate(rows):
-      x = row.at(col)
-      right.sub( row.klass )   # take from the right
-      left.add(  row.klass )   # give to the left
-      if left.n &gt; small and right.n &gt; small:
-        if x != rows[n+1].at(col):
-          if x - rows[0].at(col) &gt; eps and rows[-1].at(coL) - x &gt; eps:
-            xpect = (left.n*left.div() + right.n*right.div()) / (left.n+right.n)
-            if xpect &lt; lo:
-              cut,lo = x,xpect
+    X     = lambda row: cell(row,col)
+    eps   = div(col)*the.cohen
+    small = col.n**the.min
+    rows  = sorted([row for row in rows if X(row) != &#34;?&#34;], key=X)
+    d1,d2,a,z = SYM(), SYM(), X(rows[0]), X(rows[-1])
+    [d2.add(row.label) for row in rows]
+    n2,lo = len(rows),div(col)
+    for n1,row in enumerate(rows):
+      n2, x, y = n2-1, X(row), row.label
+      d2.sub( d1.add(y) )
+      if n1 &gt; small and n2 &gt; small and x != X(rows[n+1]) and x-a &gt; eps and z-x &gt; eps:
+        xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
+        if xpect &lt; lo:
+          cut,col.at = x,xpect
     return lo,col.at,&#34;&lt;=&#34;,cut,col.txt
   #------------------------------------
   return sorted([(i.num(col) if isa(col,NUM) else sym(col)) for col in cols])[0]</code></pre>
@@ -1222,6 +1229,64 @@ if __name__ == &#34;__main__&#34;:
 <ul class="hlist">
 <li>builtins.dict</li>
 </ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="fish.SETTINGS" href="#fish.SETTINGS">SETTINGS</a></li>
+</ul>
+</dd>
+<dt id="fish.SETTINGS"><code class="flex name class">
+<span>class <span class="ident">SETTINGS</span></span>
+<span>(</span><span>s)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Parse settings from string.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SETTINGS(BAG):
+  &#34;Parse settings from string.&#34;
+  def __init__(i,s):
+    for m in re.finditer(r&#34;\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)&#34;,s): i[m[1]] = coerce(m[2])
+  def cli(i):
+    &#34;&#34;&#34;For k,v in i, update `v` if there is a command-line flag `-k[0]` or `--k`. Note
+    that bookean values need no argument (since we will just negate `v`).&#34;&#34;&#34;
+    for k,v in i.items():
+      v = str(v)
+      for j,x in enumerate(sys.argv):
+        if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
+          v = &#34;True&#34; if v==&#34;False&#34; else (&#34;False&#34; if v==&#34;True&#34; else sys.argv[j+1])
+      i[k] = coerce(v)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="fish.BAG" href="#fish.BAG">BAG</a></li>
+<li>builtins.dict</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="fish.SETTINGS.cli"><code class="name flex">
+<span>def <span class="ident">cli</span></span>(<span>i)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>For k,v in i, update <code>v</code> if there is a command-line flag <code>-k[0]</code> or <code>--k</code>. Note
+that bookean values need no argument (since we will just negate <code>v</code>).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cli(i):
+  &#34;&#34;&#34;For k,v in i, update `v` if there is a command-line flag `-k[0]` or `--k`. Note
+  that bookean values need no argument (since we will just negate `v`).&#34;&#34;&#34;
+  for k,v in i.items():
+    v = str(v)
+    for j,x in enumerate(sys.argv):
+      if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
+        v = &#34;True&#34; if v==&#34;False&#34; else (&#34;False&#34; if v==&#34;True&#34; else sys.argv[j+1])
+    i[k] = coerce(v)</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="fish.Egs"><code class="flex name class">
 <span>class <span class="ident">Egs</span></span>
@@ -1281,7 +1346,7 @@ if __name__ == &#34;__main__&#34;:
 
   def Stats():
     &#34;test stats&#34;
-    print(stats([symEg(&#34;sym1&#34;),numEg(&#34;num1&#34;),numEg(&#34;num2&#34;),symEg(&#34;sym2&#34;)]))
+    print(COLS([symEg(&#34;sym1&#34;),numEg(&#34;num1&#34;),numEg(&#34;num2&#34;),symEg(&#34;sym2&#34;)]))
 
   def Rows():
     &#34;Check we can load rows from file.&#34;
@@ -1293,7 +1358,7 @@ if __name__ == &#34;__main__&#34;:
 
   def Data():
     &#34;Can we load data and get its stats?&#34;
-    rint(stats(DATA(rows(the.file)).cols.y))
+    DATA(rows(the.file)).stats()
 
   def Clone():
     &#34;Can we replicate a DATA&#39;s structure?&#34;
@@ -1435,7 +1500,7 @@ initial conditions.</p></div>
 </summary>
 <pre><code class="python">def Stats():
   &#34;test stats&#34;
-  print(stats([symEg(&#34;sym1&#34;),numEg(&#34;num1&#34;),numEg(&#34;num2&#34;),symEg(&#34;sym2&#34;)]))</code></pre>
+  print(COLS([symEg(&#34;sym1&#34;),numEg(&#34;num1&#34;),numEg(&#34;num2&#34;),symEg(&#34;sym2&#34;)]))</code></pre>
 </details>
 </dd>
 <dt id="fish.Egs.Rows"><code class="name flex">
@@ -1477,7 +1542,7 @@ initial conditions.</p></div>
 </summary>
 <pre><code class="python">def Data():
   &#34;Can we load data and get its stats?&#34;
-  rint(stats(DATA(rows(the.file)).cols.y))</code></pre>
+  DATA(rows(the.file)).stats()</code></pre>
 </details>
 </dd>
 <dt id="fish.Egs.Clone"><code class="name flex">
@@ -1552,11 +1617,10 @@ src="https://zenodo.org/badge/631627449.svg""></a><br> <hr>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
 <li><code><a title="fish.R" href="#fish.R">R</a></code></li>
-<li><code><a title="fish.cli" href="#fish.cli">cli</a></code></li>
 <li><code><a title="fish.coerce" href="#fish.coerce">coerce</a></code></li>
 <li><code><a title="fish.csv" href="#fish.csv">csv</a></code></li>
+<li><code><a title="fish.rnd" href="#fish.rnd">rnd</a></code></li>
 <li><code><a title="fish.rows" href="#fish.rows">rows</a></code></li>
-<li><code><a title="fish.stats" href="#fish.stats">stats</a></code></li>
 <li><code><a title="fish.yell" href="#fish.yell">yell</a></code></li>
 </ul>
 </li>
@@ -1608,6 +1672,7 @@ src="https://zenodo.org/badge/631627449.svg""></a><br> <hr>
 <li><code><a title="fish.DATA.clone" href="#fish.DATA.clone">clone</a></code></li>
 <li><code><a title="fish.DATA.sort2" href="#fish.DATA.sort2">sort2</a></code></li>
 <li><code><a title="fish.DATA.sorted" href="#fish.DATA.sorted">sorted</a></code></li>
+<li><code><a title="fish.DATA.stats" href="#fish.DATA.stats">stats</a></code></li>
 </ul>
 </li>
 <li>
@@ -1620,6 +1685,12 @@ src="https://zenodo.org/badge/631627449.svg""></a><br> <hr>
 </li>
 <li>
 <h4><code><a title="fish.BAG" href="#fish.BAG">BAG</a></code></h4>
+</li>
+<li>
+<h4><code><a title="fish.SETTINGS" href="#fish.SETTINGS">SETTINGS</a></code></h4>
+<ul class="">
+<li><code><a title="fish.SETTINGS.cli" href="#fish.SETTINGS.cli">cli</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="fish.Egs" href="#fish.Egs">Egs</a></code></h4>

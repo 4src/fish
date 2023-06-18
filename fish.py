@@ -1,10 +1,13 @@
 #!/usr/bin/env python3 -B
 #vim: set et sts=2 sw=2 ts=2 : 
 """
+  -h  --help    show help             = False  
 less: look around just a little, guess where to search.  
 (c) 2023 Tim Menzies <timm@ieee.org>, BSD-2  
 
-USAGE: ./less.py [OPTIONS]   
+USAGE: 
+  ./fish.py -f csvfile [OPTIONS]   
+  cat csvfile | ./fish.py [OPTIONS]
 
 OPTIONS:  
   -b  --bins    max number of bins    = 16  
@@ -14,6 +17,7 @@ OPTIONS:
   -h  --help    show help             = False  
   -l  --lazy    lazy mode             = False  
   -m  --min     min size              = .5  
+  -p  --p       distance coeffecient  = 2    
   -r  --rest    ratio best:rest       = 4  
   -s  --seed    random number seed    = 1234567891  
   -t  --top     explore top  ranges   = 8  
@@ -25,9 +29,8 @@ from termcolor import colored
 from functools import cmp_to_key
 from ast import literal_eval
 #---------------------------------------------
-#---------------------------------------------
 class pretty(object):
-  "Objects that support pretty print."
+  "Objects support pretty print, hiding privates slots (those starting with `_`)"
   def __repr__(i):
     return i.__class__.__name__+str({k:v for k,v in i.__dict__.items() if k[0] != "_"})
 #---------------------------------------------
@@ -87,7 +90,7 @@ class SYM(COL):
     "Return central tendency."
     return i.mode
   def sub(i,x):
-    "Decrement counts."
+    "Decrements counts."
     i.n -= 1
     i.counts[x] -= 1
     assert 0 <= i.counts[x]
@@ -132,7 +135,12 @@ class DATA(pretty):
   def sorted(i,rows=[]):
     "Sort all `rows`."
     return sorted(rows or i.rows, key=cmp_to_key(lambda a,b: i.sort2(a,b)))
-#---------------------------------------------
+  def stats(i,cols=None, fun="mid", decimals=2):
+    "Report statistics on a set of `col`umns (defaults to `i.cols.y`."
+    cols = cols or i.cols.y
+    def what(col): return col.mid(decimals) if fun=="mid" else col.div(decimals)
+    return dict(mid=BAG(N=cols[1].n, **{col.txt:what(col) for col in cols}))
+#---------------------------------------------
 # operators, used in trees
 ops = {">"  : lambda x,y: x=="?" and y=="?" or x>y,
        "<=" : lambda x,y: x=="?" and y=="?" or x<=y,
@@ -151,23 +159,24 @@ class TREE(object):
   "Recursively split on the cut (that most distinguishes different klasses)."
   def __init__(i,data):
     lst   = data.sorted()
-    n     = len(lst)**the.min
+    n     = int(len(lst)**the.min)
     bests = lst[-n:]
-    rests = random.sample(lst[:-n], the.rest * n)
+    rests = lst[:n*the.rest]
     for row in bests: row.klass = True
     for row in rests: row.klass = False
-    i.root =  grow(bests + rests, 2*(n**the.min), BAG(here=data, at=None))
+    i.data = data
+    i.root =  i.grow(bests + rests, 2*(n**the.min), BAG(here=data, at=None))
 
   def grow(i,rows, stop, t):
     t.left,t.right = None,None
     if len(rows) >= stop:
-      _,at,op,cut,s = i.cut(data,data.cols.x,rows)
+      _,at,op,cut,s = i.cut(i.data,i.data.cols.x,rows)
       if cut:
         left,right = [],[]
         [(left if ops[op](row.cells[at], cut) else right).append(row) for row in rows]
         if len(left) != len(rows) and len(right) != len(rows):
-          t.left = i.grow(left, stop, BAG(here=data.clone(left),  at=at,cut=cut,txt=s,op=op))
-          t.right= i.grow(right,stop, BAG(here=data.clone(right), at=at,cut=cut,txt=s,op=negate[op]))
+          t.left = i.grow(left, stop, BAG(here=i.data.clone(left),  at=at,cut=cut,txt=s,op=op))
+          t.right= i.grow(right,stop, BAG(here=i.data.clone(right), at=at,cut=cut,txt=s,op=negate[op]))
     return t
 
   def cut(i,data,cols,rows):
@@ -178,29 +187,28 @@ class TREE(object):
       for row in rows:
         x = cell(row,col)
         if x !=  "?":
-          if x not in d: d[x] = SYM()
+          d[x] = d[x].get(x, None) or SYM()
+          d[x].cut = x
           d[x].add(row.klass)
-      syms = sorted(d.values(), key=lambda s:s.div())
-      return syms[0].div(), col.at,"==",col.txt
+      best = sorted(d.values(), key=lambda s:s.div())[0]
+      return best.div(), col.at,"==",best.cut,col.txt
     #-----------
     def num(col):
       "For nums, just return the cut that most reduces expected diversity."
-      eps   = col.div()*the.cohen
-      small = len(rows)**the.min
-      rows = [row for row in rows if row.at(col) != "?"]
-      rows = sorted(rows, key=lambda row: row.at(col))
-      lo,cut,left,right = col.div(),None,SYM(), SYM()
-      [right.add(y(row)) for row in rows]
-      for n,row in enumerate(rows):
-        x = row.at(col)
-        right.sub( row.klass )   # take from the right
-        left.add(  row.klass )   # give to the left
-        if left.n > small and right.n > small:
-          if x != rows[n+1].at(col):
-            if x - rows[0].at(col) > eps and rows[-1].at(coL) - x > eps:
-              xpect = (left.n*left.div() + right.n*right.div()) / (left.n+right.n)
-              if xpect < lo:
-                cut,lo = x,xpect
+      X     = lambda row: cell(row,col)
+      eps   = div(col)*the.cohen
+      small = col.n**the.min
+      rows  = sorted([row for row in rows if X(row) != "?"], key=X)
+      d1,d2,a,z = SYM(), SYM(), X(rows[0]), X(rows[-1])
+      [d2.add(row.label) for row in rows]
+      n2,lo = len(rows),div(col)
+      for n1,row in enumerate(rows):
+        n2, x, y = n2-1, X(row), row.label
+        d2.sub( d1.add(y) )
+        if n1 > small and n2 > small and x != X(rows[n+1]) and x-a > eps and z-x > eps:
+          xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
+          if xpect < lo:
+            cut,col.at = x,xpect
       return lo,col.at,"<=",cut,col.txt
     #------------------------------------
     return sorted([(i.num(col) if isa(col,NUM) else sym(col)) for col in cols])[0]
@@ -211,7 +219,7 @@ class TREE(object):
       pre= f"if {t.txt} {t.op.__doc__} {t.val}" if t.left or t.right else ""
       showTree(t.left,  lvl+"|.. ", pre)
       showTree(t.right, lvl+"|.. ", "else")
-#---------------------------------------------
+#---------------------------------------------
 R   = random.random      # short cut to random number generator
 isa = isinstance         # short cut for checking types
 
@@ -222,15 +230,19 @@ class BAG(dict):
   "Dictionaries that can be accessed via `x[\"slot\"]` or `x.slot`."
   __getattr__ = dict.get
 
-def cli(bag):
-  "Update value in `bag` for slpt `x` if there is a command-line flag `-x`."
-  for k,v in bag.items():
-    v = str(v)
-    for i,x in enumerate(sys.argv):
-      if ("-"+k[0]) == x or ("--"+k) == x:
-        v = "True" if v=="False" else ("False" if v=="True" else sys.argv[i+1])
-        bag[k]= coerce(v)
-  return bag
+class SETTINGS(BAG):
+  "Parse settings from string."
+  def __init__(i,s):
+    for m in re.finditer(r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)",s): i[m[1]] = coerce(m[2])
+  def cli(i):
+    """For k,v in i, update `v` if there is a command-line flag `-k[0]` or `--k`. Note
+    that bookean values need no argument (since we will just negate `v`)."""
+    for k,v in i.items():
+      v = str(v)
+      for j,x in enumerate(sys.argv):
+        if ("-"+k[0]) == x or ("--"+k) == x:
+          v = "True" if v=="False" else ("False" if v=="True" else sys.argv[j+1])
+      i[k] = coerce(v)
 
 def coerce(x):
   try: return literal_eval(x)
@@ -238,20 +250,19 @@ def coerce(x):
 
 def csv(file, filter=lambda x:x):
   "Returns an iterator that returns lists from standard input (-) or a file."
+  if file=="-": file=None
   with file_or_stdin(file) as src:
     for line in src:
       line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
       if line:
         yield filter([coerce(s.strip()) for s in line.split(",")])
 
+def rnd(x,decimals=2):
+  return x if x==None else round(x,decimals)
+
 def rows(file):
   "Returns an iterator that returns ROWS"
   return csv(file, ROW)
-
-def stats(cols, fun="mid", decimals=2):
-  "Report statistics on a set of `col`umns."
-  def what(col): return (col.mid if fun=="mid" else col.div)(decimals)
-  return dict(mid=BAG(N=cols[1].n, **{col.txt:what(col) for col in cols}))
 
 def yell(s,c):
   "Print string `s`, colored by `c`."
@@ -304,13 +315,10 @@ class Egs:
     [s.add(x) for x in "aaaabbc"]
     return "a"==s.mid() and 1.37 <= s.div() < 1.38 and s
 
-  def Stats():
-    "test stats"
-    print(stats([symEg("sym1"),numEg("num1"),numEg("num2"),symEg("sym2")]))
-
   def Rows():
     "Check we can load rows from file."
-    for row in list(rows(the.file))[:5]: print(row)
+    print(the.file)
+    for row in list(rows(the.file))[:5]: print(row) #[:5]: print(row)
 
   def Col():
     "Check we can convert names to NUMs and SYMs."
@@ -318,30 +326,34 @@ class Egs:
 
   def Data():
     "Can we load data and get its stats?"
-    rint(stats(DATA(rows(the.file)).cols.y))
+    DATA(rows(the.file)).stats()
 
   def Clone():
     "Can we replicate a DATA's structure?"
     d1 = DATA(rows(the.file))
     d2= d1.clone(d1.rows)
-    print(d2.cols.y)
+    print(d1.cols.y[1])
+    print(d2.cols.y[1])
 
   def Sorts():
     "Can we sort rows into `best` and `rest`?"
     d = DATA(rows(the.file))
-    lst = d.sorts()
+    lst = d.sorted()
     m   = int(len(lst)**.5)
-    best= d.clone(lst[-m:]); print("best",stats(best.cols.y))
-    rest= d.clone(lst[:-m]);  print("rest",stats(rest.cols.y))
+    best= d.clone(lst[-m:]);         print("all ",d.stats())
+    best= d.clone(lst[-m:]);         print("best",best.stats())
+    rest= d.clone(lst[:m*the.rest]); print("rest",rest.stats())
 
+  def Tree():
+    TREE(DATA(rows(the.file)))
 #---------------------------------------------
-the = BAG(**{m[1]:literal_eval(m[2])
-             for m in re.finditer(r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)",__doc__)})
-"""Config options, parsed from `__doc__`"""
 
+
+the = SETTINGS(__doc__)
+"""Config options, parsed from `__doc__`"""
 random.seed(the.seed)    # set random number seed
 
 if __name__ == "__main__":
-  the= cli(the)
+  the.cli()
   if the.help: print(__doc__)
   elif the.go in Egs.all: Egs.all[the.go]()
