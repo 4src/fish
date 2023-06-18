@@ -1,19 +1,19 @@
 #!/usr/bin/env python3 -B
 #vim: set et sts=2 sw=2 ts=2 : 
 """
-  -h  --help    show help             = False  
-less: look around just a little, guess where to search.  
-(c) 2023 Tim Menzies <timm@ieee.org>, BSD-2  
+SYNOPSIS:   
+  less: look around just a little, guess where to search.  
+  (c) 2023 Tim Menzies <timm@ieee.org>, BSD-2  
 
 USAGE: 
-  ./fish.py -f csvfile [OPTIONS]   
-  cat csvfile | ./fish.py [OPTIONS]
+  ./fish.py -f csvfile [OPTIONS] [ -g ACTION ]   
+  cat csvfile | ./fish.py [OPTIONS] [ -g ACTION ]    
 
 OPTIONS:  
   -b  --bins    max number of bins    = 16  
   -c  --cohen   size significant separation = .35  
-  -f  --file    data csv file         = "../data/auto93.csv"  
-  -g  --go      start-up action       = "nothing"
+  -f  --file    data csv file         = ../data/auto93.csv  
+  -g  --go      start-up action       = nothing
   -h  --help    show help             = False  
   -l  --lazy    lazy mode             = False  
   -m  --min     min size              = .5  
@@ -21,7 +21,7 @@ OPTIONS:
   -r  --rest    ratio best:rest       = 4  
   -s  --seed    random number seed    = 1234567891  
   -t  --top     explore top  ranges   = 8  
-  -w  --want    goal                  = "mitigate"  
+  -w  --want    goal                  = mitigate  
 """
 from fileinput import FileInput as file_or_stdin
 import traceback,random,math,sys,re
@@ -48,6 +48,15 @@ class COL(pretty):
       i.n += 1
       i.add1(x)
     return x
+  def dist(i,x,y):
+    "distance between two values"
+    return 1 if x=="?" and y=="?" else i.dist1(x,y)
+  def sub(i,x):
+    "Ignoring empty cells, decrement `n` then do the sub-trcting."
+    if x != "?":
+      i.n -= 1
+      i.sub1(x)
+    return x
 #---------------------------------------------
 class NUM(COL):
   "Summarize stream of numbers. Knows the mean and standard deviation."
@@ -63,6 +72,12 @@ class NUM(COL):
     delta = x - i.mu
     i.mu += delta/i.n
     i.m2 += delta*(x - i.mu)
+  def dist1(i,x,y):
+    "distance between two values"
+    if   x=="?": y = i.norm(y); x= 0 if y > .5 else 1
+    elif y=="?": x = i.norm(x); y= 0 if x > .5 else 1
+    else: x,y = i.norm(x), i.norm(y)
+    return abs(x - y)
   def div(i, decimals=None):
     "Return diversity around the central tendency."
     return rnd((i.m2/(i.n - 1))**.5 if i.m2>0 and i.n > 1 else 0, decimals)
@@ -72,6 +87,14 @@ class NUM(COL):
   def norm(i,x):
     "May `x` to 0..1 for `lo` to `hi`."
     return x if x=="?" else  (x-i.lo)/(i.hi - i.lo + 1/big)
+  def sub1(i,x):
+    "decrement count"
+    if i.n <= 1:
+       i.n, i.mu, i.m2 = 0, 0, 0
+    else:
+      d = x - i.mu
+      i.mu -= d / i.n
+      i.m2 -= d * (x - i.mu)
 #---------------------------------------------
 class SYM(COL):
   "Summary a stream of symbols. Knows mode and entropy."
@@ -82,6 +105,9 @@ class SYM(COL):
     "Increment counts and mode."
     now = i.counts[x] = 1 + i.counts.get(x,0)
     if now > i.most: i.most, i.mode = now, x
+  def dist1(i,x,y):
+    "distance between two values"
+    return 0 if x==y else 1
   def div(i, decimals=None):
     "Return diversity around the central tendency."
     a = i.counts
@@ -89,12 +115,10 @@ class SYM(COL):
   def mid(i,decimals=None):
     "Return central tendency."
     return i.mode
-  def sub(i,x):
+  def sub1(i,x):
     "Decrements counts."
-    i.n -= 1
     i.counts[x] -= 1
     assert 0 <= i.counts[x]
-    return x
 #---------------------------------------------
 class COLS(pretty):
   "Convert a list of names into NUMs and SYMs (kept different binds of cols in different lists)."
@@ -124,6 +148,10 @@ class DATA(pretty):
   def clone(i,rows=[]):
     "Replicate structure of self."
     return DATA([ROW(i.cols.names)] + rows)
+  def dist(i,row1,row2):
+    "distance between two values"
+    return (sum(c.dist(row1.cells[c.at], row2.cells[c.at]) for c in i.cs.x)**the.p
+           / len(i.cols.x))**(1/the.p)
   def sort2(i,row1,row2):
     "Return True if `row1` better than `row2`."
     s1, s2, n = 0, 0, len(i.cols.y)
@@ -139,7 +167,7 @@ class DATA(pretty):
     "Report statistics on a set of `col`umns (defaults to `i.cols.y`."
     cols = cols or i.cols.y
     def what(col): return col.mid(decimals) if fun=="mid" else col.div(decimals)
-    return dict(mid=BAG(N=cols[1].n, **{col.txt:what(col) for col in cols}))
+    return dict(mid=BAG(**{"N+":cols[0].n, **{col.txt:what(col) for col in cols}}))
 #---------------------------------------------
 # operators, used in trees
 ops = {">"  : lambda x,y: x=="?" and y=="?" or x>y,
@@ -148,10 +176,10 @@ ops = {">"  : lambda x,y: x=="?" and y=="?" or x>y,
        "!=" : lambda x,y: x=="?" and y=="?" or x!=y}
 """Operators used in decision tree."""
 
-negate = { ">"  :  "<=",
-           "<=" :  ">",
-           "==" :  "!=",
-           "!=" :  "==" }
+neg = { ">"  :  "<=",
+        "<=" :  ">",
+        "==" :  "!=",
+        "!=" :  "==" }
 """Negation of operators."""
 #---------------------------------------------
 # tree generation
@@ -165,19 +193,20 @@ class TREE(object):
     for row in bests: row.klass = True
     for row in rests: row.klass = False
     i.data = data
-    i.root =  i.grow(bests + rests, 2*(n**the.min), BAG(here=data, at=None))
+    top = i.data.clone(bests+rests)
+    i.stop = 2*len(top.rows)**the.min
+    i.root = i.grow(top.rows,  BAG(here=top,at=None))
 
-  def grow(i,rows, stop, t):
+  def grow(i,rows, t):
     t.left,t.right = None,None
-    if len(rows) >= stop:
+    if len(rows) >= i.stop:
       _,at,op,cut,s = i.cut(i.data, i.data.cols.x, rows)
       if cut:
         left,right = [],[]
-        print(BAG(at=at,op=op,cut=cut,s=s))
         [(left if ops[op](row.cells[at], cut) else right).append(row) for row in rows]
         if len(left) != len(rows) and len(right) != len(rows):
-          t.left = i.grow(left, stop, BAG(here=i.data.clone(left),  at=at,cut=cut,txt=s,op=op))
-          t.right= i.grow(right,stop, BAG(here=i.data.clone(right), at=at,cut=cut,txt=s,op=negate[op]))
+          t.left = i.grow(left,  BAG(here=i.data.clone(left),  at=at,cut=cut,txt=s,op=op))
+          t.right= i.grow(right, BAG(here=i.data.clone(right), at=at,cut=cut,txt=s,op=neg[op]))
     return t
 
   def cut(i,data,cols,rows):
@@ -192,7 +221,7 @@ class TREE(object):
           d[x].cut = x
           d[x].add(row.klass)
       best = sorted(d.values(), key=lambda s:s.div())[0]
-      return best.div(), col.at,"==",best.cut,col.txt
+      return best.div(), col.at,"==",best.cut if best.n < col.n else None,col.txt
     #-----------
     def num(col):
       "For nums, just return the cut that most reduces expected diversity."
@@ -202,26 +231,31 @@ class TREE(object):
       all   = sorted([row for row in rows if X(row) != "?"], key=X)
       d1,d2,a,z = SYM(), SYM(), X(all[0]), X(all[-1])
       [d2.add(row.klass) for row in all]
-      cut,n2,lo = None,len(all),col.div()
-      if lo > 0 :
-        for n1,row in enumerate(all):
-          n2, x, y = n2-1, X(row), row.klass
-          d2.sub( d1.add(y) )
-          if n1 > small and n2 > small and x != X(all[n1+1]) and x-a > eps and z-x > eps:
-            xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
-            if xpect < lo:
-              cut,lo = x,xpect
+      cut,n2,lo = None,len(all),d2.div()
+      for n1,row in enumerate(all):
+        n2, x, y = n2-1, X(row), row.klass
+        d2.sub( d1.add(y) )
+        if n1 > small and n2 > small and x != X(all[n1+1]) and x-a > eps and z-x > eps:
+          xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
+          if xpect < lo:
+            cut,lo = x,xpect
       return lo,col.at,"<=",cut,col.txt
     #------------------------------------
     return sorted([(num(col) if isa(col,NUM) else sym(col)) for col in cols])[0]
-
-  def showTree(i,t, lvl="",above=None):
+ 
+  def show(i): 
+    print(""); 
+    print(i.root.here.stats())
+    i.show1(i.root); print("")
+  def show1(i,t=None, lvl=""):
     if t:
-      meta = "" if t.at==None else t.here.stats()
-      ie print(lvl + b4,str(len(t.here.rows)))
-      pre= f"if {t.txt} {t.op.__doc__} {t.val}" if t.left or t.right else ""
-      showTree(t.left,  lvl+"|.. ", pre)
-      showTree(t.right, lvl+"|.. ", "else")
+      print("\n"+lvl+ f"{t.txt} {t.op} {t.cut} ")
+      if t.left:
+        i.show1(t.left,  lvl + "|.. ")
+        i.show1(t.right, lvl + "|.. ")
+      elif t.at:
+        print(t.here.stats(),end="")
+
 #---------------------------------------------
 R   = random.random      # short cut to random number generator
 isa = isinstance         # short cut for checking types
@@ -246,6 +280,11 @@ class SETTINGS(BAG):
         if ("-"+k[0]) == x or ("--"+k) == x:
           v = "True" if v=="False" else ("False" if v=="True" else sys.argv[j+1])
       i[k] = coerce(v)
+  def showHelp(i,s):
+    "pretty print help string"
+    def bold(m):   return colored(m[0], attrs=["bold"])
+    def bright(m): return colored(m[0], "light_yellow")
+    print(re.sub("\n[A-Z][A-Z]+:", bold, re.sub(" [-][-]?[\S]+", bright, s)))
 
 def coerce(x):
   try: return literal_eval(x)
@@ -260,8 +299,8 @@ def csv(file, filter=lambda x:x):
       if line:
         yield filter([coerce(s.strip()) for s in line.split(",")])
 
-def rnd(x,decimals=2):
-  return x if x==None else round(x,decimals)
+def rnd(x,decimals=None):
+  return x if decimals==None else round(x,decimals)
 
 def rows(file):
   "Returns an iterator that returns ROWS"
@@ -348,9 +387,24 @@ class Egs:
     rest= d.clone(lst[:m*the.rest]); print("rest",rest.stats())
 
   def Tree():
-    d=DATA(rows(the.file))
-    TREE(d)
-    print(d.cols.names)
+    TREE( DATA(rows(the.file)) ).show()
+
+  def Trees():
+    for f in [ "pom.csv",
+                 "nasa93dem.csv",
+                 "healthCloseIsses12mths0011-easy.csv",
+                 "healthCloseIsses12mths0001-hard.csv",
+                 "coc10000.csv",
+                 "coc1000.csv",
+                 "china.csv",
+                 "auto93.csv",
+                 "auto2.csv",
+                 "SSN.csv",
+                "SSM.csv"]:  
+      print(f)
+      TREE( DATA(rows(f"../data/{f}")) ).show()
+
+
 #---------------------------------------------
 
 
@@ -360,5 +414,5 @@ random.seed(the.seed)    # set random number seed
 
 if __name__ == "__main__":
   the.cli()
-  if the.help: print(__doc__)
+  if the.help: the.showHelp(__doc__)
   elif the.go in Egs.all: Egs.all[the.go]()
