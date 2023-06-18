@@ -170,9 +170,10 @@ class TREE(object):
   def grow(i,rows, stop, t):
     t.left,t.right = None,None
     if len(rows) >= stop:
-      _,at,op,cut,s = i.cut(i.data,i.data.cols.x,rows)
+      _,at,op,cut,s = i.cut(i.data, i.data.cols.x, rows)
       if cut:
         left,right = [],[]
+        print(BAG(at=at,op=op,cut=cut,s=s))
         [(left if ops[op](row.cells[at], cut) else right).append(row) for row in rows]
         if len(left) != len(rows) and len(right) != len(rows):
           t.left = i.grow(left, stop, BAG(here=i.data.clone(left),  at=at,cut=cut,txt=s,op=op))
@@ -185,9 +186,9 @@ class TREE(object):
       "For syms, just return the one with least diversity of klasses."
       d = {}
       for row in rows:
-        x = cell(row,col)
+        x = row.at(col)
         if x !=  "?":
-          d[x] = d[x].get(x, None) or SYM()
+          d[x] = d.get(x, None) or SYM()
           d[x].cut = x
           d[x].add(row.klass)
       best = sorted(d.values(), key=lambda s:s.div())[0]
@@ -195,27 +196,29 @@ class TREE(object):
     #-----------
     def num(col):
       "For nums, just return the cut that most reduces expected diversity."
-      X     = lambda row: cell(row,col)
-      eps   = div(col)*the.cohen
-      small = col.n**the.min
-      rows  = sorted([row for row in rows if X(row) != "?"], key=X)
-      d1,d2,a,z = SYM(), SYM(), X(rows[0]), X(rows[-1])
-      [d2.add(row.label) for row in rows]
-      n2,lo = len(rows),div(col)
-      for n1,row in enumerate(rows):
-        n2, x, y = n2-1, X(row), row.label
-        d2.sub( d1.add(y) )
-        if n1 > small and n2 > small and x != X(rows[n+1]) and x-a > eps and z-x > eps:
-          xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
-          if xpect < lo:
-            cut,col.at = x,xpect
+      X     = lambda row: row.at(col)
+      eps   = col.div()*the.cohen
+      small = len(rows)**the.min
+      all   = sorted([row for row in rows if X(row) != "?"], key=X)
+      d1,d2,a,z = SYM(), SYM(), X(all[0]), X(all[-1])
+      [d2.add(row.klass) for row in all]
+      cut,n2,lo = None,len(all),col.div()
+      if lo > 0 :
+        for n1,row in enumerate(all):
+          n2, x, y = n2-1, X(row), row.klass
+          d2.sub( d1.add(y) )
+          if n1 > small and n2 > small and x != X(all[n1+1]) and x-a > eps and z-x > eps:
+            xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
+            if xpect < lo:
+              cut,lo = x,xpect
       return lo,col.at,"<=",cut,col.txt
     #------------------------------------
-    return sorted([(i.num(col) if isa(col,NUM) else sym(col)) for col in cols])[0]
+    return sorted([(num(col) if isa(col,NUM) else sym(col)) for col in cols])[0]
 
   def showTree(i,t, lvl="",above=None):
     if t:
-      print(lvl + b4,str(len(t.here.rows)))
+      meta = "" if t.at==None else t.here.stats()
+      ie print(lvl + b4,str(len(t.here.rows)))
       pre= f"if {t.txt} {t.op.__doc__} {t.val}" if t.left or t.right else ""
       showTree(t.left,  lvl+"|.. ", pre)
       showTree(t.right, lvl+"|.. ", "else")
@@ -345,7 +348,9 @@ class Egs:
     rest= d.clone(lst[:m*the.rest]); print("rest",rest.stats())
 
   def Tree():
-    TREE(DATA(rows(the.file)))
+    d=DATA(rows(the.file))
+    TREE(d)
+    print(d.cols.names)
 #---------------------------------------------
 
 
