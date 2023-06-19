@@ -289,8 +289,8 @@ class SETTINGS(BAG):
     def bright(m): return colored(m[0], "light_yellow")
     def pretty(s): return re.sub("\n[A-Z][A-Z]+:", bold, re.sub(" [-][-]?[\S]+", bright, s))
     print(pretty(s))
-    print(pretty("\nACTION:"))
-    [print(pretty(f"  -g  {k:9} {f.__doc__}")) for k,f in Egs.all.items() if k[0].isupper()]
+    print(pretty("\nACTIONS:"))
+    [print(pretty(f"  -g   {k:8} {f.__doc__}")) for k,f in Egs.all.items() if k[0].isupper()]
 
 def coerce(x):
   try: return literal_eval(x)
@@ -330,7 +330,7 @@ class Egs:
          "auto93.csv",
          "auto2.csv",
          "SSN.csv",
-         "SSM.csv"]:  
+         "SSM.csv"]
 
   def ok():
     "Run everything (except ok,h). Return how often something fails."
@@ -417,7 +417,7 @@ class Egs:
   def Trees():
     "Test all tree generation of all csv files."
     for f in Egs.csv:
-               print("\n\n-----------",f)
+      print("\n\n-----------",f)
       TREE( DATA(rows(f"../data/{f}")) ).show()
 
 #---------------------------------------------
