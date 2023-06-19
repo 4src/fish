@@ -167,7 +167,7 @@ class DATA(pretty):
     "Report statistics on a set of `col`umns (defaults to `i.cols.y`."
     cols = cols or i.cols.y
     def what(col): return col.mid(decimals) if fun=="mid" else col.div(decimals)
-    return dict(mid=BAG(**{"N+":cols[0].n, **{col.txt:what(col) for col in cols}}))
+    return BAG(mid=BAG(**{"N+":cols[0].n, **{col.txt:what(col) for col in cols}}))
 #---------------------------------------------
 # operators, used in trees
 ops = {">"  : lambda x,y: x=="?" and y=="?" or x>y,
@@ -205,8 +205,8 @@ class TREE(object):
         left,right = [],[]
         [(left if ops[op](row.cells[at], cut) else right).append(row) for row in rows]
         if len(left) != len(rows) and len(right) != len(rows):
-          t.left = i.grow(left,  BAG(here=i.data.clone(left),  at=at,cut=cut,txt=s,op=op))
-          t.right= i.grow(right, BAG(here=i.data.clone(right), at=at,cut=cut,txt=s,op=neg[op]))
+          t.left = i.grow(left,  BAG(here=i.data.clone(left), at=at,cut=cut,txt=s,op=op))
+          t.right= i.grow(right, BAG(here=i.data.clone(right),at=at,cut=cut,txt=s,op=neg[op]))
     return t
 
   def cut(i,data,cols,rows):
@@ -242,19 +242,23 @@ class TREE(object):
       return lo,col.at,"<=",cut,col.txt
     #------------------------------------
     return sorted([(num(col) if isa(col,NUM) else sym(col)) for col in cols])[0]
- 
-  def show(i): 
-    print(""); 
-    print(i.root.here.stats())
-    i.show1(i.root); print("")
-  def show1(i,t=None, lvl=""):
-    if t:
-      print("\n"+lvl+ f"{t.txt} {t.op} {t.cut} ")
-      if t.left:
-        i.show1(t.left,  lvl + "|.. ")
-        i.show1(t.right, lvl + "|.. ")
-      elif t.at:
-        print(t.here.stats(),end="")
+
+  def show(i):
+    for lvl,t,isLeaf in i.nodes():
+      if lvl==0:
+        print("")
+        print(t.here.stats().mid,end="")
+      else:
+        print("\n"+("|.. " * lvl)+ f"{t.txt} {t.op} {t.cut} ",end="")
+        if isLeaf:  print(t.here.stats().mid,end="")
+    print("")
+
+  def nodes(i,t=None,lvl=0):
+    t = t or i.root
+    yield lvl,t,t.left==None
+    for t1 in [t.left,t.right]:
+      if t1:
+        for lvl2,t2,isLeaf in i.nodes(t1,lvl+1): yield lvl2,t2, isLeaf
 
 #---------------------------------------------
 R   = random.random      # short cut to random number generator
@@ -386,6 +390,11 @@ class Egs:
     best= d.clone(lst[-m:]);         print("best",best.stats())
     rest= d.clone(lst[:m*the.rest]); print("rest",rest.stats())
 
+  def Nodes():
+    t1 = TREE(DATA(rows(the.file)))
+    for lvl,t2,isLeaf in t1.nodes():
+        print("|.. " * lvl,isLeaf)
+
   def Tree():
     TREE( DATA(rows(the.file)) ).show()
 
@@ -401,9 +410,8 @@ class Egs:
                  "auto2.csv",
                  "SSN.csv",
                 "SSM.csv"]:  
-      print(f)
+      print("\n\n-----------",f)
       TREE( DATA(rows(f"../data/{f}")) ).show()
-
 
 #---------------------------------------------
 
