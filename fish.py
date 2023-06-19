@@ -5,7 +5,7 @@ SYNOPSIS:
   less: look around just a little, guess where to search.  
   (c) 2023 Tim Menzies <timm@ieee.org>, BSD-2  
 
-USAGE: 
+USAGE:    
   ./fish.py -f csvfile [OPTIONS] [ -g ACTION ]   
   cat csvfile | ./fish.py [OPTIONS] [ -g ACTION ]    
 
@@ -13,7 +13,7 @@ OPTIONS:
   -b  --bins    max number of bins    = 16  
   -c  --cohen   size significant separation = .35  
   -f  --file    data csv file         = ../data/auto93.csv  
-  -g  --go      start-up action       = nothing
+  -g  --go      start-up action       = nothing    
   -h  --help    show help             = False  
   -l  --lazy    lazy mode             = False  
   -m  --min     min size              = .5  
@@ -21,8 +21,7 @@ OPTIONS:
   -r  --rest    ratio best:rest       = 4  
   -s  --seed    random number seed    = 1234567891  
   -t  --top     explore top  ranges   = 8  
-  -w  --want    goal                  = mitigate  
-"""
+  -w  --want    goal                  = mitigate"""
 from fileinput import FileInput as file_or_stdin
 import traceback,random,math,sys,re
 from termcolor import colored
@@ -288,7 +287,10 @@ class SETTINGS(BAG):
     "pretty print help string"
     def bold(m):   return colored(m[0], attrs=["bold"])
     def bright(m): return colored(m[0], "light_yellow")
-    print(re.sub("\n[A-Z][A-Z]+:", bold, re.sub(" [-][-]?[\S]+", bright, s)))
+    def pretty(s): return re.sub("\n[A-Z][A-Z]+:", bold, re.sub(" [-][-]?[\S]+", bright, s))
+    print(pretty(s))
+    print(pretty("\nACTION:"))
+    [print(pretty(f"  -g  {k:9} {f.__doc__}")) for k,f in Egs.all.items() if k[0].isupper()]
 
 def coerce(x):
   try: return literal_eval(x)
@@ -317,6 +319,18 @@ def yell(s,c):
 class Egs:
   "Place to store the examples."
   all = locals()
+
+  csv = [ "pom.csv",
+         "nasa93dem.csv",
+         "healthCloseIsses12mths0011-easy.csv",
+         "healthCloseIsses12mths0001-hard.csv",
+         "coc10000.csv",
+         "coc1000.csv",
+         "china.csv",
+         "auto93.csv",
+         "auto2.csv",
+         "SSN.csv",
+         "SSM.csv"]:  
 
   def ok():
     "Run everything (except ok,h). Return how often something fails."
@@ -391,26 +405,19 @@ class Egs:
     rest= d.clone(lst[:m*the.rest]); print("rest",rest.stats())
 
   def Nodes():
+    "Does the TREE iterator work?"
     t1 = TREE(DATA(rows(the.file)))
     for lvl,t2,isLeaf in t1.nodes():
         print("|.. " * lvl,isLeaf)
 
   def Tree():
+    "Does the TREE pretty print work?"
     TREE( DATA(rows(the.file)) ).show()
 
   def Trees():
-    for f in [ "pom.csv",
-                 "nasa93dem.csv",
-                 "healthCloseIsses12mths0011-easy.csv",
-                 "healthCloseIsses12mths0001-hard.csv",
-                 "coc10000.csv",
-                 "coc1000.csv",
-                 "china.csv",
-                 "auto93.csv",
-                 "auto2.csv",
-                 "SSN.csv",
-                "SSM.csv"]:  
-      print("\n\n-----------",f)
+    "Test all tree generation of all csv files."
+    for f in Egs.csv:
+               print("\n\n-----------",f)
       TREE( DATA(rows(f"../data/{f}")) ).show()
 
 #---------------------------------------------
