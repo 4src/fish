@@ -29,6 +29,7 @@ less: look around just a little, guess where to search.<br>
 (c) 2023 Tim Menzies <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#116;&#105;&#109;&#109;&#64;&#105;&#101;&#101;&#101;&#46;&#111;&#114;&#103;">&#116;&#105;&#109;&#109;&#64;&#105;&#101;&#101;&#101;&#46;&#111;&#114;&#103;</a>, BSD-2
 </p>
 <p>USAGE:
+<br>
 ./fish.py -f csvfile [OPTIONS] [ -g ACTION ] <br>
 cat csvfile | ./fish.py [OPTIONS] [ -g ACTION ]
 </p>
@@ -48,6 +49,7 @@ data csv file
 &ndash;go
 start-up action
 = nothing
+<br>
 -h
 &ndash;help
 show help
@@ -93,7 +95,7 @@ SYNOPSIS:
   less: look around just a little, guess where to search.  
   (c) 2023 Tim Menzies &lt;timm@ieee.org&gt;, BSD-2  
 
-USAGE: 
+USAGE:    
   ./fish.py -f csvfile [OPTIONS] [ -g ACTION ]   
   cat csvfile | ./fish.py [OPTIONS] [ -g ACTION ]    
 
@@ -101,7 +103,7 @@ OPTIONS:
   -b  --bins    max number of bins    = 16  
   -c  --cohen   size significant separation = .35  
   -f  --file    data csv file         = ../data/auto93.csv  
-  -g  --go      start-up action       = nothing
+  -g  --go      start-up action       = nothing    
   -h  --help    show help             = False  
   -l  --lazy    lazy mode             = False  
   -m  --min     min size              = .5  
@@ -109,8 +111,7 @@ OPTIONS:
   -r  --rest    ratio best:rest       = 4  
   -s  --seed    random number seed    = 1234567891  
   -t  --top     explore top  ranges   = 8  
-  -w  --want    goal                  = mitigate  
-&#34;&#34;&#34;
+  -w  --want    goal                  = mitigate&#34;&#34;&#34;
 from fileinput import FileInput as file_or_stdin
 import traceback,random,math,sys,re
 from termcolor import colored
@@ -255,13 +256,13 @@ class DATA(pretty):
     &#34;Report statistics on a set of `col`umns (defaults to `i.cols.y`.&#34;
     cols = cols or i.cols.y
     def what(col): return col.mid(decimals) if fun==&#34;mid&#34; else col.div(decimals)
-    return dict(mid=BAG(N=cols[1].n, **{col.txt:what(col) for col in cols}))
+    return BAG(mid=BAG(**{&#34;N+&#34;:cols[0].n, **{col.txt:what(col) for col in cols}}))
 #---------------------------------------------
 # operators, used in trees
-ops = {&#34;&gt;&#34;  : lambda x,y: x==&#34;?&#34; and y==&#34;?&#34; or x&gt;y,
-       &#34;&lt;=&#34; : lambda x,y: x==&#34;?&#34; and y==&#34;?&#34; or x&lt;=y,
-       &#34;==&#34; : lambda x,y: x==&#34;?&#34; and y==&#34;?&#34; or x==y,
-       &#34;!=&#34; : lambda x,y: x==&#34;?&#34; and y==&#34;?&#34; or x!=y}
+ops = {&#34;&gt;&#34;  : lambda x,y: x==&#34;?&#34; or y==&#34;?&#34; or x&gt;y,
+       &#34;&lt;=&#34; : lambda x,y: x==&#34;?&#34; or y==&#34;?&#34; or x&lt;=y,
+       &#34;==&#34; : lambda x,y: x==&#34;?&#34; or y==&#34;?&#34; or x==y,
+       &#34;!=&#34; : lambda x,y: x==&#34;?&#34; or y==&#34;?&#34; or x!=y}
 &#34;&#34;&#34;Operators used in decision tree.&#34;&#34;&#34;
 
 neg = { &#34;&gt;&#34;  :  &#34;&lt;=&#34;,
@@ -281,18 +282,20 @@ class TREE(object):
     for row in bests: row.klass = True
     for row in rests: row.klass = False
     i.data = data
-    i.root =  i.grow(bests + rests, 2*(n**the.min), BAG(here=data, at=None))
+    top = i.data.clone(bests+rests)
+    i.stop = 2*len(top.rows)**the.min
+    i.root = i.grow(top.rows,  BAG(here=top,at=None))
 
-  def grow(i,rows, stop, t):
+  def grow(i,rows, t):
     t.left,t.right = None,None
-    if len(rows) &gt;= stop:
+    if len(rows) &gt;= i.stop:
       _,at,op,cut,s = i.cut(i.data, i.data.cols.x, rows)
       if cut:
         left,right = [],[]
         [(left if ops[op](row.cells[at], cut) else right).append(row) for row in rows]
         if len(left) != len(rows) and len(right) != len(rows):
-          t.left = i.grow(left, stop,BAG(here=i.data.clone(left), at=at,cut=cut,txt=s,op=op))
-          t.right= i.grow(right,stop,BAG(here=i.data.clone(right),at=at,cut=cut,txt=s,op=neg[op]))
+          t.left = i.grow(left,  BAG(here=i.data.clone(left), at=at,cut=cut,txt=s,op=op))
+          t.right= i.grow(right, BAG(here=i.data.clone(right),at=at,cut=cut,txt=s,op=neg[op]))
     return t
 
   def cut(i,data,cols,rows):
@@ -307,7 +310,7 @@ class TREE(object):
           d[x].cut = x
           d[x].add(row.klass)
       best = sorted(d.values(), key=lambda s:s.div())[0]
-      return best.div(), col.at,&#34;==&#34;,best.cut,col.txt
+      return best.div(), col.at,&#34;==&#34;,best.cut if best.n &lt; col.n else None,col.txt
     #-----------
     def num(col):
       &#34;For nums, just return the cut that most reduces expected diversity.&#34;
@@ -317,26 +320,35 @@ class TREE(object):
       all   = sorted([row for row in rows if X(row) != &#34;?&#34;], key=X)
       d1,d2,a,z = SYM(), SYM(), X(all[0]), X(all[-1])
       [d2.add(row.klass) for row in all]
-      cut,n2,lo = None,len(all),col.div()
-      if lo &gt; 0 :
-        for n1,row in enumerate(all):
-          n2, x, y = n2-1, X(row), row.klass
-          d2.sub( d1.add(y) )
-          if n1 &gt; small and n2 &gt; small and x != X(all[n1+1]) and x-a &gt; eps and z-x &gt; eps:
-            xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
-            if xpect &lt; lo:
-              cut,lo = x,xpect
+      cut,n2,lo = None,len(all),d2.div()
+      for n1,row in enumerate(all):
+        n2, x, y = n2-1, X(row), row.klass
+        d2.sub( d1.add(y) )
+        if n1 &gt; small and n2 &gt; small and x != X(all[n1+1]) and x-a &gt; eps and z-x &gt; eps:
+          xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
+          if xpect &lt; lo:
+            cut,lo = x,xpect
       return lo,col.at,&#34;&lt;=&#34;,cut,col.txt
     #------------------------------------
     return sorted([(num(col) if isa(col,NUM) else sym(col)) for col in cols])[0]
 
-  def showTree(i,t, lvl=&#34;&#34;,above=None):
-    if t:
-      meta = &#34;&#34; if t.at==None else t.here.stats()
-      print(lvl + b4,str(len(t.here.rows)))
-      pre= f&#34;if {t.txt} {t.op.__doc__} {t.val}&#34; if t.left or t.right else &#34;&#34;
-      showTree(t.left,  lvl+&#34;|.. &#34;, pre)
-      showTree(t.right, lvl+&#34;|.. &#34;, &#34;else&#34;)
+  def show(i):
+    for lvl,t,isLeaf in i.nodes():
+      if lvl==0:
+        print(&#34;&#34;)
+        print(t.here.stats().mid,end=&#34;&#34;)
+      else:
+        print(&#34;\n&#34;+(&#34;|.. &#34; * lvl)+ f&#34;{t.txt} {t.op} {t.cut} &#34;,end=&#34;&#34;)
+        if isLeaf:  print(t.here.stats().mid,end=&#34;&#34;)
+    print(&#34;&#34;)
+
+  def nodes(i,t=None,lvl=0):
+    t = t or i.root
+    yield lvl,t,t.left==None
+    for t1 in [t.left,t.right]:
+      if t1:
+        for lvl2,t2,isLeaf in i.nodes(t1,lvl+1): yield lvl2,t2, isLeaf
+
 #---------------------------------------------
 R   = random.random      # short cut to random number generator
 isa = isinstance         # short cut for checking types
@@ -365,13 +377,16 @@ class SETTINGS(BAG):
     &#34;pretty print help string&#34;
     def bold(m):   return colored(m[0], attrs=[&#34;bold&#34;])
     def bright(m): return colored(m[0], &#34;light_yellow&#34;)
-    print(re.sub(&#34;\n[A-Z][A-Z]+:&#34;, bold, re.sub(&#34; [-][-]?[\S]+&#34;, bright, s)))
+    def pretty(s): return re.sub(&#34;\n[A-Z][A-Z]+:&#34;, bold, re.sub(&#34; [-][-]?[\S]+&#34;, bright, s))
+    print(pretty(s))
+    print(pretty(&#34;\nACTIONS:&#34;))
+    [print(pretty(f&#34;  -g   {k:8} {f.__doc__}&#34;)) for k,f in Egs.all.items() if k[0].isupper()]
 
 def coerce(x):
   try: return literal_eval(x)
   except: return x
 
-def csv(file, filter=lambda x:x):
+def csv(file, filter=ROW):
   &#34;Returns an iterator that returns lists from standard input (-) or a file.&#34;
   if file==&#34;-&#34;: file=None
   with file_or_stdin(file) as src:
@@ -380,12 +395,8 @@ def csv(file, filter=lambda x:x):
       if line:
         yield filter([coerce(s.strip()) for s in line.split(&#34;,&#34;)])
 
-def rnd(x,decimals=2):
-  return x if x==None else round(x,decimals)
-
-def rows(file):
-  &#34;Returns an iterator that returns ROWS&#34;
-  return csv(file, ROW)
+def rnd(x,decimals=None):
+  return x if decimals==None else round(x,decimals)
 
 def yell(s,c):
   &#34;Print string `s`, colored by `c`.&#34;
@@ -394,6 +405,18 @@ def yell(s,c):
 class Egs:
   &#34;Place to store the examples.&#34;
   all = locals()
+
+  csv = [ &#34;pom.csv&#34;,
+         &#34;nasa93dem.csv&#34;,
+         &#34;healthCloseIsses12mths0011-easy.csv&#34;,
+         &#34;healthCloseIsses12mths0001-hard.csv&#34;,
+         &#34;coc10000.csv&#34;,
+         &#34;coc1000.csv&#34;,
+         &#34;china.csv&#34;,
+         &#34;auto93.csv&#34;,
+         &#34;auto2.csv&#34;,
+         &#34;SSN.csv&#34;,
+         &#34;SSM.csv&#34;]
 
   def ok():
     &#34;Run everything (except ok,h). Return how often something fails.&#34;
@@ -413,9 +436,9 @@ class Egs:
     Before running it, reset the system to  initial conditions.&#34;&#34;&#34;
     for k,v in saved.items(): the[k] = v
     random.seed(the.seed)
-    fail = True
-    try:    fail = fun() != False  # here, fail might be reset to True
-    except: traceback.print_exc()
+    fail = False
+    try:    fail = fun() == False  # here, fail might be reset to True
+    except: fail = True; traceback.print_exc()
     return fail
 
   def The():
@@ -441,7 +464,7 @@ class Egs:
   def Rows():
     &#34;Check we can load rows from file.&#34;
     print(the.file)
-    for row in list(rows(the.file))[:5]: print(row) #[:5]: print(row)
+    for row in list(csv(the.file))[:5]: print(row) #[:5]: print(row)
 
   def Col():
     &#34;Check we can convert names to NUMs and SYMs.&#34;
@@ -449,28 +472,40 @@ class Egs:
 
   def Data():
     &#34;Can we load data and get its stats?&#34;
-    DATA(rows(the.file)).stats()
+    DATA(csv(the.file)).stats()
 
   def Clone():
     &#34;Can we replicate a DATA&#39;s structure?&#34;
-    d1 = DATA(rows(the.file))
+    d1 = DATA(csv(the.file))
     d2= d1.clone(d1.rows)
     print(d1.cols.y[1])
     print(d2.cols.y[1])
 
   def Sorts():
     &#34;Can we sort rows into `best` and `rest`?&#34;
-    d = DATA(rows(the.file))
+    d = DATA(csv(the.file))
     lst = d.sorted()
     m   = int(len(lst)**.5)
     best= d.clone(lst[-m:]);         print(&#34;all &#34;,d.stats())
     best= d.clone(lst[-m:]);         print(&#34;best&#34;,best.stats())
     rest= d.clone(lst[:m*the.rest]); print(&#34;rest&#34;,rest.stats())
 
+  def Nodes():
+    &#34;Does the TREE iterator work?&#34;
+    t1 = TREE(DATA(csv(the.file)))
+    for lvl,t2,isLeaf in t1.nodes():
+        print(&#34;|.. &#34; * lvl,isLeaf)
+
   def Tree():
-    d=DATA(rows(the.file))
-    TREE(d)
-    print(d.cols.names)
+    &#34;Does the TREE pretty print work?&#34;
+    TREE( DATA(csv(the.file)) ).show()
+
+  def Trees():
+    &#34;Test all tree generation of all csv files.&#34;
+    for f in Egs.csv:
+      print(&#34;\n\n-----------&#34;,f)
+      TREE( DATA(csv(f&#34;../data/{f}&#34;)) ).show()
+
 #---------------------------------------------
 
 
@@ -481,7 +516,8 @@ random.seed(the.seed)    # set random number seed
 if __name__ == &#34;__main__&#34;:
   the.cli()
   if the.help: the.showHelp(__doc__)
-  elif the.go in Egs.all: Egs.all[the.go]()</code></pre>
+  elif the.go in Egs.all and callable(Egs.all[the.go]):
+         Egs.all[the.go]()</code></pre>
 </details>
 </section>
 <section>
@@ -531,7 +567,7 @@ if __name__ == &#34;__main__&#34;:
 </details>
 </dd>
 <dt id="fish.csv"><code class="name flex">
-<span>def <span class="ident">csv</span></span>(<span>file, filter=&lt;function &lt;lambda&gt;&gt;)</span>
+<span>def <span class="ident">csv</span></span>(<span>file, filter=fish.ROW)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns an iterator that returns lists from standard input (-) or a file.</p></div>
@@ -539,7 +575,7 @@ if __name__ == &#34;__main__&#34;:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def csv(file, filter=lambda x:x):
+<pre><code class="python">def csv(file, filter=ROW):
   &#34;Returns an iterator that returns lists from standard input (-) or a file.&#34;
   if file==&#34;-&#34;: file=None
   with file_or_stdin(file) as src:
@@ -550,7 +586,7 @@ if __name__ == &#34;__main__&#34;:
 </details>
 </dd>
 <dt id="fish.rnd"><code class="name flex">
-<span>def <span class="ident">rnd</span></span>(<span>x, decimals=2)</span>
+<span>def <span class="ident">rnd</span></span>(<span>x, decimals=None)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -558,22 +594,8 @@ if __name__ == &#34;__main__&#34;:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def rnd(x,decimals=2):
-  return x if x==None else round(x,decimals)</code></pre>
-</details>
-</dd>
-<dt id="fish.rows"><code class="name flex">
-<span>def <span class="ident">rows</span></span>(<span>file)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns an iterator that returns ROWS</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def rows(file):
-  &#34;Returns an iterator that returns ROWS&#34;
-  return csv(file, ROW)</code></pre>
+<pre><code class="python">def rnd(x,decimals=None):
+  return x if decimals==None else round(x,decimals)</code></pre>
 </details>
 </dd>
 <dt id="fish.yell"><code class="name flex">
@@ -1086,7 +1108,7 @@ if __name__ == &#34;__main__&#34;:
 <span>(</span><span>src=[])</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Keep <code><a title="fish.rows" href="#fish.rows">rows()</a></code> of data, summarized into col`umns.</p></div>
+<div class="desc"><p>Keep <code>rows</code> of data, summarized into col`umns.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1122,7 +1144,7 @@ if __name__ == &#34;__main__&#34;:
     &#34;Report statistics on a set of `col`umns (defaults to `i.cols.y`.&#34;
     cols = cols or i.cols.y
     def what(col): return col.mid(decimals) if fun==&#34;mid&#34; else col.div(decimals)
-    return dict(mid=BAG(N=cols[1].n, **{col.txt:what(col) for col in cols}))</code></pre>
+    return BAG(mid=BAG(**{&#34;N+&#34;:cols[0].n, **{col.txt:what(col) for col in cols}}))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1197,7 +1219,7 @@ if __name__ == &#34;__main__&#34;:
 <span>def <span class="ident">sorted</span></span>(<span>i, rows=[])</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Sort all <code><a title="fish.rows" href="#fish.rows">rows()</a></code>.</p></div>
+<div class="desc"><p>Sort all <code>rows</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1220,7 +1242,7 @@ if __name__ == &#34;__main__&#34;:
   &#34;Report statistics on a set of `col`umns (defaults to `i.cols.y`.&#34;
   cols = cols or i.cols.y
   def what(col): return col.mid(decimals) if fun==&#34;mid&#34; else col.div(decimals)
-  return dict(mid=BAG(N=cols[1].n, **{col.txt:what(col) for col in cols}))</code></pre>
+  return BAG(mid=BAG(**{&#34;N+&#34;:cols[0].n, **{col.txt:what(col) for col in cols}}))</code></pre>
 </details>
 </dd>
 </dl>
@@ -1245,18 +1267,20 @@ if __name__ == &#34;__main__&#34;:
     for row in bests: row.klass = True
     for row in rests: row.klass = False
     i.data = data
-    i.root =  i.grow(bests + rests, 2*(n**the.min), BAG(here=data, at=None))
+    top = i.data.clone(bests+rests)
+    i.stop = 2*len(top.rows)**the.min
+    i.root = i.grow(top.rows,  BAG(here=top,at=None))
 
-  def grow(i,rows, stop, t):
+  def grow(i,rows, t):
     t.left,t.right = None,None
-    if len(rows) &gt;= stop:
+    if len(rows) &gt;= i.stop:
       _,at,op,cut,s = i.cut(i.data, i.data.cols.x, rows)
       if cut:
         left,right = [],[]
         [(left if ops[op](row.cells[at], cut) else right).append(row) for row in rows]
         if len(left) != len(rows) and len(right) != len(rows):
-          t.left = i.grow(left, stop,BAG(here=i.data.clone(left), at=at,cut=cut,txt=s,op=op))
-          t.right= i.grow(right,stop,BAG(here=i.data.clone(right),at=at,cut=cut,txt=s,op=neg[op]))
+          t.left = i.grow(left,  BAG(here=i.data.clone(left), at=at,cut=cut,txt=s,op=op))
+          t.right= i.grow(right, BAG(here=i.data.clone(right),at=at,cut=cut,txt=s,op=neg[op]))
     return t
 
   def cut(i,data,cols,rows):
@@ -1271,7 +1295,7 @@ if __name__ == &#34;__main__&#34;:
           d[x].cut = x
           d[x].add(row.klass)
       best = sorted(d.values(), key=lambda s:s.div())[0]
-      return best.div(), col.at,&#34;==&#34;,best.cut,col.txt
+      return best.div(), col.at,&#34;==&#34;,best.cut if best.n &lt; col.n else None,col.txt
     #-----------
     def num(col):
       &#34;For nums, just return the cut that most reduces expected diversity.&#34;
@@ -1281,31 +1305,39 @@ if __name__ == &#34;__main__&#34;:
       all   = sorted([row for row in rows if X(row) != &#34;?&#34;], key=X)
       d1,d2,a,z = SYM(), SYM(), X(all[0]), X(all[-1])
       [d2.add(row.klass) for row in all]
-      cut,n2,lo = None,len(all),col.div()
-      if lo &gt; 0 :
-        for n1,row in enumerate(all):
-          n2, x, y = n2-1, X(row), row.klass
-          d2.sub( d1.add(y) )
-          if n1 &gt; small and n2 &gt; small and x != X(all[n1+1]) and x-a &gt; eps and z-x &gt; eps:
-            xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
-            if xpect &lt; lo:
-              cut,lo = x,xpect
+      cut,n2,lo = None,len(all),d2.div()
+      for n1,row in enumerate(all):
+        n2, x, y = n2-1, X(row), row.klass
+        d2.sub( d1.add(y) )
+        if n1 &gt; small and n2 &gt; small and x != X(all[n1+1]) and x-a &gt; eps and z-x &gt; eps:
+          xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
+          if xpect &lt; lo:
+            cut,lo = x,xpect
       return lo,col.at,&#34;&lt;=&#34;,cut,col.txt
     #------------------------------------
     return sorted([(num(col) if isa(col,NUM) else sym(col)) for col in cols])[0]
 
-  def showTree(i,t, lvl=&#34;&#34;,above=None):
-    if t:
-      meta = &#34;&#34; if t.at==None else t.here.stats()
-      print(lvl + b4,str(len(t.here.rows)))
-      pre= f&#34;if {t.txt} {t.op.__doc__} {t.val}&#34; if t.left or t.right else &#34;&#34;
-      showTree(t.left,  lvl+&#34;|.. &#34;, pre)
-      showTree(t.right, lvl+&#34;|.. &#34;, &#34;else&#34;)</code></pre>
+  def show(i):
+    for lvl,t,isLeaf in i.nodes():
+      if lvl==0:
+        print(&#34;&#34;)
+        print(t.here.stats().mid,end=&#34;&#34;)
+      else:
+        print(&#34;\n&#34;+(&#34;|.. &#34; * lvl)+ f&#34;{t.txt} {t.op} {t.cut} &#34;,end=&#34;&#34;)
+        if isLeaf:  print(t.here.stats().mid,end=&#34;&#34;)
+    print(&#34;&#34;)
+
+  def nodes(i,t=None,lvl=0):
+    t = t or i.root
+    yield lvl,t,t.left==None
+    for t1 in [t.left,t.right]:
+      if t1:
+        for lvl2,t2,isLeaf in i.nodes(t1,lvl+1): yield lvl2,t2, isLeaf</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
 <dt id="fish.TREE.grow"><code class="name flex">
-<span>def <span class="ident">grow</span></span>(<span>i, rows, stop, t)</span>
+<span>def <span class="ident">grow</span></span>(<span>i, rows, t)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1313,16 +1345,16 @@ if __name__ == &#34;__main__&#34;:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def grow(i,rows, stop, t):
+<pre><code class="python">def grow(i,rows, t):
   t.left,t.right = None,None
-  if len(rows) &gt;= stop:
+  if len(rows) &gt;= i.stop:
     _,at,op,cut,s = i.cut(i.data, i.data.cols.x, rows)
     if cut:
       left,right = [],[]
       [(left if ops[op](row.cells[at], cut) else right).append(row) for row in rows]
       if len(left) != len(rows) and len(right) != len(rows):
-        t.left = i.grow(left, stop,BAG(here=i.data.clone(left), at=at,cut=cut,txt=s,op=op))
-        t.right= i.grow(right,stop,BAG(here=i.data.clone(right),at=at,cut=cut,txt=s,op=neg[op]))
+        t.left = i.grow(left,  BAG(here=i.data.clone(left), at=at,cut=cut,txt=s,op=op))
+        t.right= i.grow(right, BAG(here=i.data.clone(right),at=at,cut=cut,txt=s,op=neg[op]))
   return t</code></pre>
 </details>
 </dd>
@@ -1330,7 +1362,7 @@ if __name__ == &#34;__main__&#34;:
 <span>def <span class="ident">cut</span></span>(<span>i, data, cols, rows)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Return best <code>div,at,op,cut,txt</code> that most divides the klasses in <code><a title="fish.rows" href="#fish.rows">rows()</a></code>.</p></div>
+<div class="desc"><p>Return best <code>div,at,op,cut,txt</code> that most divides the klasses in <code>rows</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1347,7 +1379,7 @@ if __name__ == &#34;__main__&#34;:
         d[x].cut = x
         d[x].add(row.klass)
     best = sorted(d.values(), key=lambda s:s.div())[0]
-    return best.div(), col.at,&#34;==&#34;,best.cut,col.txt
+    return best.div(), col.at,&#34;==&#34;,best.cut if best.n &lt; col.n else None,col.txt
   #-----------
   def num(col):
     &#34;For nums, just return the cut that most reduces expected diversity.&#34;
@@ -1357,22 +1389,21 @@ if __name__ == &#34;__main__&#34;:
     all   = sorted([row for row in rows if X(row) != &#34;?&#34;], key=X)
     d1,d2,a,z = SYM(), SYM(), X(all[0]), X(all[-1])
     [d2.add(row.klass) for row in all]
-    cut,n2,lo = None,len(all),col.div()
-    if lo &gt; 0 :
-      for n1,row in enumerate(all):
-        n2, x, y = n2-1, X(row), row.klass
-        d2.sub( d1.add(y) )
-        if n1 &gt; small and n2 &gt; small and x != X(all[n1+1]) and x-a &gt; eps and z-x &gt; eps:
-          xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
-          if xpect &lt; lo:
-            cut,lo = x,xpect
+    cut,n2,lo = None,len(all),d2.div()
+    for n1,row in enumerate(all):
+      n2, x, y = n2-1, X(row), row.klass
+      d2.sub( d1.add(y) )
+      if n1 &gt; small and n2 &gt; small and x != X(all[n1+1]) and x-a &gt; eps and z-x &gt; eps:
+        xpect = (d1.div()*n1 + d2.div()*n2)/(n1+n2)
+        if xpect &lt; lo:
+          cut,lo = x,xpect
     return lo,col.at,&#34;&lt;=&#34;,cut,col.txt
   #------------------------------------
   return sorted([(num(col) if isa(col,NUM) else sym(col)) for col in cols])[0]</code></pre>
 </details>
 </dd>
-<dt id="fish.TREE.showTree"><code class="name flex">
-<span>def <span class="ident">showTree</span></span>(<span>i, t, lvl='', above=None)</span>
+<dt id="fish.TREE.show"><code class="name flex">
+<span>def <span class="ident">show</span></span>(<span>i)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1380,13 +1411,32 @@ if __name__ == &#34;__main__&#34;:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def showTree(i,t, lvl=&#34;&#34;,above=None):
-  if t:
-    meta = &#34;&#34; if t.at==None else t.here.stats()
-    print(lvl + b4,str(len(t.here.rows)))
-    pre= f&#34;if {t.txt} {t.op.__doc__} {t.val}&#34; if t.left or t.right else &#34;&#34;
-    showTree(t.left,  lvl+&#34;|.. &#34;, pre)
-    showTree(t.right, lvl+&#34;|.. &#34;, &#34;else&#34;)</code></pre>
+<pre><code class="python">def show(i):
+  for lvl,t,isLeaf in i.nodes():
+    if lvl==0:
+      print(&#34;&#34;)
+      print(t.here.stats().mid,end=&#34;&#34;)
+    else:
+      print(&#34;\n&#34;+(&#34;|.. &#34; * lvl)+ f&#34;{t.txt} {t.op} {t.cut} &#34;,end=&#34;&#34;)
+      if isLeaf:  print(t.here.stats().mid,end=&#34;&#34;)
+  print(&#34;&#34;)</code></pre>
+</details>
+</dd>
+<dt id="fish.TREE.nodes"><code class="name flex">
+<span>def <span class="ident">nodes</span></span>(<span>i, t=None, lvl=0)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def nodes(i,t=None,lvl=0):
+  t = t or i.root
+  yield lvl,t,t.left==None
+  for t1 in [t.left,t.right]:
+    if t1:
+      for lvl2,t2,isLeaf in i.nodes(t1,lvl+1): yield lvl2,t2, isLeaf</code></pre>
 </details>
 </dd>
 </dl>
@@ -1441,7 +1491,10 @@ if __name__ == &#34;__main__&#34;:
     &#34;pretty print help string&#34;
     def bold(m):   return colored(m[0], attrs=[&#34;bold&#34;])
     def bright(m): return colored(m[0], &#34;light_yellow&#34;)
-    print(re.sub(&#34;\n[A-Z][A-Z]+:&#34;, bold, re.sub(&#34; [-][-]?[\S]+&#34;, bright, s)))</code></pre>
+    def pretty(s): return re.sub(&#34;\n[A-Z][A-Z]+:&#34;, bold, re.sub(&#34; [-][-]?[\S]+&#34;, bright, s))
+    print(pretty(s))
+    print(pretty(&#34;\nACTIONS:&#34;))
+    [print(pretty(f&#34;  -g   {k:8} {f.__doc__}&#34;)) for k,f in Egs.all.items() if k[0].isupper()]</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1484,7 +1537,10 @@ that bookean values need no argument (since we will just negate <code>v</code>).
   &#34;pretty print help string&#34;
   def bold(m):   return colored(m[0], attrs=[&#34;bold&#34;])
   def bright(m): return colored(m[0], &#34;light_yellow&#34;)
-  print(re.sub(&#34;\n[A-Z][A-Z]+:&#34;, bold, re.sub(&#34; [-][-]?[\S]+&#34;, bright, s)))</code></pre>
+  def pretty(s): return re.sub(&#34;\n[A-Z][A-Z]+:&#34;, bold, re.sub(&#34; [-][-]?[\S]+&#34;, bright, s))
+  print(pretty(s))
+  print(pretty(&#34;\nACTIONS:&#34;))
+  [print(pretty(f&#34;  -g   {k:8} {f.__doc__}&#34;)) for k,f in Egs.all.items() if k[0].isupper()]</code></pre>
 </details>
 </dd>
 </dl>
@@ -1501,6 +1557,18 @@ that bookean values need no argument (since we will just negate <code>v</code>).
 <pre><code class="python">class Egs:
   &#34;Place to store the examples.&#34;
   all = locals()
+
+  csv = [ &#34;pom.csv&#34;,
+         &#34;nasa93dem.csv&#34;,
+         &#34;healthCloseIsses12mths0011-easy.csv&#34;,
+         &#34;healthCloseIsses12mths0001-hard.csv&#34;,
+         &#34;coc10000.csv&#34;,
+         &#34;coc1000.csv&#34;,
+         &#34;china.csv&#34;,
+         &#34;auto93.csv&#34;,
+         &#34;auto2.csv&#34;,
+         &#34;SSN.csv&#34;,
+         &#34;SSM.csv&#34;]
 
   def ok():
     &#34;Run everything (except ok,h). Return how often something fails.&#34;
@@ -1520,9 +1588,9 @@ that bookean values need no argument (since we will just negate <code>v</code>).
     Before running it, reset the system to  initial conditions.&#34;&#34;&#34;
     for k,v in saved.items(): the[k] = v
     random.seed(the.seed)
-    fail = True
-    try:    fail = fun() != False  # here, fail might be reset to True
-    except: traceback.print_exc()
+    fail = False
+    try:    fail = fun() == False  # here, fail might be reset to True
+    except: fail = True; traceback.print_exc()
     return fail
 
   def The():
@@ -1548,7 +1616,7 @@ that bookean values need no argument (since we will just negate <code>v</code>).
   def Rows():
     &#34;Check we can load rows from file.&#34;
     print(the.file)
-    for row in list(rows(the.file))[:5]: print(row) #[:5]: print(row)
+    for row in list(csv(the.file))[:5]: print(row) #[:5]: print(row)
 
   def Col():
     &#34;Check we can convert names to NUMs and SYMs.&#34;
@@ -1556,32 +1624,47 @@ that bookean values need no argument (since we will just negate <code>v</code>).
 
   def Data():
     &#34;Can we load data and get its stats?&#34;
-    DATA(rows(the.file)).stats()
+    DATA(csv(the.file)).stats()
 
   def Clone():
     &#34;Can we replicate a DATA&#39;s structure?&#34;
-    d1 = DATA(rows(the.file))
+    d1 = DATA(csv(the.file))
     d2= d1.clone(d1.rows)
     print(d1.cols.y[1])
     print(d2.cols.y[1])
 
   def Sorts():
     &#34;Can we sort rows into `best` and `rest`?&#34;
-    d = DATA(rows(the.file))
+    d = DATA(csv(the.file))
     lst = d.sorted()
     m   = int(len(lst)**.5)
     best= d.clone(lst[-m:]);         print(&#34;all &#34;,d.stats())
     best= d.clone(lst[-m:]);         print(&#34;best&#34;,best.stats())
     rest= d.clone(lst[:m*the.rest]); print(&#34;rest&#34;,rest.stats())
 
+  def Nodes():
+    &#34;Does the TREE iterator work?&#34;
+    t1 = TREE(DATA(csv(the.file)))
+    for lvl,t2,isLeaf in t1.nodes():
+        print(&#34;|.. &#34; * lvl,isLeaf)
+
   def Tree():
-    d=DATA(rows(the.file))
-    TREE(d)
-    print(d.cols.names)</code></pre>
+    &#34;Does the TREE pretty print work?&#34;
+    TREE( DATA(csv(the.file)) ).show()
+
+  def Trees():
+    &#34;Test all tree generation of all csv files.&#34;
+    for f in Egs.csv:
+      print(&#34;\n\n-----------&#34;,f)
+      TREE( DATA(csv(f&#34;../data/{f}&#34;)) ).show()</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
 <dt id="fish.Egs.all"><code class="name">var <span class="ident">all</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="fish.Egs.csv"><code class="name">var <span class="ident">csv</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -1628,9 +1711,9 @@ initial conditions.</p></div>
   Before running it, reset the system to  initial conditions.&#34;&#34;&#34;
   for k,v in saved.items(): the[k] = v
   random.seed(the.seed)
-  fail = True
-  try:    fail = fun() != False  # here, fail might be reset to True
-  except: traceback.print_exc()
+  fail = False
+  try:    fail = fun() == False  # here, fail might be reset to True
+  except: fail = True; traceback.print_exc()
   return fail</code></pre>
 </details>
 </dd>
@@ -1706,7 +1789,7 @@ initial conditions.</p></div>
 <pre><code class="python">def Rows():
   &#34;Check we can load rows from file.&#34;
   print(the.file)
-  for row in list(rows(the.file))[:5]: print(row) #[:5]: print(row)</code></pre>
+  for row in list(csv(the.file))[:5]: print(row) #[:5]: print(row)</code></pre>
 </details>
 </dd>
 <dt id="fish.Egs.Col"><code class="name flex">
@@ -1734,7 +1817,7 @@ initial conditions.</p></div>
 </summary>
 <pre><code class="python">def Data():
   &#34;Can we load data and get its stats?&#34;
-  DATA(rows(the.file)).stats()</code></pre>
+  DATA(csv(the.file)).stats()</code></pre>
 </details>
 </dd>
 <dt id="fish.Egs.Clone"><code class="name flex">
@@ -1748,7 +1831,7 @@ initial conditions.</p></div>
 </summary>
 <pre><code class="python">def Clone():
   &#34;Can we replicate a DATA&#39;s structure?&#34;
-  d1 = DATA(rows(the.file))
+  d1 = DATA(csv(the.file))
   d2= d1.clone(d1.rows)
   print(d1.cols.y[1])
   print(d2.cols.y[1])</code></pre>
@@ -1765,7 +1848,7 @@ initial conditions.</p></div>
 </summary>
 <pre><code class="python">def Sorts():
   &#34;Can we sort rows into `best` and `rest`?&#34;
-  d = DATA(rows(the.file))
+  d = DATA(csv(the.file))
   lst = d.sorted()
   m   = int(len(lst)**.5)
   best= d.clone(lst[-m:]);         print(&#34;all &#34;,d.stats())
@@ -1773,19 +1856,50 @@ initial conditions.</p></div>
   rest= d.clone(lst[:m*the.rest]); print(&#34;rest&#34;,rest.stats())</code></pre>
 </details>
 </dd>
+<dt id="fish.Egs.Nodes"><code class="name flex">
+<span>def <span class="ident">Nodes</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Does the TREE iterator work?</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def Nodes():
+  &#34;Does the TREE iterator work?&#34;
+  t1 = TREE(DATA(csv(the.file)))
+  for lvl,t2,isLeaf in t1.nodes():
+      print(&#34;|.. &#34; * lvl,isLeaf)</code></pre>
+</details>
+</dd>
 <dt id="fish.Egs.Tree"><code class="name flex">
 <span>def <span class="ident">Tree</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Does the TREE pretty print work?</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def Tree():
-  d=DATA(rows(the.file))
-  TREE(d)
-  print(d.cols.names)</code></pre>
+  &#34;Does the TREE pretty print work?&#34;
+  TREE( DATA(csv(the.file)) ).show()</code></pre>
+</details>
+</dd>
+<dt id="fish.Egs.Trees"><code class="name flex">
+<span>def <span class="ident">Trees</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Test all tree generation of all csv files.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def Trees():
+  &#34;Test all tree generation of all csv files.&#34;
+  for f in Egs.csv:
+    print(&#34;\n\n-----------&#34;,f)
+    TREE( DATA(csv(f&#34;../data/{f}&#34;)) ).show()</code></pre>
 </details>
 </dd>
 </dl>
@@ -1824,12 +1938,11 @@ src="https://zenodo.org/badge/631627449.svg""></a><br> <hr>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="fish.R" href="#fish.R">R</a></code></li>
 <li><code><a title="fish.coerce" href="#fish.coerce">coerce</a></code></li>
 <li><code><a title="fish.csv" href="#fish.csv">csv</a></code></li>
 <li><code><a title="fish.rnd" href="#fish.rnd">rnd</a></code></li>
-<li><code><a title="fish.rows" href="#fish.rows">rows</a></code></li>
 <li><code><a title="fish.yell" href="#fish.yell">yell</a></code></li>
 </ul>
 </li>
@@ -1895,7 +2008,8 @@ src="https://zenodo.org/badge/631627449.svg""></a><br> <hr>
 <ul class="">
 <li><code><a title="fish.TREE.grow" href="#fish.TREE.grow">grow</a></code></li>
 <li><code><a title="fish.TREE.cut" href="#fish.TREE.cut">cut</a></code></li>
-<li><code><a title="fish.TREE.showTree" href="#fish.TREE.showTree">showTree</a></code></li>
+<li><code><a title="fish.TREE.show" href="#fish.TREE.show">show</a></code></li>
+<li><code><a title="fish.TREE.nodes" href="#fish.TREE.nodes">nodes</a></code></li>
 </ul>
 </li>
 <li>
@@ -1922,8 +2036,11 @@ src="https://zenodo.org/badge/631627449.svg""></a><br> <hr>
 <li><code><a title="fish.Egs.Data" href="#fish.Egs.Data">Data</a></code></li>
 <li><code><a title="fish.Egs.Clone" href="#fish.Egs.Clone">Clone</a></code></li>
 <li><code><a title="fish.Egs.Sorts" href="#fish.Egs.Sorts">Sorts</a></code></li>
+<li><code><a title="fish.Egs.Nodes" href="#fish.Egs.Nodes">Nodes</a></code></li>
 <li><code><a title="fish.Egs.Tree" href="#fish.Egs.Tree">Tree</a></code></li>
+<li><code><a title="fish.Egs.Trees" href="#fish.Egs.Trees">Trees</a></code></li>
 <li><code><a title="fish.Egs.all" href="#fish.Egs.all">all</a></code></li>
+<li><code><a title="fish.Egs.csv" href="#fish.Egs.csv">csv</a></code></li>
 </ul>
 </li>
 </ul>

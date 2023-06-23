@@ -14,7 +14,7 @@ install: ## load python3 packages (requires `pip3`)
 	(cd ..; git clone https://gist.github.com/42f78b8beec9e98434b55438f9983ecc.git config)
 
 tests: ## run test suite
-	if ./fish.py -ok;\
+	if ./fish.py -g ok;\
 		then cp docs/pass.png docs/results.png; \
 		else cp docs/fail.png docs/results.png; \
   fi

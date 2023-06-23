@@ -296,7 +296,7 @@ def coerce(x):
   try: return literal_eval(x)
   except: return x
 
-def csv(file, filter=lambda x:x):
+def csv(file, filter=ROW):
   "Returns an iterator that returns lists from standard input (-) or a file."
   if file=="-": file=None
   with file_or_stdin(file) as src:
@@ -307,10 +307,6 @@ def csv(file, filter=lambda x:x):
 
 def rnd(x,decimals=None):
   return x if decimals==None else round(x,decimals)
-
-def rows(file):
-  "Returns an iterator that returns ROWS"
-  return csv(file, ROW)
 
 def yell(s,c):
   "Print string `s`, colored by `c`."
@@ -350,9 +346,9 @@ class Egs:
     Before running it, reset the system to  initial conditions."""
     for k,v in saved.items(): the[k] = v
     random.seed(the.seed)
-    fail = True
-    try:    fail = fun() != False  # here, fail might be reset to True
-    except: traceback.print_exc()
+    fail = False
+    try:    fail = fun() == False  # here, fail might be reset to True
+    except: fail = True; traceback.print_exc()
     return fail
 
   def The():
@@ -378,7 +374,7 @@ class Egs:
   def Rows():
     "Check we can load rows from file."
     print(the.file)
-    for row in list(rows(the.file))[:5]: print(row) #[:5]: print(row)
+    for row in list(csv(the.file))[:5]: print(row) #[:5]: print(row)
 
   def Col():
     "Check we can convert names to NUMs and SYMs."
@@ -386,18 +382,18 @@ class Egs:
 
   def Data():
     "Can we load data and get its stats?"
-    DATA(rows(the.file)).stats()
+    DATA(csv(the.file)).stats()
 
   def Clone():
     "Can we replicate a DATA's structure?"
-    d1 = DATA(rows(the.file))
+    d1 = DATA(csv(the.file))
     d2= d1.clone(d1.rows)
     print(d1.cols.y[1])
     print(d2.cols.y[1])
 
   def Sorts():
     "Can we sort rows into `best` and `rest`?"
-    d = DATA(rows(the.file))
+    d = DATA(csv(the.file))
     lst = d.sorted()
     m   = int(len(lst)**.5)
     best= d.clone(lst[-m:]);         print("all ",d.stats())
@@ -406,19 +402,19 @@ class Egs:
 
   def Nodes():
     "Does the TREE iterator work?"
-    t1 = TREE(DATA(rows(the.file)))
+    t1 = TREE(DATA(csv(the.file)))
     for lvl,t2,isLeaf in t1.nodes():
         print("|.. " * lvl,isLeaf)
 
   def Tree():
     "Does the TREE pretty print work?"
-    TREE( DATA(rows(the.file)) ).show()
+    TREE( DATA(csv(the.file)) ).show()
 
   def Trees():
     "Test all tree generation of all csv files."
     for f in Egs.csv:
       print("\n\n-----------",f)
-      TREE( DATA(rows(f"../data/{f}")) ).show()
+      TREE( DATA(csv(f"../data/{f}")) ).show()
 
 #---------------------------------------------
 
@@ -430,4 +426,5 @@ random.seed(the.seed)    # set random number seed
 if __name__ == "__main__":
   the.cli()
   if the.help: the.showHelp(__doc__)
-  elif the.go in Egs.all: Egs.all[the.go]()
+  elif the.go in Egs.all and callable(Egs.all[the.go]):
+         Egs.all[the.go]()
