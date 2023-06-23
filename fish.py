@@ -10,18 +10,20 @@ USAGE:
   cat csvfile | ./fish.py [OPTIONS] [ -g ACTION ]    
 
 OPTIONS:  
-  -b  --bins    max number of bins    = 16  
-  -c  --cohen   size significant separation = .35  
-  -f  --file    data csv file         = ../data/auto93.csv  
-  -g  --go      start-up action       = nothing    
-  -h  --help    show help             = False  
-  -l  --lazy    lazy mode             = False  
-  -m  --min     min size              = .5  
-  -p  --p       distance coeffecient  = 2    
-  -r  --rest    ratio best:rest       = 4  
-  -s  --seed    random number seed    = 1234567891  
-  -t  --top     explore top  ranges   = 8  
-  -w  --want    goal                  = mitigate"""
+  -b  --bins       max number of bins            = 16  
+  -B  --Bootstraps number of bootstraps          = 512  
+  -c  --cohen      size significant separation   = .35  
+  -C  --Confboot   confidence of bootstraps test = 0.05  
+  -f  --file       data csv file         = ../data/auto93.csv  
+  -g  --go         start-up action       = nothing    
+  -h  --help       show help             = False  
+  -l  --lazy       lazy mode             = False  
+  -m  --min        min size              = .5  
+  -p  --p          distance coeffecient  = 2    
+  -r  --rest       ratio best:rest       = 4  
+  -s  --seed       random number seed    = 1234567891  
+  -t  --top        explore top  ranges   = 8  
+  -w  --want       goal                  = mitigate"""
 from fileinput import FileInput as file_or_stdin
 import traceback,random,math,sys,re
 from termcolor import colored
@@ -311,6 +313,39 @@ def rnd(x,decimals=None):
 def yell(s,c):
   "Print string `s`, colored by `c`."
   print(colored(s,"light_"+c,attrs=["bold"]),end="")
+
+def different(x,y):
+  return cliffsDelta(x,y) and bootstrap(x,y)
+
+def cliffsDelta(x,y):
+  if len(x) > 10*len(y) : return cliffsDelta(random.choices(x,10*len(y)),y)
+  if len(y) > 10*len(x) : return cliffsDelta(x, random.choices(y,10*len(x)))
+  n,lt,gt = 0,0,0
+  for x1 in x:
+    for y1 in y:
+      n = n + 1
+      if x1 > y1: gt = gt + 1
+      if x1 < y1: lt = lt + 1
+  return abs(lt - gt)/n > the.Cliffs # true if different
+
+def bootstrap(y0,z0,conf=NO.05):
+  delta= lambda x,y: abs(x.mu-y.mu) / ((div(x)**2/x.n + div(y)**2/y.n)**.5 + 1/big)
+  x, y, z = NUM(), NUM(), NUM()
+  for y1 in y0: x.add(y1); z.add(y1)
+  for z1 in z0: x.add(z1); z.add(z1)
+  yhat = [y1 - y.mu + x.mu for y1 in y0]
+  zhat = [z1 - z.mu + x.mu for z1 in z0]
+  d    = delta(y,z)
+  n    = 0
+  for _ in range(the.Bootstraps):
+    ynum = NUM();[ynum.add(y) for y in sample(yhat)]
+    znum = NUM(); [znum.add(z) for z in sample(zhat)]
+    if delta(ynum, znum) > d:
+      n += 1
+  return n / the.Bootstraps < the.Confboot # true if different
+
+
+
 #----------------------------------------------------
 class Egs:
   "Place to store the examples."
@@ -347,7 +382,7 @@ class Egs:
     for k,v in saved.items(): the[k] = v
     random.seed(the.seed)
     fail = False
-    try:    fail = fun() == False  # here, fail might be reset to True
+    try:    fail = fun() == False  
     except: fail = True; traceback.print_exc()
     return fail
 
