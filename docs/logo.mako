@@ -5,8 +5,7 @@
 <br>
 <img 
 src="https://img.shields.io/badge/language-python3.11-yellow"> <img 
-src="results.png"> <br>
-<img 
+src="results.png"> <img 
 src="https://img.shields.io/badge/license-BSD2-ff69b4"> <a 
 href="https://zenodo.org/badge/latestdoi/631627449"><img 
 src="https://img.shields.io/badge/purpose-se--ai-blueviolet"> <img
