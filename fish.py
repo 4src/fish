@@ -169,10 +169,10 @@ class DATA(pretty):
     return BAG(mid=BAG(**{"N+":cols[0].n, **{col.txt:what(col) for col in cols}}))
 #---------------------------------------------
 # operators, used in trees
-ops = {">"  : lambda x,y: x=="?" and y=="?" or x>y,
-       "<=" : lambda x,y: x=="?" and y=="?" or x<=y,
-       "==" : lambda x,y: x=="?" and y=="?" or x==y,
-       "!=" : lambda x,y: x=="?" and y=="?" or x!=y}
+ops = {">"  : lambda x,y: x=="?" or y=="?" or x>y,
+       "<=" : lambda x,y: x=="?" or y=="?" or x<=y,
+       "==" : lambda x,y: x=="?" or y=="?" or x==y,
+       "!=" : lambda x,y: x=="?" or y=="?" or x!=y}
 """Operators used in decision tree."""
 
 neg = { ">"  :  "<=",
