@@ -32,18 +32,13 @@ def COLS(names):
 def COL(at=0,txt=""):
   return (NUM if txt[0].isupper() else SYM)(at,txt)
 
-def SYM(at,txt):
+def SYM(at=0,txt=""):
   return BAG(This=SYM,at=at,txt=txt,n=0, has={},most=0,mode=None)
 
-def NUM(at,txt):
+def NUM(at=0,txt=""):
   return BAG(This=NUM, at=at, txt=txt, n=0, mu=0, m2=0,  hi= -1E30, lo=1E30,
-             w= 0 if txt[-1]=="-" else 1)
+              w= 0 if txt[-1]=="-" else 1)
 #----------------------------------------------------------------------------------------
-def adds(data,row):
-  def create(): data.cols  = COLS(row)
-  def update(): data.rows += [[add(col,row[col.at]) for col in data.cols.all]]
-  update() if data.cols else create()
-
 def add(col,x):
   def num():
     col.lo = min(x, col.lo)
@@ -60,31 +55,32 @@ def add(col,x):
   return x
 
 def norm(col,x):
-  if x=="?" or col.This is SYM: return x
-  return (x - col.lo) / (col.hi - col.lo + 1/1E30)
+  return x if (x=="?" or col.This is SYM) else (x - col.lo) / (col.hi - col.lo + 1/1E30)
 
-def d2h(data,row):
-  return (sum((col.w - norm(col,row[col.at]))**2
-            for col in data.cols.y)
-             /  len(data.cols.y))*.5
-
-def better(data,row1,row2): return d2h(data,row1) < d2h(data,row2)
-
-def ordered(data,rows=None):
-  return sorted(rows or data.rows, key=cmp_to_key(lambda a,b: better(a,b)))
-
-def mid(col): 
+def mid(col):
   return col.mode if col.This is SYM else col.mu
 
 def div(col):
   log2 = lambda x: math.log(x,2)
   p    = lambda k: col.has[k]/col.n
   return -sum((p(k)*log2(p(k)) for k in d) if col.This is SYM else (col.m2/(col.n - 1))**.5
+#----------------------------------------------------------------------------------------
+def adds(data,row):
+  def create(): data.cols  = COLS(row)
+  def update(): data.rows += [[add(col,row[col.at]) for col in data.cols.all]]
+  update() if data.cols else create()
+
+def d2h(data,row):
+  return (sum((col.w - norm(col,row[col.at]))**2 for col in data.cols.y)
+          /  len(data.cols.y))*.5
+
+def better(data,row1,row2): return d2h(data,row1) < d2h(data,row2)
+
+def ordered(data,rows=None):
+  return sorted(rows or data.rows, key=cmp_to_key(lambda a,b: better(a,b)))
 
 def stats(data, cols=None, fun=mid):
-  tmp = {col.txt: fun(col) for col in (cols or data.cols.y)}
-  tmp["N"] = len(data.rows)
-  return BAG(**tmp)
+  return BAG({N=len(data.rows), **{col.txt: fun(col) for col in (cols or data.cols.y)})
 #----------------------------------------------------------------------------------------
 def coerce(x):
   try: return literal_eval(x)
