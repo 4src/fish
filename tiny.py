@@ -1,5 +1,5 @@
 #!/usr/bin/env python3 -B
-#vim: set et sts=2 sw=2 ts=2 : 
+#vim : set et sts=2 sw=2 ts=2 : 
 # https://en.wikipedia.org/wiki/Effect_size#Other_metrics
 from fileinput import FileInput as file_or_stdin
 import traceback,random,math,sys,re
@@ -24,10 +24,11 @@ def COL(at=0,name=""):
   return (NUM if name and name[0].isupper() else SYM)(at=at, name=name)
 
 def SYM(at=0,name=""):
-  return BAG(this=SYM, name=name, at=at, n=0, has={}, most=0, mode=None)
+  return BAG(this=SYM, name=name, at=at, n=0, has={}, most=0, mode=None, filter=lambda x:x)
 
 def NUM(at=0,name=""):
-  return BAG(this=NUM, name=name, at=at, n=0, mu=0, m2=0, hi= -1E30, lo=1E30, fun=int,
+  return BAG(this=NUM, name=name, at=at, n=0, mu=0, m2=0, hi= -1E30, lo=1E30, 
+             filter=int,
              want= 0 if (name and name[-1]) =="-" else 1)
 
 def COLS(names):
@@ -47,15 +48,16 @@ def DATA(rows=[], data=None):
 #----------------------------------------------------------------------------------------
 def add(col,x):
   def num():
-    if type(x) == float: col.fun = float
     col.lo = min(x, col.lo)
     col.hi = max(x, col.hi)
     d       = x - col.mu
     col.mu += d/col.n
     col.m2 += d*(x - col.mu)
+    if type(x) == float: col.filter = float
   def sym():
     tmp = col.has[x] = 1 + col.has.get(x,0)
     if tmp > col.most: col.most, col.mode = tmp, x
+  #----------------------------------------
   if x != "?":
     col.n += 1
     num() if col.this is NUM  else sym()
@@ -70,13 +72,13 @@ def mid(col):
 def div(col):
   def entropy(ns): return -sum((n/col.n*math.log(n/col.n,2) for n in ns))
   def stdev()    : return (col.m2/(col.n-1))**.5
+  #----------------------------------------
   return stdev() if col.this is NUM else entropy(col.has.values()) 
 
-def valleyBetween(m1,m2,std1,std2):
-  if std1==0 or std2==0: return (m1+m2)/2
+def guassianIntersection(m1,m2,std1,std2):
+  if std1==0 or std2==0 or std1==std2: return (m1+m2)/2
   if m2 < m1: return valleyBetween(m2,m1,std2,std1)
   a = 1/(2*std1**2) - 1/(2*std2**2)
-  if a==0: return (m1+m2)/2
   b = m2/(std2**2) - m1/(std1**2)
   c = m1**2 /(2*std1**2) - m2**2 / (2*std2**2) - math.log(std2/std1)
   root1= (-b + (b**2 - 4*a*c)**.5)/(2*a)
@@ -85,6 +87,7 @@ def valleyBetween(m1,m2,std1,std2):
 def adds(data, row):
   def create(): data.cols  = COLS(row)
   def update(): data.rows += [[add(col,row[col.at]) for col in data.cols.all]]
+  #----------------------------------------
   return update() if data.cols else create()
 
 def d2h(data,row):
@@ -98,39 +101,50 @@ def stats(data, cols=None, fun=lambda c: mid(c)):
 
 def clone(data,rows=[]):
   return DATA(data=DATA(rows=[data.cols.names]),rows=rows)
+#----------------------------------------------------------------------------------------
+def CRITERION(col,lo,hi) : 
+  return BAG(this=CRITERION, score=0,at=col.at, lo=lo, hi=hi, name=col.name)
 
-def contrasts(bests,rests):
-  for unique in set(contrasts1(bests,rests)): yield unique
-
-def contrasts1(bests,rests):
+def criteria(bests,rests,B=1,R=1):
   for best,rest in zip(bests.cols.x, rests.cols.x):
-    if best.this is SYM:
-      for k in best.has: yield best.at, best.name, k, k
-    else:
-      f    = best.fun
-      m    = valleyBetween(best.mu, rest.mu, div(best), div(rest))
-      mu,e = best.mu, abs(best.mu - m)
-      for a,z in [(mu-e, m+e), (mu-e/2, mu+e/2)]               : yield best.at,best.name,f(a),f(z)
-      if best.mu < rest.mu:
-        for a,z in [(-1E30, mu),(-1E30, mu+e/2),(-1E30, mu+e)] : yield best.at,best.name,f(a),f(z)
-      else:
-        for a,z in [(mu, 1E30),(mu-e/2, 1E30),(mu-e, 1E30)]    : yield best.at,best.name,f(a),f(z)
+    for criterion  in differences(best,rest):
+      bs  = selects(best.rows, [criterion])
+      rs  = selects(rest.rows, [criterion])
+      b,r = len(bs)/B, len(rs)/R
+      criterion.score =  b**2/(b+r)
+      yield criterion
 
-def select(x,lo,hi): return x=="?" or lo <= x <= hi
+def differences(best,rest):
+  "Returns ranges (lo,hi) being values more often in `best` than `rest`."
+  def sym():
+    freq = lambda col,l: col.has.get(k,0) / col.n
+    return [k,k for k in best.has if freq(best,k) > freq(rest,k)]
+  def num():
+    mid  = guassianIntersection(best.mu,rest.mu,div(best), div(rest))
+    a, z, mu, d = -1E30, 1E30, best.mu, abs(best.mu - mid)
+    tmp  = [(mu-d, mu+d), (mu-d/2, mu+d/2)]
+    tmp += ([(a, mu),(a, mu+d/2),(a, mu+d)] if mu < rest.mu else [(mu, z),(mu-d/2, z),(mu-d, z)])
+    f    = best.filter
+    return [(f(lo), f(hi)) for lo,hi in tmp]
+  #----------------------------------------
+  for lo,hi in set( sym() if best.this is SYM else num() ):
+    yield CRITERION(best,lo,hi)
 
-def scoreConstrasts(bests,rests,B=1,R=1):
-  for at,name,lo,hi in constrasts(bests,rests):
-    bs  = [row for row in bests.rows if select(row[at],lo,hi)]
-    rs  = [row for row in rests.rows if select(row[at],lo,hi)]
-    b,r = len(bs)/B, len(rs)/R
-    yield b**2/(b+r), at, name, lo, hi
+def selects(rows, criteria):
+  return [row for row in rows if not rejects(row,criteria)]
+
+def rejects(row,criteria):
+  for criterion in criteria:
+    x = row[criterion.at]
+    if not (x=="?" or criterion.lo <= x <= criterion.hi): return True
+
 #----------------------------------------------------------------------------------------
 def bore(bests,rests,b4=0,stop=None,B=None,R=None):
   stop = stop or len(bests.rows)**the.min
   B,R  = B or len(bests.rows), R or len(rests.rows)
   if stop < len(bests.rows):
-    score,at,name,lo,hi = sorted(selects(bests,rests,B,R),reverse=True)[0] 
-    if score > b4:
+    criterion = sorted(criteria(bests,rests,B,R),reverse=True,key=lambda c:c.score)[0] 
+    if criterion,score > b4:
       print(BAG(b=len(bests.rows), r=len(rests.rows),name=name,lo=lo,hi=hi,score=f"{score:3g}"))
       bestrows = [row for row in bests.rows if select(row[at],lo,hi)]
       restrows = [row for row in rests.rows if select(row[at],lo,hi)]
