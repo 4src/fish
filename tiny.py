@@ -99,31 +99,27 @@ def stats(data, cols=None, fun=lambda c: mid(c)):
 def clone(data,rows=[]):
   return DATA(data=DATA(rows=[data.cols.names]),rows=rows)
 
-def bin(bests,rests):
-  for unique in set(bin1(bests,rests)): yield unique
+def contrasts(bests,rests):
+  for unique in set(contrasts1(bests,rests)): yield unique
 
-def bin1(bests,rests):
+def contrasts1(bests,rests):
   for best,rest in zip(bests.cols.x, rests.cols.x):
     if best.this is SYM:
-      for k in best.has:
-        yield best.at, best.name, k, k
+      for k in best.has: yield best.at, best.name, k, k
     else:
       f    = best.fun
       m    = valleyBetween(best.mu, rest.mu, div(best), div(rest))
       mu,e = best.mu, abs(best.mu - m)
-      for a,z in [(mu-e, m+e), (mu-e/2, mu+e/2)]:
-        yield best.at, best.name, f(a), f(z)
+      for a,z in [(mu-e, m+e), (mu-e/2, mu+e/2)]               : yield best.at,best.name,f(a),f(z)
       if best.mu < rest.mu:
-        for a,z in [(-1E30, mu),(-1E30, mu+e/2),(-1E30, mu+e)]:
-          yield best.at, best.name, f(a), f(z)
+        for a,z in [(-1E30, mu),(-1E30, mu+e/2),(-1E30, mu+e)] : yield best.at,best.name,f(a),f(z)
       else:
-        for a,z in [(mu, 1E30),(mu-e/2, 1E30),(mu-e, 1E30)]:
-          yield best.at, best.name, f(a), f(z)
+        for a,z in [(mu, 1E30),(mu-e/2, 1E30),(mu-e, 1E30)]    : yield best.at,best.name,f(a),f(z)
 
-def select(x,lo,hi): return x=="?" or lo==hi==x or lo <= x <= hi
+def select(x,lo,hi): return x=="?" or lo <= x <= hi
 
-def selects(bests,rests,B=1,R=1):
-  for at,name,lo,hi in bin(bests,rests):
+def scoreConstrasts(bests,rests,B=1,R=1):
+  for at,name,lo,hi in constrasts(bests,rests):
     bs  = [row for row in bests.rows if select(row[at],lo,hi)]
     rs  = [row for row in rests.rows if select(row[at],lo,hi)]
     b,r = len(bs)/B, len(rs)/R
