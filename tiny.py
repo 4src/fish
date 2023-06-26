@@ -114,11 +114,11 @@ def key(rule, new):
     [key(rule, k) for keys in new.cols.values() for k in keys]
   else:
     b4 = rule.cols[new.at] = rule.cols.get(new.at,[])
-    overlaps = False
-    for  old in b4:
-      if new.lo <= old.lo and old.lo <= new.hi <= old.hi: old.hi = new.hi; overlaps = True
-      if new.hi >= old.hi and old.lo <= new.lo <= old.hi: old.lo = new.lo; overlaps = True
-    if not overlaps: b4 += [new]
+    flag = False
+    for  k in b4:
+      if new.lo <= k.lo and k.lo <= new.hi <= k.hi: k.hi=new.hi; flag=True
+      if new.hi >= k.hi and k.lo <= new.lo <= k.hi: k.lo=new.lo; flag=True
+    if not flag: b4 += [new]
   return rule
 
 def selects(rule,row):
