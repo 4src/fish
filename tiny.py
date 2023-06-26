@@ -105,6 +105,23 @@ def clone(data,rows=[]):
 def CRITERION(col,lo,hi) : 
   return BAG(this=CRITERION, score=0,at=col.at, lo=lo, hi=hi, name=col.name)
 
+def CRITERIA(criterions):
+  all={}
+  for criterion in criterions:
+    now = all[criterion.at] = all.get(criterion.at,[]) 
+    now += [criterion]
+  return BAG(this=CRITERIA, all= all)
+
+def selects(criteria,row):
+  def OR(criterions):
+    for criterion in criterions:
+      x = row[criterion.at]
+      if x=="?" or criterion.lo <= x <= criterion.hi: 
+        return True
+  for criterions in criteria.all.values():
+    if not OR(criterions): return False
+  return True
+
 def criteria(bests,rests,B=1,R=1):
   for best,rest in zip(bests.cols.x, rests.cols.x):
     for criterion  in differences(best,rest):
@@ -135,8 +152,6 @@ def selects(rows, criteria):
 
 def rejects(row,criteria):
   for criterion in criteria:
-    x = row[criterion.at]
-    if not (x=="?" or criterion.lo <= x <= criterion.hi): return True
 
 #----------------------------------------------------------------------------------------
 def bore(bests,rests,b4=0,stop=None,B=None,R=None):
