@@ -105,12 +105,11 @@ def clone(data,rows=[]):
 def CRITERION(col,lo,hi) : 
   return BAG(this=CRITERION, score=0,at=col.at, lo=lo, hi=hi, name=col.name)
 
-def CRITERIA(criterions):
-  all={}
-  for criterion in criterions:
-    now = all[criterion.at] = all.get(criterion.at,[]) 
-    now += [criterion]
-  return BAG(this=CRITERIA, all= all)
+def CRITERIA(): return BAG(this=CRITERIA, all=[])
+
+def criteria(criteria1, criterion):
+  now = creteria1.all[criterion.at] = criteria1.all.get(criterion.at,[]) 
+  now += [criterion]
 
 def selects(criteria,row):
   def OR(criterions):
