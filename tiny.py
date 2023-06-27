@@ -3,11 +3,12 @@
 # https://en.wikipedia.org/wiki/Effect_size#Other_metrics
 from fileinput import FileInput as file_or_stdin
 import traceback,random,math,sys,re
+from copy import deepcopy
 from termcolor import colored
 from functools import cmp_to_key
 from ast import literal_eval
 
-class BOX(object): 
+class BOX(object):
   def __init__(i,**d): i.__dict__.update(**d)
   def __repr__(i):
     show = lambda x: x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x,float) else x)
@@ -17,6 +18,7 @@ class BOX(object):
 the = BOX(seed = 1234567891, 
           min  = .5,
           rest = 3,
+          beam = 10,
           file = "../data/auto93.csv")
 #----------------------------------------------------------------------------------------
 def COL(at=0, name=""):
@@ -114,33 +116,35 @@ def key(rule, new):
     [key(rule, k) for keys in new.cols.values() for k in keys]
   else:
     b4 = rule.cols[new.at] = rule.cols.get(new.at,[])
-    flag = False
+    dontAdd =  False
     for  k in b4:
-      if new.lo <= k.lo and k.lo <= new.hi <= k.hi: k.hi=new.hi; flag=True
-      if new.hi >= k.hi and k.lo <= new.lo <= k.hi: k.lo=new.lo; flag=True
-    if not flag: b4 += [new]
+      if new.lo <= k.lo and k.lo <= new.hi <= k.hi: k.hi=new.hi; dontAdd=True
+      if new.hi >= k.hi and k.lo <= new.lo <= k.hi: k.lo=new.lo; dontAddflag=True
+    if not dontAdd: 
+      b4 += [new]
   return rule
 
 def selects(rule,row):
-  def _or(keys):
-    for key in keys:
+  def _or(keys4col):
+    for key in keys4col:
       x = row[key.at]
       if x=="?" or key.lo <= x <= key.hi: return True
-  for keys in rule.cols.values():
-    if not _or(keys): return False
+  for keys4col in rule.cols.values():
+    if not _or(keys2col): return False
   return True
 
-def score(rule, bests, rests, B=1, R=1):
-  bs  = [row for row in best.rows if selects(rule,row)]
-  rs  = [row for row in rest.rows if selects(rule,row)]
-  b,r = len(bs)/B, len(rs)/R
+def score(rule, bests, rests):
+  bs = [row for row in best.rows if selects(rule,row)]
+  rs = [row for row in rest.rows if selects(rule,row)]
+  b  = len(bs) / (len(bests.rows) + 1/1E30)
+  r  = len(rs) / (len(rests.rows) + 1/1E30)
   rule.score = b**2/(b+r)
   yield rule
 
-def rules(bests,rests,B=1,R=1):
+def rules(bests,rests):
   for best,rest in zip(bests.cols.x, rests.cols.x):
     for key in keys(best,rest):
-      yield score(RULE([ key ]), bests,rests,B,R)
+      yield score(RULE([ key ]), bests,rests)
 
 def keys(best,rest):
   "Returns ranges (lo,hi) being values more often in `best` than `rest`."
@@ -155,17 +159,19 @@ def keys(best,rest):
   for lo,hi in set( _sym() if best.this is SYM else _num() ):
     yield KEY(best,lo,hi)
 
-def bore(bests,rests,b4=0,stop=None,B=None,R=None):
-  stop = stop or len(bests.rows)**the.min
-  B,R  = B or len(bests.rows), R or len(rests.rows)
-  if stop < len(bests.rows):
-    criterion = sorted(criteria(bests,rests,B,R),reverse=True,key=lambda c:c.score)[0] 
-    if criterion,score > b4:
-      print(BOX(b=len(bests.rows), r=len(rests.rows),name=name,lo=lo,hi=hi,score=f"{score:3g}"))
-      bestrows = [row for row in bests.rows if select(row[at],lo,hi)]
-      restrows = [row for row in rests.rows if select(row[at],lo,hi)]
-      if len(bestrows) != len(bests.rows) or len(restrows) != len(rests.rows):
-        bore(clone(bests, bestrows), clone(rests, restrows), score, stop, B, R)
+def bore(best,rest):
+  def _bore(best1, rest1, b4):
+    if step < len(best1.rows):
+      new = sorted(rules(best1,rest1,len(best1.rows), len(best2.rows)),reverse=True
+      bestrows = [row for row in best.rows if selects(new,row)]
+      restrows = [row for row in rest.rows if selects(new,row)]
+      if len(best2.rows) !=< len(best1.rows): 
+  all = sorted(rules(bests,rests),reverse=True)
+  out = [(score,rule) for rule in alll]
+  out  = RULE()
+  candidates= sorted(rules(best,rest,len(best1.rows), len(best2.rows)),reverse=True)[0]
+  _bore(bests,rests, -1)
+  return out
 
 #----------------------------------------------------------------------------------------
 def coerce(x):
