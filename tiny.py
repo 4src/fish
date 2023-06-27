@@ -119,23 +119,23 @@ def key(rule, new):
     dontAdd =  False
     for  k in b4:
       if new.lo <= k.lo and k.lo <= new.hi <= k.hi: k.hi=new.hi; dontAdd=True
-      if new.hi >= k.hi and k.lo <= new.lo <= k.hi: k.lo=new.lo; dontAddflag=True
+      if new.hi >= k.hi and k.lo <= new.lo <= k.hi: k.lo=new.lo; dontAdd=True
     if not dontAdd: 
       b4 += [new]
   return rule
 
-def selects(rule,row):
-  def _or(keys4col):
+def ands(rule,row):
+  def _ors(keys4col):
     for key in keys4col:
       x = row[key.at]
-      if x=="?" or key.lo <= x <= key.hi: return True
+      if x=="?" or key.lo <= x <= key.hi: return True # if any `or` succeeds, then success!
   for keys4col in rule.cols.values():
-    if not _or(keys2col): return False
-  return True
+      if not _ors(keys2col): return False # if any `and` fails, then failure :-(
+  return True # if no failure, the success!
 
 def score(rule, bests, rests):
-  bs = [row for row in best.rows if selects(rule,row)]
-  rs = [row for row in rest.rows if selects(rule,row)]
+  bs = [row for row in best.rows if ands(rule,row)]
+  rs = [row for row in rest.rows if ands(rule,row)]
   b  = len(bs) / (len(bests.rows) + 1/1E30)
   r  = len(rs) / (len(rests.rows) + 1/1E30)
   rule.score = b**2/(b+r)
@@ -163,8 +163,8 @@ def bore(best,rest):
   def _bore(best1, rest1, b4):
     if step < len(best1.rows):
       new = sorted(rules(best1,rest1,len(best1.rows), len(best2.rows)),reverse=True
-      bestrows = [row for row in best.rows if selects(new,row)]
-      restrows = [row for row in rest.rows if selects(new,row)]
+      bestrows = [row for row in best.rows if ands(new,row)]
+      restrows = [row for row in rest.rows if ands(new,row)]
       if len(best2.rows) !=< len(best1.rows): 
   all = sorted(rules(bests,rests),reverse=True)
   out = [(score,rule) for rule in alll]

@@ -33,21 +33,23 @@ function COLS.new(ss)
 
 -- ## Battery functions
 -- Since LUA is a "no batteries included" language,  we need to add some.
+-- The following code uses the _little Polish_ conventions for function arguments:
 
--- | var | = notes|
+-- | this | = that (in this code)|
 -- |-----:|------|
--- |i. | = reference to self  |
--- |l. | = reference to ome library function  |
--- | abc | = (if upper case `ABC` is a constructor), an instance of class `ABC`|
--- | t   | = table| 
--- | u   | = another table |
--- |n    | = number|  
--- |fun | = function|
--- |s| = string|
--- |x | = anything   |
--- |k,v | = key,value|
--- |Xs | = list of X  (so `ss` is a list of strings)|
--- |X1 | = an example of X (so `s1` is a string)|
+-- | ------- | ---------------------------------------------- |
+-- |`i.` | = reference to self  |
+-- |`l.` | = reference to ome library function  |
+-- | `abc` | = (if upper case `ABC` is a constructor), an instance of class `ABC`|
+-- | `t`   | = table| 
+-- | `u`   | = another table |
+-- |`n`    | = number|  
+-- |`fun` | = function|
+-- |`s`| = string|
+-- |`x` | = anything   |
+-- |`k,v` | = key,value|
+-- |`Xs` | = list of X  (so `ss` is a list of strings)|
+-- |`X1` | = an example of X (so `s1` is a string)|
 l={}
 
 -- ### Short-cuts   
@@ -97,7 +99,8 @@ function l.coerce(s)
 function l.o(t) 
   if type(t)~="table" then return tostring(t) end
   local _fun = function(k,v) return l.fmt(":%s %s",k,l.o(v)) end 
-  return "{"..table.concat(#t>0  and l.map(t,o) or l.sort(l.kap(t,_fun))," ").."}" end
+  pre = t._is or ""
+  return pre.."{"..table.concat(#t>0  and l.map(t,l.o) or l.sort(l.kap(t,_fun))," ").."}" end
 
 -- Print `t` (recursively) then return it.
 function l.oo(t) print(l.o(t)); return t end
