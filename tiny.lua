@@ -1,3 +1,4 @@
+local b4={}; for k,_ in pairs(_ENV) do b4[k] = k end
 local the = {seed=1234567891, min= .5, rest=3, 
              beam=10, file="../data/auto93.csv"}
 
@@ -89,11 +90,12 @@ function COL(n,s)
 function SYM.new(i,n,s) 
   i.name=s or ""; i.at=n or 0; i.n=0, i.has={}; i.most=0; i.mode=None end
 -- `NUM`s tracks the smallest and biggest number seen to far (in `lo` and `hi`) as well as the the mean `mu` and second moment `m2` (used to find standard deviation).
--- Also, when we pretty print numbers we `round` them (by default, to zero decimals), unless we see a float in). Any name ending with `-` is
+-- Also, `pretty` controls how we report numbers (and this switches to "%g" if we ever see a float).
+-- Any name ending with `-` is
 -- something we want to _minimize_ (so we give it a negative weight).
 function NUM.new(i,n,s) 
   i.name=s or ""; i.at=n or 0; i.n=0; i.lo=big; i.hi= -big; i.mu=0; i.m2=0; 
-  i.round = 0
+  i.pretty = "%.0f"
   i.w = i.name:find"-$" and -1 or 1  end
 
 -- `COLS` convert  list of column names (as strings) into `SYM`s or `NUM`s. Column names ending in a goal symbol
