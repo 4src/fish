@@ -1,22 +1,21 @@
 #!/usr/bin/env lua
--- <!--- vim : set et sts=2 sw=2 ts=2 : --->
--- In this cade, in function argument lists, two spaces denotes
--- "start of optional args" and four spaces denotes "start of local
--- variables". Also:
+-- <!-- vim : set et sts=2 sw=2 ts=2 : -->
+-- In this code, in function argument lists, two spaces denotes "start of    
+-- optional args" and four spaces denotes "start of local variables". Also:
 --
--- | `i.`   | = reference to self |
--- |-------:|---------------------|
--- | `t`    | = table | 
--- | `u`    | = another table (often generated from `t`) |
--- | `n`    | = number |  
--- | `s`    | = string |
--- | `x`    | = anything |
--- | `k,v`  | = key,value |
--- | `fun`  | = function |
--- | `_fun` | = a local function inside the current function |
--- | `Xs`   | = list of X  (so `ss` is a list of strings) |
--- | `X1`   | = an example of X (so `s1` is a string) |
--- | `abc`  | = (if upper case `ABC` is a constructor), an instance of class `ABC` |
+-- | `i.`   |=| reference to self |
+-- |-------:|-|-------------------|
+-- | `t`    |=| table | 
+-- | `u`    |=| another table (often generated from `t`) |
+-- | `n`    |=| number |  
+-- | `s`    |=| string |
+-- | `x`    |=| anything |
+-- | `k,v`  |=| key,value |
+-- | `fun`  |=| function |
+-- | `_fun` |=| a local function inside the current function |
+-- | `Xs`   |=| list of X  (so `ss` is a list of strings) |
+-- | `X1`   |=| an example of X (so `s1` is a string) |
+-- | `abc`  |=| (if upper case `ABC` is a constructor), an instance of class `ABC` |
 
 local l={}
 
@@ -36,8 +35,8 @@ l.fmt = string.format
 -- ### Maths
 
 -- Rounds `n` to `nPlaces` (default=2)
-function l.rnd(n,  nPlaces)
-  local mult = 10^(nPlaces or 2)
+function l.rnd(n,  nPlaces,     mult)
+  mult = 10^(nPlaces or 2)
   return math.floor(n * mult + 0.5) / mult end
 
 -- Generate random numbers.
@@ -56,8 +55,8 @@ function l.rand(nlo,nhi)
 -- accepts an item's index _and_ the item). If `fun2` returns two values,
 -- use the second as the key for the new list (else just number the items 
 -- numerically).
-function l.kap(t, fun2) 
-  local u={}; for k,v in pairs(t or {}) do v,k=fun2(k,v); u[k or (1+#u)]=v; end; return u end
+function l.kap(t, fun2,    u) 
+  u={}; for k,v in pairs(t or {}) do v,k=fun2(k,v); u[k or (1+#u)]=v; end; return u end
 -- Returns a copy of `t` with all items filtered via `fun`.
 function l.map(t, fun) return l.kap(t, function(_,x) return fun(x) end) end
 
@@ -73,39 +72,47 @@ function l.push(t,x) t[#t+1]=x; return x end
 -- ### Strings
 
 -- Convert `s` into an integer, a float, a bool, or a string (as appropriate). Return the result.
-function l.coerce(s)
-  local function _fun(s1)
+function l.coerce(s,    _fun)
+  function _fun(s1)
     return s1=="true" and true or (s1 ~= "false" and s1) or false end
   return math.tointeger(s) or tonumber(s) or _fun(s:match"^%s*(.-)%s*$") end
 
 -- Return a string  showing `t`'s contents (recursively), sorting on the keys.
-function l.o(t) 
+function l.o(t,     _fun,pre) 
   if type(t)~="table" then return tostring(t) end
-  local _fun = function(k,v) return l.fmt(":%s %s",k,l.o(v)) end 
+  _fun = function(k,v) return l.fmt(":%s %s",k,l.o(v)) end 
   pre = t.a or ""
   return pre.."{"..table.concat(#t>0  and l.map(t,l.o) or l.sort(l.kap(t,_fun))," ").."}" end
 
 -- Print `t` (recursively) then return it.
 function l.oo(t) print(l.o(t)); return t end
 
--- If the command line mentions key `k` then change `s` to a new value.
--- If the old value is a boolean, just flip the old. If not found, return nil.
-function l.cli(k,s)
-  for n,x in ipairs(arg) do
-    if x=="-"..(k:sub(1,1)) or x=="--"..k then
-      return s=="false" and "true" or s=="true" and "false" or arg[n+1] end end end
+-- Return `t`, updated from the command-line.  For `k,v` in
+-- `t`,if the command line mentions key `k` then change `s` to a new
+-- value.  If the old value is a boolean, just flip the old. 
+function l.cli(t,help)
+  for k,v in pairs(t) do
+    v = tostring(v)
+    for n,x in ipairs(arg) do
+      if x=="-"..(k:sub(1,1)) or x=="--"..k then
+        v = v=="false" and "true" or v=="true" and "false" or arg[n+1] end end 
+    t[k] = l.coerce(v) end
+  if t.help then os.exit(print(help)) end
+  return t end
 
 -- Parse `help` text to extract settings.
-function l.settings(d,s,  prep)
+function l.settings(s,       t)
+  t={}
   s:gsub("\n[%s]+[-][%S][%s]+[-][-]([%S]+)[^\n]+= ([%S]+)",
-         function(k,v) d[k] = l.coerce(prep and prep(k,v) or v) end) 
-  return d end
+         function(k,v) t[k]=l.coerce(v) end)
+  return t,s end
 
 -- ### Klasses
 
 -- Create a klass and a constructor and a print method
 function l.obj(s,    t) 
-  t={__tostring=function(s) return l.o(s) end}; t.__index = t
+  t = {__tostring = function(s) return l.o(s) end}
+  t.__index = t
   return setmetatable(t, {__tostring=l.o, __call=function(_,...) 
     local i=setmetatable({a=s},t); return setmetatable(t.new(i,...) or i,t) end}) end
 
@@ -117,14 +124,12 @@ local egs={}
 -- `-g fred`.
 function l.eg(s,fun) egs[1+#egs] = {name=s, fun=fun} end
 
--- Show the help (if asked to).
--- Run one test, or if the test is `all`, then run all (printing
--- "FAIL" or "PASS" as you go). 
--- Check for stray globals.  Return to the operating system the number
--- of failures (so zero means "everything is ok").
-function l.main(help,settings)
-  if settings.help then os.exit(print("\n"..help)) end
-  local fails,saved=0,{}
+-- Show the help (if asked to).  Run one test, or if the test is `all`, 
+-- then run all (printing "FAIL" or "PASS" as you go).  Check for stray i
+-- globals.  Return to the operating system the number of failures 
+-- (so zero means "everything is ok").
+function l.run(settings,    fails,saved)
+  fails,saved=0,{}
   for k,v in pairs(settings) do saved[k]=v end
   for _,sfun in pairs(egs) do
     local s, fun = sfun.name, sfun.fun
@@ -141,11 +146,11 @@ function l.main(help,settings)
 -- Return `true,message` if `fun` fails. Before running,
 -- reset `settings` to the saved values. Reset random number
 -- generators. Print a stacktrace of there is a failure.
-function l.failure(saved,settings,fun)
+function l.failure(saved,settings,fun,     ok,val)
   for k,v in pairs(saved) do settings[k]=v end 
   Seed = settings.seed
-  math.randomseed(l.Seed)
-  local ok,val = pcall(fun)
+  math.randomseed(Seed)
+  ok,val = pcall(fun)
   if not ok then print(debug.traceback()); return true, val
   elseif val==false then return true, "test returned false"
   else return false, "all good" end end
