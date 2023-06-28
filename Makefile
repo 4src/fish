@@ -19,7 +19,12 @@ tests: ## run test suite
 		else cp docs/fail.png docs/results.png; \
   fi
 
-html: docs/fish.html
+html: 
+	docco -o $(HOME)/tmp  tiny.lua 
+	cp ../config/docco.css $(HOME)/tmp
+	open $(HOME)/tmp/tiny.html
+
+#html: docs/fish.html
 
 pdf: $(HOME)/tmp/fish.pdf
 
