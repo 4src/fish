@@ -20,6 +20,7 @@ tests: ## run test suite
   fi
 
 html: 
+	docco -o $(HOME)/tmp  lib.lua 
 	docco -o $(HOME)/tmp  tiny.lua 
 	cp ../config/docco.css $(HOME)/tmp
 	open $(HOME)/tmp/tiny.html
