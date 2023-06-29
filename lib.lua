@@ -131,23 +131,24 @@ function lib.eg(s,fun) egs[1+#egs] = {name=s, fun=fun} end
 -- globals.  Return to the operating system the number of failures 
 -- (so zero means "everything is ok").
 function lib.run(settings,     fails,old,fail,pass,report,dump,reset)
+  fails = 0
   old = {}
   for k,v in pairs(settings) do old[k]=v end
-  fail=   function(s,msg) print(lib.fmt("❌ FAIL %s %s",s,msg or "")) end
-  pass=   function(s)     print(lib.fmt("✅ PASS %s",s)) end 
-  report= function()      print(lib.fmt("🔆 failure(s) = %s",fails)) end
-  dump=   function()      print(debug.traceback()) end
-  reset=  function()      for k,v in pairs(old) do settings[k]=v end  
-                          Seed = settings.seed
-                          math.randomseed(Seed) end
-  fails = 0
+  report=  function()      print(lib.fmt("🔆 failure(s) = %s",fails)) end
+  good=    function(s)     print(lib.fmt("✅ PASS %s",s)) end 
+  bad=     function(s,msg) print(lib.fmt("❌ FAIL %s %s",s,msg or "")) 
+                           fails = fails + 1 end
+  veryBad= function(s,msg) print(debug.traceback()) 
+                           bad(s,msg) end
+  reset=   function()      for k,v in pairs(old) do settings[k]=v end  
+                           Seed = settings.seed
+                           math.randomseed(Seed) end
   for _,sfun in pairs(egs) do
-    if settings.go == sfun.name or settings.go == "all" 
-    then reset()
-         local ok,val = pcall(sfun.fun)
-         if not ok then         dump(); fail(sfun.name,val); fails= fails+1
-         elseif val==false then         fail(sfun.name);     fails= fails+1
-         else pass() end end end
+    local s,fun = sfun.name, sfun.fun
+    if settings.go == s or settings.go == "all" then
+      reset()
+      local ok,msg = pcall(fun)
+      if not ok then veryBad(s,msg) elseif val==false then bad(s) else good() end end end
   report()
   lib.rogues()
   os.exit(fails) end
