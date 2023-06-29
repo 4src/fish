@@ -105,7 +105,7 @@ function l.settings(s,       t)
   t={}
   s:gsub("\n[%s]+[-][%S][%s]+[-][-]([%S]+)[^\n]+= ([%S]+)",
          function(k,v) t[k]=l.coerce(v) end)
-  return t,s end
+  return t end
 
 -- ### Klasses
 

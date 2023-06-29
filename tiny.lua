@@ -1,9 +1,6 @@
 #!/usr/bin/env lua
 -- <!--- vim : set et sts=2 sw=2 ts=2 : --->
-local l=require"lib"
-local eg, o, obj, oo = l.eg, l.o, l.obj, l.oo
-local the,help = l.settings[[
-  
+local help = [[
 tiny: multi-goal semi-supervised explanation
 (c) 2023 Tim Menzies <timm@ieee.org> BSD-2
   
@@ -16,13 +13,19 @@ OPTIONS:
   -s  --seed    random number seed           = 93716221
 ]]
 
--- `COL`umns can be `NUM`eric or `SYM`bolic. Upper case names denote `NUM`s.
--- All `COL`s know their name, their column loc`at`ion, their count `n` of items seen.
+local l=require"lib"
+local the = l.settings(help)
+local eg, o, obj, oo = l.eg, l.o, l.obj, l.oo
 local SYM,NUM,COLS,DATA = obj"SYM", obj"NUM", obj"COLS", obj"DATA"
 local COL
+-------------------------------------------------------------------------------
+-- ### COLS
+
+-- `COL`umns can be `NUM`eric or `SYM`bolic. Upper case names denote `NUM`s.
+-- All `COL`s know their name, their column loc`at`ion, their count `n` of items seen.
 function COL(n,s) 
   return s:find"^[A-Z]" and NUM(n,s) or SYM(n,s) end
-
+-------------------------------------------------------------------------------
 -- ### SYM
 
 -- `SYM`s uses `has` to count symbols seen so far (and the most common symbol is the `mode`).
@@ -42,7 +45,7 @@ function SYM.div(i,     e)
   e = 0
   for _,v in pairs(i.has) do e = e - v/i.n * math.log(v/i.n,2) end
   return e end
-
+-------------------------------------------------------------------------------
 -- ### NUM
 
 -- `NUM`s tracks the smallest and biggest number seen to far (in `lo` and `hi`) 
@@ -87,6 +90,9 @@ local function cross(mu1,mu2,std1,std2)
   x2 = (-b - (b^2 - 4*a*c)^.5)/(2*a)
   return mu1 <= x1 <= mu2 and x1 or x2 end
 
+
+
+-------------------------------------------------------------------------------
 -- ### COLS
 
 -- `COLS` convert  list of column names (as strings) into `SYM`s or `NUM`s. 
@@ -107,6 +113,7 @@ function COLS.add(i,t)
       col:add(t[col.at]) end end 
   return t end
 
+-------------------------------------------------------------------------------
 -- ### DATA
 function DATA.new(i,rows)
   i.rows,i.cols = {},nil
@@ -138,6 +145,7 @@ function DATA:stats(i,  what,cols,nPlaces,     fun,tmp)
   tmp["N"]=#self.rows
   return tmp end
 
+-------------------------------------------------------------------------------
 -- ## Demos
 eg("the",  function() oo(the) end)
 eg("rnd",  function() return 3.14 == l.rnd(math.pi) end)
@@ -159,6 +167,7 @@ eg("cross", function()
 eg("cols", function()
   l.map(COLS({"Name", "Age", "Mpg-", "room"}).all, print) end)
 
+-------------------------------------------------------------------------------
 -- ## Start-up
 if   not pcall(debug.getlocal,4,1) 
 then the = l.cli(the, help)
