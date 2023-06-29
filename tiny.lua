@@ -15,7 +15,7 @@ OPTIONS:
 
 local l=require"lib"
 local the = l.settings(help)
-local eg, o, obj, oo = l.eg, l.o, l.obj, l.oo
+local eg, o, obj, oo, rnd = l.eg, l.o, l.obj, l.oo, l.rnd
 local SYM,NUM,COLS,DATA = obj"SYM", obj"NUM", obj"COLS", obj"DATA"
 local COL
 -------------------------------------------------------------------------------
@@ -40,11 +40,11 @@ function SYM.add(i,x)
   if i.has[x] > i.most then i.most,i.mode = i.has[x],x end end
 
 -- `mid,div` returns central tendency  and diversity.
-function SYM.mid(i) return i.mode end
-function SYM.div(i,     e) 
+function SYM.mid(i,  _) return i.mode end
+function SYM.div(i,  nPlaces,     e) 
   e = 0
   for _,v in pairs(i.has) do e = e - v/i.n * math.log(v/i.n,2) end
-  return e end
+  return nPlaces and rnd(e,nPlaces) or e end
 -------------------------------------------------------------------------------
 -- ### NUM
 
@@ -70,22 +70,22 @@ function NUM.add(i,n,    d)
   if math.type(n) == "float" then i.pretty = "%g" end end
 
 -- `mid,div` returns central tendency  and diversity.
-function NUM.mid(i,  nPlaces) return i.mu end
-function NUM.div(i) return (i.m2/(i.n - 1))^.5 end
+function NUM.mid(i,  nPlaces) 
+  return nPlaces and rnd(i.mu,nPlaces) or i.mu end
+function NUM.div(i,  nPlaces,      sd)
+  sd = (i.m2/(i.n - 1))^.5; return nPlaces and rnd(sd,nPlaces) or sd end
 
--- XXX need to handle rounding
---
 -- Return `n` mapped 0..1, min..max.
 function NUM.norm(i,n)
   return n=="?" and x or (n - i.lo)/(i.hi - i.lo + 1/l.big) end
 
-local function cross(mu1,mu2,std1,std2)
-  local std1,std2,a,b,c,x1,x2
-  if mu2 < mu1 then return cross(mu2,mu1,std2,std1) end
-  if std1==0 or std2==0 or std1==std2 then return (mu1+mu2)/2 end
-  a  = 1/(2*std1^2) - 1/(2*std2^2)
-  b  = mu2/(std2^2) - mu1/(std1^2)
-  c  = mu1^2 /(2*std1^2) - mu2^2 / (2*std2^2) - math.log(std2/std1)
+local function cross(mu1,mu2,sd1,sd2)
+  local sd1,sd2,a,b,c,x1,x2
+  if mu2 < mu1 then return cross(mu2,mu1,sd2,sd1) end
+  if sd1==0 or sd2==0 or sd1==sd2 then return (mu1+mu2)/2 end
+  a  = 1/(2*sd1^2) - 1/(2*sd2^2)
+  b  = mu2/(sd2^2) - mu1/(sd1^2)
+  c  = mu1^2 /(2*sd1^2) - mu2^2 / (2*sd2^2) - math.log(sd2/sd1)
   x1 = (-b + (b^2 - 4*a*c)^.5)/(2*a)
   x2 = (-b - (b^2 - 4*a*c)^.5)/(2*a)
   return mu1 <= x1 <= mu2 and x1 or x2 end
@@ -139,16 +139,16 @@ function DATA.ordered(i)
 function DATA.stats(i,fun,cols)
   tmp=map(cols or i.cols.y, function(col) 
  
-function DATA:stats(i,  what,cols,nPlaces,     fun,tmp)
-  fun=function(k,col) return rnd(getmetatable(col)[what or "mid"](col),nPlaces),col.txt end
-  tmp=kap(cols or self.cols.all, fun)
-  tmp["N"]=#self.rows
-  return tmp end
+function DATA:stats(i,  what,cols,nPlaces,     t)
+  t = {N=#self.rows}
+  for _,col in pairs(cols or self.cols.all) do
+    t[col.txt] =rnd(getmetatable(col)[what or "mid"](col),nPlaces) end
+  return t end
 
 -------------------------------------------------------------------------------
 -- ## Demos
 eg("the",  function() oo(the) end)
-eg("rnd",  function() return 3.14 == l.rnd(math.pi) end)
+eg("rnd",  function() return 3.14 == rnd(math.pi) end)
 eg("rand", function(     num,d) 
   num = NUM()
   for _ = 1,1000 do num:add(l.rand()^2) end
