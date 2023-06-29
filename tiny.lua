@@ -18,7 +18,7 @@ OPTIONS:
 
 -- `COL`umns can be `NUM`eric or `SYM`bolic. Upper case names denote `NUM`s.
 -- All `COL`s know their name, their column loc`at`ion, their count `n` of items seen.
-local SYM, NUM, COLS = obj"SYM", obj"NUM", obj"COLS"
+local SYM,NUM,COLS,DATA = obj"SYM", obj"NUM", obj"COLS", obj"DATA"
 local COL
 function COL(n,s) 
   return s:find"^[A-Z]" and NUM(n,s) or SYM(n,s) end
@@ -32,9 +32,9 @@ function SYM.new(i,n,s)
 -- Update a `SYM`bol.
 function SYM.add(i,x)
   if x=="?" then return end
-  i.n += 1
-  i.has[x] = 1 + (i.has.get[x] or 0)
-  if i.has[x] > i.most then i.mode=i.has[x],x end end
+  i.n      = 1 + i.n
+  i.has[x] = 1 + (i.has[x] or 0)
+  if i.has[x] > i.most then i.most,i.mode = i.has[x],x end end
 
 -- `mid,div` returns central tendency  and diversity.
 function SYM.mid(i) return i.mode end
@@ -49,16 +49,16 @@ function SYM.div(i,     e)
 -- as well as the the mean `mu` and second moment `m2` (used to find standard deviation).
 -- Also, `pretty` controls how we report numbers (and this switches to "%g" 
 -- if we ever see a float).  Any name ending with `-` is something we want to _minimize_ 
--- (so we give it a negative weight).
+-- (so we give it a non-positive weight).
 function NUM.new(i,n,s) 
   return {name=s or "",  at=n or 0,  n=0, 
           lo=l.big, hi= -l.big, mu=0,  m2=0, 
-          pretty="%.0f", w=(s or ""):find"-$" and -1 or 1} end
+          pretty="%.0f", want=(s or ""):find"-$" and 0 or 1} end
 
 -- Update a `NUM`ber.
 function NUM.add(i,n,    d)
-  if m=="?" then return end
-  i.n  = 1
+  if n=="?" then return end
+  i.n  = 1 + i.n
   i.lo = math.min(n, i.lo)
   i.hi = math.max(n, i.hi)
   d    = n - i.mu
@@ -67,12 +67,25 @@ function NUM.add(i,n,    d)
   if math.type(n) == "float" then i.pretty = "%g" end end
 
 -- `mid,div` returns central tendency  and diversity.
-function NUM.mid(i) return i.mu end
+function NUM.mid(i,  nPlaces) return i.mu end
 function NUM.div(i) return (i.m2/(i.n - 1))^.5 end
 
+-- XXX need to handle rounding
+--
 -- Return `n` mapped 0..1, min..max.
 function NUM.norm(i,n)
   return n=="?" and x or (n - i.lo)/(i.hi - i.lo + 1/l.big) end
+
+local function cross(mu1,mu2,std1,std2)
+  local std1,std2,a,b,c,x1,x2
+  if mu2 < mu1 then return cross(mu2,mu1,std2,std1) end
+  if std1==0 or std2==0 or std1==std2 then return (mu1+mu2)/2 end
+  a  = 1/(2*std1^2) - 1/(2*std2^2)
+  b  = mu2/(std2^2) - mu1/(std1^2)
+  c  = mu1^2 /(2*std1^2) - mu2^2 / (2*std2^2) - math.log(std2/std1)
+  x1 = (-b + (b^2 - 4*a*c)^.5)/(2*a)
+  x2 = (-b - (b^2 - 4*a*c)^.5)/(2*a)
+  return mu1 <= x1 <= mu2 and x1 or x2 end
 
 -- ### COLS
 
@@ -80,7 +93,7 @@ function NUM.norm(i,n)
 -- Column names ending in a goal symbol (`+-!`) are dependent `y` features 
 -- (and the others are independent `x` features). 
 function COLS.new(i,ss) 
-  i.x, i.y, i.all = {},{},{}
+  i.x, i.y, i.all, i.names = {},{},{},ss
   for n,s in pairs(ss) do
     local col = l.push(i.all, COL(n,s))
     if not s:find"X$" then 
@@ -91,15 +104,62 @@ function COLS.new(i,ss)
 function COLS.add(i,t)
   for _,cols in pairs{i.x, i.y} do
     for _,col in pairs(cols) do 
-      col:add(t[col.at]) end end end
+      col:add(t[col.at]) end end 
+  return t end
+
+-- ### DATA
+function DATA.new(i,rows)
+  i.rows,i.cols = {},nil
+  for _,row in pairs(rows or {}) do i:add(row) end
+
+function DATA.add(i,t)
+  if i.cols then push(i.rows, i.cols:add(t)) else i.cols = COLS(t) end end
+
+function DATA.clone(i,rows,     j)
+  j = DATA()
+  j:add{i.cols.names}
+  for _,row in pairs(rows or {}) do j:add(row) end
+  return j end
+
+function DATA.d2h(i,t,    d)
+  d = 0
+  for _,col in pairs(i.cols.y) do d = d + (col.want - col:norm(t[col.at]))^2 end
+  return d^.5 end
+
+function DATA.ordered(i)
+  return sort(i.rows, function(t,u) return i:d2h(t) < i:d2h(u) end) end
+
+function DATA.stats(i,fun,cols)
+  tmp=map(cols or i.cols.y, function(col) 
+ 
+function DATA:stats(  what,cols,nPlaces) --> t; reports mid or div of cols (defaults to i.cols.y)
+  local fun,tmp
+  function fun(k,col) return rnd(getmetatable(col)[what or "mid"](col),nPlaces),col.txt end
+  tmp= kap(cols or self.cols.all, fun)
+  tmp["N"]=#self.rows
+  return tmp end
+
 
 -- ## Demos
 eg("the",  function() oo(the) end)
 eg("rnd",  function() return 3.14 == l.rnd(math.pi) end)
-eg("rand", function(     num) 
-   num=NUM()
-   for _=1,1000 do l.push(t, l.rnd(l.rand(1,20))) end
-   oo(l.sort(t)) end) 
+eg("rand", function(     num,d) 
+  num = NUM()
+  for _ = 1,1000 do num:add(l.rand()^2) end
+  d = num:div()
+  return .3 < d and d < .31  end)
+
+eg("ent", function(     sym,e) 
+  sym = SYM()
+  for _,x in pairs{"a","a","a","a","b","b","c"} do sym:add(x) end
+  e = sym:div()
+  return 1.37 < e and e < 1.38 end)
+
+eg("cross", function()
+  print(cross(2.5,5,1,1)) end)
+
+eg("cols", function()
+  l.map(COLS({"Name", "Age", "Mpg-", "room"}).all, print) end)
 
 -- ## Start-up
 if   not pcall(debug.getlocal,4,1) 
