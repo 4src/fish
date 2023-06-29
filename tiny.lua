@@ -133,8 +133,8 @@ function DATA.stats(i,fun,cols)
   tmp=map(cols or i.cols.y, function(col) 
  
 function DATA:stats(i,  what,cols,nPlaces,     fun,tmp)
-  fun = function(k,col) return rnd(getmetatable(col)[what or "mid"](col),nPlaces),col.txt end
-  tmp= kap(cols or self.cols.all, fun)
+  fun=function(k,col) return rnd(getmetatable(col)[what or "mid"](col),nPlaces),col.txt end
+  tmp=kap(cols or self.cols.all, fun)
   tmp["N"]=#self.rows
   return tmp end
 
