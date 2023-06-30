@@ -9,10 +9,11 @@ tiny: multi-goal semi-supervised explanation
 USAGE: ./tiny.lua [OPTIONS] [-g ACTIONS]
   
 OPTIONS:
-  -f  --file    data file                    = ../data/auto93.csv
-  -g  --go      start-up action              = nothing
-  -h  --help    show help                    = false
-  -s  --seed    random number seed           = 93716221]]
+  -f  --file    data file                          = ../data/auto93.csv
+  -g  --go      start-up action                    = nothing
+  -G  --Goal    plan or monitor or xplore or doubt = plan
+  -h  --help    show help                          = false
+  -s  --seed    random number seed                 = 93716221]]
 
 local eg, o, obj, oo, rnd = l.eg, l.o, l.obj, l.oo, l.rnd
 local SYM,NUM,COLS,DATA = obj"SYM", obj"NUM", obj"COLS", obj"DATA"
@@ -158,12 +159,17 @@ function DATA:stats(  what,cols,nPlaces,     t)
   return t end
 -------------------------------------------------------------------------------
 function TEST:new(col,lo,hi)
-  return {at=col.at, score=0, lo=lo, hi=hi, name=col.name} end
+  return {at=col.at, b=0, r=0,lo=lo, hi=hi, name=col.name} end
+
+function TEST:covers(t)
+  local x = t[self.at]
+  if x=="?" or self.lo <= x and x <= self.hi then return t end end 
 
 function RULE:new(tests)
-  self.cols, self._score = {}, 0
+  self.cols, self.b, self.r = {}, 0,0,0,0
   for _,test is pairs(tests or {}) do self:add(test) end end
 
+  -- disjunct, spread the area XXX
 function RULE:add(test,      olds,skip)
   olds = self.cols[new.at] = self.cols[new.at] or {}
   skip = false
@@ -173,23 +179,26 @@ function RULE:add(test,      olds,skip)
     if a1 >= a0 and a1 <= z0 and z1 >= z0 then old.lo = test.lo; skip = true end end
   if not skip then l.push(olds,new) end end
 
-function RULE:satisfies(t,    _ors)
+function RULE:covers(t,    _ors)
   function _ors(tests)
-    for _,test in pairs(tests) do
-      local x = t[test.at]
-      if x=="?" or test.lo <= x and x <= test.hi then return true end end end
+    for _,test in pairs(tests) do 
+      if test:covers(t) then return true end end end
   for _,tests in pairs(self.cols) do
     if not _ors(tests) then return nil end end
   return t end
 
-function RULE:score(bests, rests)
-  if not self._score then
-    bs  = map(bests.rows, function(t) return self:satisfies(t) end)
-    rs  = map(rests.rows, function(t) return self:satisfies(t) end)
-    b,r = #bs/(#bests.rows + 1/l.big),  #rs/(#rests.rows + 1/l.big)
-    self._score = b^2 / (b + r) end
-  return self._score end
+function br(thing,bests,rests)
+  local B, R = #bests.rows, #rests.rows 
+  bs  = map(bests.rows, function(t) return thing:covers(t) end)
+  rs  = map(rests.rows, function(t) return thing:covers(t) end)
+  thing.b, thing.r = #bs/(B + 1/l.big),  #rs/(R + 1/l.big) end
 
+function goal(thing)
+  b, r = thing.b, thing.r
+  if the.Goal == "plan"    then return b^2/(b+r) end
+  if the.Goal == "monitor" then return r^2/(b+r) end
+  if the.Goal == "xplore"  then return 1/(b+r)   end
+  if the.Goal == "doubt"   then return (b+r)/math.abs(b-r) end end
 
 -------------------------------------------------------------------------------
 -- ## Demos
