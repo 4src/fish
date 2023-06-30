@@ -1,22 +1,22 @@
 #!/usr/bin/env lua
 -- <!--- vim : set et sts=2 sw=2 ts=2 : --->
-local help = [[
+local l=require"lib"
+local the,help = l.settings [[
+
 tiny: multi-goal semi-supervised explanation
 (c) 2023 Tim Menzies <timm@ieee.org> BSD-2
   
 USAGE: ./tiny.lua [OPTIONS] [-g ACTIONS]
   
 OPTIONS:
-  -f  --file    data file                    = ../etc/data/auto93.csv
+  -f  --file    data file                    = ../data/auto93.csv
   -g  --go      start-up action              = nothing
   -h  --help    show help                    = false
-  -s  --seed    random number seed           = 93716221
-]]
+  -s  --seed    random number seed           = 93716221]]
 
-local l=require"lib"
-local the = l.settings(help)
 local eg, o, obj, oo, rnd = l.eg, l.o, l.obj, l.oo, l.rnd
 local SYM,NUM,COLS,DATA = obj"SYM", obj"NUM", obj"COLS", obj"DATA"
+local CONDTION,RULE = obj"CONDITION", obj"RULE"
 local COL
 -------------------------------------------------------------------------------
 -- ### COLS
@@ -24,7 +24,7 @@ local COL
 -- `COL`umns can be `NUM`eric or `SYM`bolic. Upper case names denote `NUM`s.
 -- All `COL`s know their name, their column loc`at`ion, their count `n` of items seen.
 function COL(n,s) 
-  return s:find"^[A-Z]" and NUM(n,s) or SYM(n,s) end
+  return (s or ""):find"^[A-Z]" and NUM(n,s) or SYM(n,s) end
 -------------------------------------------------------------------------------
 -- ### SYM
 
@@ -79,6 +79,23 @@ function NUM:div(  nPlaces,      sd)
 function NUM:norm(n)
   return n=="?" and x or (n - self.lo)/(self.hi - self.lo + 1/l.big) end
 
+function SYM.keys1(i,j,     t)
+  t = {}
+  for k,n1 in pairs(i.has) do if n1/i.n < (j.has[k] or 0)/j.n then l.push(t,k) end end
+  return t end
+
+% sets keys
+% scores
+function NUM.keys1(i,j)
+  a, z, mu = -1E30, 1E30, best.mu
+  d = math.abs(best.mu - cross(best.mu, rest.mu, best:div(), rest:div()))
+  tmp = mu < rest.mu and {{a, mu},{a, mu+d/2},{a, mu+d}} or {{mu, z},{mu-d/2, z},{mu-d, z}}
+  for _,x in pairs{{mu-d, mu+d}, {mu-d/2, mu+d/2}} do l.push(tmp,x) end
+  f = function(n) return l.fmt(best.pretty,n) end 
+  return map(tmp,function(x) return {f(x[1]), f(x[2])} end)
+
+
+
 local function cross(mu1,mu2,sd1,sd2)
   local sd1,sd2,a,b,c,x1,x2
   if mu2 < mu1 then return cross(mu2,mu1,sd2,sd1) end
@@ -109,19 +126,20 @@ function COLS:add(t)
     for _,col in pairs(cols) do 
       col:add(t[col.at]) end end 
   return t end
-
 -------------------------------------------------------------------------------
 -- ### DATA
 function DATA:new(  ts)
   self.rows,self.cols = {},nil
-  for _,t in pairs(ts or {}) do self:add(t) end
+  if   type(ts)=="string" 
+  then l.csv(ts, function(t) self:add(t) end)  
+  else for _,t in pairs(ts or {}) do self:add(t) end end end
 
 function DATA:add(t)
-  if self.cols then push(self.rows, self.cols:add(t)) else self.cols = COLS(t) end end
+  if self.cols then l.push(self.rows, self.cols:add(t)) else self.cols=COLS(t) end end
 
-function DATA:clone(  ts,     j)
+function DATA:clone(  ts,     data1)
   data1 = DATA()
-  data1:add{self.cols.names}
+  data1.cols = COLS(self.cols.names)
   for _,t in pairs(ts or {}) do data1:add(t) end
   return data1 end
 
@@ -130,17 +148,48 @@ function DATA:d2h(t,     d)
   for _,col in pairs(self.cols.y) do d = d + (col.want - col:norm(t[col.at]))^2 end
   return d^.5 end
 
-function DATA:ordered()
-  return sort(self.rows, function(t1,t2) return self:d2h(t1) < self:d2h(t2) end) end
+function DATA:sort()
+  return l.sort(self.rows, function(t1,t2) return self:d2h(t1) < self:d2h(t2) end) end
 
-function DATA:stats(fun,cols)
-  tmp=map(cols or self.cols.y, function(col) 
- 
 function DATA:stats(  what,cols,nPlaces,     t)
   t = {N=#self.rows}
-  for _,col in pairs(cols or self.cols.all) do
-    t[col.txt] =rnd(getmetatable(col)[what or "mid"](col),nPlaces) end
+  for _,col in pairs(cols or self.cols.y) do
+    t[col.name] =rnd(getmetatable(col)[what or "mid"](col),nPlaces) end
   return t end
+-------------------------------------------------------------------------------
+function TEST:new(col,lo,hi)
+  return {at=col.at, score=0, lo=lo, hi=hi, name=col.name} end
+
+function RULE:new(tests)
+  self.cols, self._score = {}, 0
+  for _,test is pairs(tests or {}) do self:add(test) end end
+
+function RULE:add(test,      olds,skip)
+  olds = self.cols[new.at] = self.cols[new.at] or {}
+  skip = false
+  for _,old in pairs(olds) do
+    local a0, z0, a1, z1 = old.lo, old.hi, test.lo, test.hi
+    if z1 >= a0 and z1 <= z0 and a0 <= a1 then old.hi = test.hi; skip = true end 
+    if a1 >= a0 and a1 <= z0 and z1 >= z0 then old.lo = test.lo; skip = true end end
+  if not skip then l.push(olds,new) end end
+
+function RULE:satisfies(t,    _ors)
+  function _ors(tests)
+    for _,test in pairs(tests) do
+      local x = t[test.at]
+      if x=="?" or test.lo <= x and x <= test.hi then return true end end end
+  for _,tests in pairs(self.cols) do
+    if not _ors(tests) then return nil end end
+  return t end
+
+function RULE:score(bests, rests)
+  if not self._score then
+    bs  = map(bests.rows, function(t) return self:satisfies(t) end)
+    rs  = map(rests.rows, function(t) return self:satisfies(t) end)
+    b,r = #bs/(#bests.rows + 1/l.big),  #rs/(#rests.rows + 1/l.big)
+    self._score = b^2 / (b + r) end
+  return self._score end
+
 
 -------------------------------------------------------------------------------
 -- ## Demos
@@ -152,21 +201,44 @@ eg("rand", function(     num,d)
   d = num:div()
   return .3 < d and d < .31  end)
 
-eg("ent", function(     sym,e) 
+eg("ent", function(     sym,e,s) 
   sym = SYM()
-  for _,x in pairs{"a","a","a","a","b","b","c"} do sym:add(x) end
+  s="aaaabbc"
+  for c in s:gmatch"." do sym:add(c) end
   e = sym:div()
   return 1.37 < e and e < 1.38 end)
 
 eg("cross", function()
-  print(cross(2.5,5,1,1)) end)
+  return 3.75 == cross(2.5,5,1,1) end)
 
 eg("cols", function()
   l.map(COLS({"Name", "Age", "Mpg-", "room"}).all, print) end)
 
+eg("csv", function()
+  l.csv(the.file,oo) end)
+
+eg("data", function(       data)
+  data = DATA(the.file) 
+  oo(data:stats()) end)
+
+eg("slice", function(      t)
+  t = {10,20,30,40,50,60,70,80,90,100}
+  print(-2,"", o(l.slice(t,-2))) 
+  print( 1, 2, o(l.slice(t,1,2))) 
+  print( 2,"", o(l.slice(t,2)))  end)
+
+eg("sort", function(       data,ts1,ts2,ts3)
+  data = DATA(the.file) 
+  ts1 = data:sort() 
+  ts2 = l.slice(ts1,1,30)
+  ts3 = l.slice(ts1,-120)
+  print("all ", o(data:stats()))
+  print("best", o(data:clone(ts2):stats()))
+  print("rest", o(data:clone(ts3):stats()))
+end)
 -------------------------------------------------------------------------------
 -- ## Start-up
 if   not pcall(debug.getlocal,4,1) 
-then the = l.cli(the, help)
-     l.run(the) 
-else return {NUM=NUM,SYM=SYM} end
+then the=l.cli(the, help); l.run(the) end
+
+return {COL=COL, COLS=COLS, DATA=DATA, NUM=NUM, SYM=SYM} 

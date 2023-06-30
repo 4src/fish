@@ -54,8 +54,8 @@ function lib.rand(nlo,nhi)
 -- accepts an item's index _and_ the item). If `fun2` returns two values,
 -- use the second as the key for the new list (else just number the items 
 -- numerically).
-function lib.kap(t1, fun2,    t2) 
-  t2={}; for k,v in pairs(t1 or {}) do v,k=fun2(k,v); t2[k or (1+#u)]=v; end; return t2 end
+function lib.kap(t1,fun2,     t2) 
+  t2={}; for k,v in pairs(t1 or {}) do v,k=fun2(k,v); t2[k or (1+#t2)]=v; end; return t2 end
 -- Returns a copy of `t` with all items filtered via `fun`.
 function lib.map(t, fun) return lib.kap(t, function(_,x) return fun(x) end) end
 
@@ -68,7 +68,32 @@ function lib.keys(t) return lib.sort(lib.kap(t,function(k,_) return k end)) end
 -- Returns `x` after pushing onto `t`
 function lib.push(t,x) t[#t+1]=x; return x end
 
+-- Return any item from `t`.
+function lib.any(t) return t[lib.rint(1,#t)] end
+-- Return `n` items from `t`.
+function lib.many(t1,n,    t2) 
+  t2={}; for i=1,n do lib.push(t2, lib.any(t1)) end; return t2 end
+
+-- Return a portion of `t1`; go,stop,inc defaults to 1,#t1,1.
+-- Negative indexes are supported.
+function lib.slice(t1, nGo, nStop, nInc,    t2) 
+  if nGo   and nGo   < 0 then nGo=#t1+nGo     end
+  if nStop and nStop < 0 then nStop=#t1+nStop end
+  t2={}
+  for i=(nGo or 1)//1,(nStop or #t1)//1,(nInc or 1)//1 do t2[1+#t2]=t1[i] end
+  return t2 end
+
 -- ### Strings
+
+-- Return a string  showing `t`'s contents (recursively), sorting on the keys.
+function lib.o(t,     _fun,pre) 
+  if type(t) ~= "table" then return tostring(t) end
+  _fun = function(k,v) return lib.fmt(":%s %s",k,lib.o(v)) end 
+  pre  = t.a or ""
+  return pre.."{"..table.concat(#t>0 and lib.map(t,lib.o) or lib.sort(lib.kap(t,_fun))," ").."}" end
+
+-- Print `t` (recursively) then return it.
+function lib.oo(t) print(lib.o(t)); return t end
 
 -- Convert `s` into an integer, a float, a bool, or a string (as appropriate). Return the result.
 function lib.coerce(s,    _fun)
@@ -76,17 +101,15 @@ function lib.coerce(s,    _fun)
     return s1=="true" and true or (s1 ~= "false" and s1) or false end
   return math.tointeger(s) or tonumber(s) or _fun(s:match"^%s*(.-)%s*$") end
 
--- Return a string  showing `t`'s contents (recursively), sorting on the keys.
-function lib.o(t,     _fun,pre) 
-  if type(t)~="table" then return tostring(t) end
-  _fun = function(k,v) return lib.fmt(":%s %s",k,lib.o(v)) end 
-  pre = t.a or ""
-  return pre.."{"..table.concat(
-                     #t>0  and lib.map(t,lib.o) or lib.sort(lib.kap(t,_fun)),
-                     " ").."}" end
+-- Split a `s`  on commas.
+function lib.cells(s,    t)
+  t={}; for s1 in s:gmatch("([^,]+)") do t[1+#t] = lib.coerce(s1) end; return t end
 
--- Print `t` (recursively) then return it.
-function lib.oo(t) print(lib.o(t)); return t end
+-- Run `fun` for all lines in a csv file `s` (where each line is divided on ",").
+function lib.csv(sFilename,fun,      src,s) 
+  src = io.input(sFilename)
+  while true do
+    s = io.read(); if s then fun(lib.cells(s)) else return io.close(src) end end end
 
 -- Return `t`, updated from the command-line.  For `k,v` in
 -- `t`,if the command line mentions key `k` then change `s` to a new
@@ -106,7 +129,7 @@ function lib.settings(s,       t)
   t={}
   s:gsub("\n[%s]+[-][%S][%s]+[-][-]([%S]+)[^\n]+= ([%S]+)",
          function(k,v) t[k]=lib.coerce(v) end)
-  return t end
+  return t,s end
 
 -- ### Klasses
 
@@ -130,26 +153,25 @@ function lib.eg(s,fun) egs[1+#egs] = {name=s, fun=fun} end
 -- then run all (printing "FAIL" or "PASS" as you go).  Check for stray i
 -- globals.  Return to the operating system the number of failures 
 -- (so zero means "everything is ok").
-function lib.run(settings,     fails,old,fail,pass,report,dump,reset)
-  fails = 0
-  old = {}
+function lib.run(settings,     fails,old,report,good,bad,veryBad,reset)
+  fails, old = 0, {}
   for k,v in pairs(settings) do old[k]=v end
-  report=  function()      print(lib.fmt("🔆 failure(s) = %s",fails)) end
-  good=    function(s)     print(lib.fmt("✅ PASS %s",s)) end 
-  bad=     function(s,msg) print(lib.fmt("❌ FAIL %s %s",s,msg or "")) 
-                           fails = fails + 1 end
-  veryBad= function(s,msg) print(debug.traceback()) 
-                           bad(s,msg) end
-  reset=   function()      for k,v in pairs(old) do settings[k]=v end  
-                           Seed = settings.seed
-                           math.randomseed(Seed) end
+  report=    function()        print(lib.fmt("🔆 failure(s) = %s",fails)) end
+  good=      function(s)       print(lib.fmt("✅ PASS %s",s)) end 
+  bad=       function(s,msg)   print(lib.fmt("❌ FAIL %s %s",s,msg or "")) 
+                               fails = fails + 1 end
+  veryBad=   function(s,msg)   print(debug.traceback()) 
+                               bad(s,msg) end
+  reset=     function()        for k,v in pairs(old) do settings[k]=v end  
+                               Seed = settings.seed
+                               math.randomseed(Seed) end
   for _,sfun in pairs(egs) do
     local s,fun = sfun.name, sfun.fun
     if settings.go == s or settings.go == "all" then
       reset()
       local ok,msg = pcall(fun)
-      if not ok then veryBad(s,msg) elseif val==false then bad(s) else good() end end end
-  report()
+      if not ok then veryBad(s,msg) elseif val==false then bad(s) else good(s) end end end
+  if settings.go == "all" then report() end
   lib.rogues()
   os.exit(fails) end
 
