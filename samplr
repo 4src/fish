@@ -3,10 +3,10 @@
 local l=require"lib"
 local the,help = l.settings [[
 
-tiny: multi-goal semi-supervised explanation
+samplr: multi-goal semi-supervised explanation
 (c) 2023 Tim Menzies <timm@ieee.org> BSD-2
   
-USAGE: ./tiny.lua [OPTIONS] [-g ACTIONS]
+USAGE: ./samplr [OPTIONS] [-g ACTIONS]
   
 OPTIONS:
   -f  --file    data file                          = ../data/auto93.csv
@@ -15,9 +15,9 @@ OPTIONS:
   -h  --help    show help                          = false
   -s  --seed    random number seed                 = 93716221]]
 
-local eg, o, obj, oo, rnd = l.eg, l.o, l.obj, l.oo, l.rnd
+local o, obj, oo, rnd =  l.o, l.obj, l.oo, l.rnd
 local SYM,NUM,COLS,DATA = obj"SYM", obj"NUM", obj"COLS", obj"DATA"
-local TEST,RULE = obj"TEST", obj"RULE"
+local KEY,RULE = obj"KEY",obj"RULE"
 local COL
 -------------------------------------------------------------------------------
 -- ### COLS
@@ -26,12 +26,17 @@ local COL
 -- All `COL`s know their name, their column loc`at`ion, their count `n` of items seen.
 function COL(n,s) 
   return (s or ""):find"^[A-Z]" and NUM(n,s) or SYM(n,s) end
+
+local function show(col,x) 
+  if x==   l.big then return "inf" end
+  if x== - l.big then return "ninf" end
+  return l.fmt(col.pretty,x) end
 -------------------------------------------------------------------------------
 -- ### SYM
 
 -- `SYM`s uses `has` to count symbols seen so far (and the most common symbol is the `mode`).
 function SYM:new(n,s) 
-  return {name=s or "", at=n or 0, n=0, has={}, most=0, mode=nil}  end
+  return {name=s or "", at=n or 0, n=0, has={}, most=0, mode=nil, pretty="%s"}  end
 
 -- Update a `SYM`bol.
 function SYM:add(x)
@@ -84,19 +89,29 @@ function NUM:norm(n)
 function SYM.keys(sym1,sym2,     t)
   t = {}
   for k,n1 in pairs(sym1.has) do 
-    if n1/sym1.n > (sym2.has[k] or 0)/sym2.n then l.push(t,TEST(sym1,k,k)) end end
+    if n1/sym1.n > (sym2.has[k] or 0)/sym2.n then 
+     local key=KEY(sym1,k,k)
+     t[key]= key end end
   return t end
 
 -- Return numeric ranges frequent in  `sym1` than `sym2`.
 local _cross
 function NUM.keys(num1,num2,     a,z,mu,mid,d,tmp)
-  a, z, mu = -1E30, 1E30, best.mu
+  a, z, mu = -1E30, 1E30, num1.mu
   mid = _cross(num1.mu, num2.mu, num1:div(), num2:div())
   d   = math.abs(num1.mu - mid)
-  tmp = mu < rest.mu and {{a, mu},{a, mu+d/2},{a, mu+d}} or {{mu, z},{mu-d/2, z},{mu-d, z}}
-  for _,x in pairs{{mu-d, mu+d}, {mu-d/2, mu+d/2}} do 
-    l.push(tmp,x) end
-  return map(tmp, function(z) return TEST(num1,z[1],z[2]) end) end
+  near = {{mu-d, mu+d}, {mu-d/2, mu+d/2}} 
+  down = {{a, mu},      {a, mu+d/2},     {a, mu+d}}
+  up   = {{mu, z},      {mu-d/2, z},     {mu-d, z}}
+  lst1    = mu < num2.mu and down or up
+  oo(lst1)
+  oo(lst2)
+    -- oo(lst)
+    -- for _,x in pairs(lst) do
+    --   oo(x)
+    --   local key=KEY(num1,x[1],x[2])
+    --   t[key] = key end end
+  return {} end
 
 function _cross(mu1,mu2,sd1,sd2,      a,b,c,x1,x2)
   if mu2 < mu1 then return _cross(mu2,mu1,sd2,sd1) end
@@ -106,7 +121,7 @@ function _cross(mu1,mu2,sd1,sd2,      a,b,c,x1,x2)
   c  = mu1^2 /(2*sd1^2) - mu2^2 / (2*sd2^2) - math.log(sd2/sd1)
   x1 = (-b + (b^2 - 4*a*c)^.5)/(2*a)
   x2 = (-b - (b^2 - 4*a*c)^.5)/(2*a)
-  return mu1 <= x1 <= mu2 and x1 or x2 end
+  return (mu1 <= x1 and x1 <= mu2) and x1 or x2 end
 -------------------------------------------------------------------------------
 -- ### COLS
 
@@ -160,29 +175,27 @@ function DATA:stats(  what,cols,nPlaces,     t)
 -------------------------------------------------------------------------------
 -- ### TEST
 
--- `TEST`s ask if a range `lo..hi` covers a  value `at` some column.
-function TEST:new(col,lo,hi)
+-- `KEY` ranges cover `lo..hi`, and `at` some column
+function KEY:new(col,lo,hi)
   return {at=col.at, b=0, r=0, lo=lo, hi=hi, name=col.name} end
 
--- Tests for coverage of data in `t`.
-function TEST:covers(t)
+-- Check if KEY covers `t`
+function KEY:covers(t)
   local x = t[self.at]
   if x=="?" or self.lo <= x and x <= self.hi then return t end end 
 
 -- `RULE`s ask if a ranges in many `cols` covers some value
-function RULE:new(tests)
+function RULE:new(keys)
   self.cols, self.b, self.r = {}, 0,0,0,0
-  for _,test in pairs(tests or {}) do self:add(test) end end
+  for _,key in pairs(keys or {}) do self:add(key) end end
 
--- disjunct, spread the area XXX
--- `TEST`s ask if a range `lo..hi` covers a  value `at` some column.
-function RULE:add(test,      olds,skip)
-  olds = self.cols[test.at] or {}
+function RULE:add(key,      olds,skip)
+  olds = self.cols[key.at] or {}
   skip = false
   for _,old in pairs(olds) do
-    local a0, z0, a1, z1 = old.lo, old.hi, test.lo, test.hi
-    if z1 >= a0 and z1 <= z0 and a0 <= a1 then old.lo = test.lo; skip = true end 
-    if a1 >= a0 and a1 <= z0 and z1 >= z0 then old.hi = test.hi; skip = true end end
+    local a0, z0, a1, z1 = old.lo, old.hi, key.lo, key.hi
+    if z1 >= a0 and z1 <= z0 and a0 <= a1 then old.lo = key.lo; skip = true end 
+    if a1 >= a0 and a1 <= z0 and z1 >= z0 then old.hi = key.hi; skip = true end end
   if not skip then l.push(olds,new) end 
   self.cols[test.at] = olds end
 
@@ -209,52 +222,70 @@ local function goal(thing,     b,r)
 
 -------------------------------------------------------------------------------
 -- ## Demos
-eg("the",  function() oo(the) end)
-eg("rnd",  function() return 3.14 == rnd(math.pi) end)
-eg("rand", function(     num,d) 
+local egs={all= {"the","rnd","num","ent","cross",
+                "cols","csv","data","slice","sort","keys"}}
+
+function egs.the() oo(the) end
+function egs.rnd() return 3.14 == l.rnd(math.pi) end
+function egs.num(     num,d) 
   num = NUM()
   for _ = 1,1000 do num:add(l.rand()^2) end
   d = num:div()
-  return .3 < d and d < .31  end)
+  print(d)
+  return .3 < d and d < .31  end
 
-eg("ent", function(     sym,e,s) 
+function egs.ent(     sym,e,s) 
   sym = SYM()
   s="aaaabbc"
   for c in s:gmatch"." do sym:add(c) end
   e = sym:div()
-  return 1.37 < e and e < 1.38 end)
+  print(e)
+  return 1.37 < e and e < 1.38 end
 
-eg("cross", function()
-  return 3.75 == _cross(2.5,5,1,1) end)
+function egs.cross()
+  return 3.75 == _cross(2.5,5,1,1) end
 
-eg("cols", function()
-  l.map(COLS({"Name", "Age", "Mpg-", "room"}).all, print) end)
+function egs.cols()
+  l.map(COLS({"Name", "Age", "Mpg-", "room"}).all, print) end
 
-eg("csv", function()
-  l.csv(the.file,oo) end)
+function egs.csv()
+  l.csv(the.file,oo) end
 
-eg("data", function(       data)
+function egs.data(       data)
   data = DATA(the.file) 
-  oo(data:stats()) end)
+  oo(data:stats()) end
 
-eg("slice", function(      t)
+function egs.slice(      t)
   t = {10,20,30,40,50,60,70,80,90,100}
   print(-2,"", o(l.slice(t,-2))) 
   print( 1, 2, o(l.slice(t,1,2))) 
-  print( 2,"", o(l.slice(t,2)))  end)
+  print( 2,"", o(l.slice(t,2)))  end
 
-eg("sort", function(       data,ts1,ts2,ts3)
+function egs.sort(       data,ts1,ts2,ts3)
   data = DATA(the.file) 
   ts1 = data:sort() 
   ts2 = l.slice(ts1,1,30)
   ts3 = l.slice(ts1,-120)
   print("all ", o(data:stats()))
   print("best", o(data:clone(ts2):stats()))
-  print("rest", o(data:clone(ts3):stats()))
-end)
+  print("rest", o(data:clone(ts3):stats())) end
+
+function egs.keys(       data,best,rest,ts1,ts2,ts3,rest1)
+  data = DATA(the.file) 
+  ts1 = data:sort() 
+  ts2 = l.slice(ts1,1,30); best = data:clone(ts2)
+  ts3 = l.slice(ts1,-120); rest = data:clone(ts3)
+  print("all ", o(data:stats()))
+  print("best", o(best:stats()))
+  print("rest", o(rest:stats())) 
+  for n,best1 in pairs(best.cols.x) do
+    rest1 = rest.cols.x[n]
+    for _,key in pairs(best1:keys(rest1)) do
+       print(key.name, key.at, show(best1,key.lo), show(best1,key.hi)) end end      
+end
+
 -------------------------------------------------------------------------------
 -- ## Start-up
 if   not pcall(debug.getlocal,4,1) 
-then the=l.cli(the, help); l.run(the) end
-
-return {COL=COL, COLS=COLS, DATA=DATA, NUM=NUM, SYM=SYM} 
+then the=l.cli(the, help); l.run(the,egs) end
+return {COL=COL, COLS=COLS, DATA=DATA, NUM=NUM, SYM=SYM}

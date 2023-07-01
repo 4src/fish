@@ -77,7 +77,7 @@ function lib.many(t1,n,    t2)
 -- Return a portion of `t1`; go,stop,inc defaults to 1,#t1,1.
 -- Negative indexes are supported.
 function lib.slice(t1, nGo, nStop, nInc,    t2) 
-  if nGo   and nGo   < 0 then nGo=#t1+nGo     end
+  if nGo   and nGo   < 0 then nGo=#t1+nGo+1   end
   if nStop and nStop < 0 then nStop=#t1+nStop end
   t2={}
   for i=(nGo or 1)//1,(nStop or #t1)//1,(nInc or 1)//1 do t2[1+#t2]=t1[i] end
@@ -143,31 +143,25 @@ function lib.obj(s,    t)
 
 -- ### Test Engine
 
-local egs={}
--- `eg("fred",function() return 1==2 end)` creates a test
--- called _fred_ which can be called from the command-line using
--- `-g fred`.
-function lib.eg(s,fun) egs[1+#egs] = {name=s, fun=fun} end
-
 -- Show the help (if asked to).  Run one test, or if the test is `all`, 
 -- then run all (printing "FAIL" or "PASS" as you go).  Check for stray i
 -- globals.  Return to the operating system the number of failures 
 -- (so zero means "everything is ok").
-function lib.run(settings,     fails,old,report,good,bad,veryBad,reset)
+function lib.run(settings,egs,     fails,old,report,good,bad,veryBad,reset)
   fails, old = 0, {}
   for k,v in pairs(settings) do old[k]=v end
-  report=    function()        print(lib.fmt("🔆 failure(s) = %s",fails)) end
-  good=      function(s)       print(lib.fmt("✅ PASS %s",s)) end 
-  bad=       function(s,msg)   print(lib.fmt("❌ FAIL %s %s",s,msg or "")) 
-                               fails = fails + 1 end
-  veryBad=   function(s,msg)   print(debug.traceback()) 
-                               bad(s,msg) end
-  reset=     function()        for k,v in pairs(old) do settings[k]=v end  
-                               Seed = settings.seed
-                               math.randomseed(Seed) end
-  for _,sfun in pairs(egs) do
-    local s,fun = sfun.name, sfun.fun
-    if settings.go == s or settings.go == "all" then
+  report=  function()       print(lib.fmt("🔆 failure(s) = %s",fails)) end
+  good=    function(s)      print(lib.fmt("✅ PASS %s",s)) end 
+  bad=     function(s,msg)  print(lib.fmt("❌ FAIL %s %s",s,msg or "")) 
+                            fails = fails + 1 end
+  veryBad= function(s,msg)  print(debug.traceback()) 
+                            bad(s,msg) end
+  reset=   function()       for k,v in pairs(old) do settings[k]=v end  
+                            Seed = settings.seed
+                            math.randomseed(Seed) end
+  for _,s in pairs(egs.all) do
+    local fun = egs[s] or print("-- E> missing ",s) 
+    if fun and settings.go == s or settings.go == "all" then
       reset()
       local ok,msg = pcall(fun)
       if not ok then veryBad(s,msg) elseif val==false then bad(s) else good(s) end end end

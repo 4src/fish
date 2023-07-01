@@ -15,7 +15,7 @@ OPTIONS:
   -h  --help    show help                          = false
   -s  --seed    random number seed                 = 93716221]]
 
-local eg, o, obj, oo, rnd = l.eg, l.o, l.obj, l.oo, l.rnd
+local o, obj, oo, rnd = l.o, l.obj, l.oo, l.rnd
 local SYM,NUM,COLS,DATA = obj"SYM", obj"NUM", obj"COLS", obj"DATA"
 local TEST,RULE = obj"TEST", obj"RULE"
 local COL
@@ -209,52 +209,57 @@ local function goal(thing,     b,r)
 
 -------------------------------------------------------------------------------
 -- ## Demos
-eg("the",  function() oo(the) end)
-eg("rnd",  function() return 3.14 == rnd(math.pi) end)
-eg("rand", function(     num,d) 
+ print(1)
+
+local egs={all= {"the","rnd","rand","ent","cross",
+                "cols","csv","data","slice","sort"}}
+
+function egs.the() oo(the) end
+function egs.rnd() return 3.14 == rnd(math.pi) end
+function egs.num(     num,d) 
   num = NUM()
   for _ = 1,1000 do num:add(l.rand()^2) end
   d = num:div()
-  return .3 < d and d < .31  end)
+  return .3 < d and d < .31  end
 
-eg("ent", function(     sym,e,s) 
+function egs.ent(     sym,e,s) 
   sym = SYM()
   s="aaaabbc"
   for c in s:gmatch"." do sym:add(c) end
   e = sym:div()
-  return 1.37 < e and e < 1.38 end)
+  return 1.37 < e and e < 1.38 end
 
-eg("cross", function()
-  return 3.75 == _cross(2.5,5,1,1) end)
+function egs.cross()
+  return 3.75 == _cross(2.5,5,1,1) end
 
-eg("cols", function()
-  l.map(COLS({"Name", "Age", "Mpg-", "room"}).all, print) end)
+function egs.cols()
+  l.map(COLS({"Name", "Age", "Mpg-", "room"}).all, print) end
 
-eg("csv", function()
-  l.csv(the.file,oo) end)
+function egs.csv()
+  l.csv(the.file,oo) end
 
-eg("data", function(       data)
+function egs.data(       data)
   data = DATA(the.file) 
-  oo(data:stats()) end)
+  oo(data:stats()) end
 
-eg("slice", function(      t)
+function egs.slice(      t)
   t = {10,20,30,40,50,60,70,80,90,100}
   print(-2,"", o(l.slice(t,-2))) 
   print( 1, 2, o(l.slice(t,1,2))) 
-  print( 2,"", o(l.slice(t,2)))  end)
+  print( 2,"", o(l.slice(t,2)))  end
 
-eg("sort", function(       data,ts1,ts2,ts3)
+function egs.sort(       data,ts1,ts2,ts3)
   data = DATA(the.file) 
   ts1 = data:sort() 
   ts2 = l.slice(ts1,1,30)
   ts3 = l.slice(ts1,-120)
   print("all ", o(data:stats()))
   print("best", o(data:clone(ts2):stats()))
-  print("rest", o(data:clone(ts3):stats()))
-end)
+  print("rest", o(data:clone(ts3):stats())) end
+
 -------------------------------------------------------------------------------
 -- ## Start-up
 if   not pcall(debug.getlocal,4,1) 
-then the=l.cli(the, help); l.run(the) end
+then the=l.cli(the, help); l.run(the,egs) end
 
 return {COL=COL, COLS=COLS, DATA=DATA, NUM=NUM, SYM=SYM} 
