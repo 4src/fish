@@ -63,6 +63,13 @@ function lib.map(t, fun) return lib.kap(t, function(_,x) return fun(x) end) end
 
 -- Sorts `t` using `fun`, returns `t`.
 function lib.sort(t,fun) table.sort(t,fun); return t end
+function lib.lt(x) 
+  return function(t1,t2) 
+           return t1[x] < t2[x] end end
+
+function lib.list(t)
+  return lib.map(t,function(x) return x end ) end
+
 -- Returns the  keys of list `t`, sorted.
 function lib.keys(t) return lib.sort(lib.kap(t,function(k,_) return k end)) end
 -- Returns `x` after pushing onto `t`

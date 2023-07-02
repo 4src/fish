@@ -13,6 +13,8 @@ OPTIONS:
   -g  --go      start-up action                    = nothing
   -G  --Goal    plan or monitor or xplore or doubt = plan
   -h  --help    show help                          = false
+  -m  --min     min size (n^min)                   = .5
+  -r  --rest    size of rest (rest*(n^min))        = 4
   -s  --seed    random number seed                 = 93716221]]
 
 local o, obj, oo, rnd =  l.o, l.obj, l.oo, l.rnd
@@ -27,16 +29,12 @@ local COL
 function COL(n,s) 
   return (s or ""):find"^[A-Z]" and NUM(n,s) or SYM(n,s) end
 
-local function show(col,x) 
-  if x==   l.big then return "inf" end
-  if x== - l.big then return "ninf" end
-  return l.fmt(col.pretty,x) end
 -------------------------------------------------------------------------------
 -- ### SYM
 
 -- `SYM`s uses `has` to count symbols seen so far (and the most common symbol is the `mode`).
 function SYM:new(n,s) 
-  return {name=s or "", at=n or 0, n=0, has={}, most=0, mode=nil, pretty="%s"}  end
+  return {name=s or "", at=n or 0, n=0, has={}, most=0, mode=nil, fmt="%s"}  end
 
 -- Update a `SYM`bol.
 function SYM:add(x)
@@ -56,13 +54,13 @@ function SYM:div(  nPlaces,     e)
 
 -- `NUM`s tracks the smallest and biggest number seen to far (in `lo` and `hi`) 
 -- as well as the the mean `mu` and second moment `m2` (used to find standard deviation).
--- Also, `pretty` controls how we report numbers (and this switches to "%g" 
+-- Also, `fmt` controls how we report numbers (and this switches to "%g" 
 -- if we ever see a float).  Any name ending with `-` is something we want to _minimize_ 
 -- (so we give it a non-positive weight).
 function NUM:new(n,s) 
   return {name=s or "",  at=n or 0,  n=0, 
           lo=l.big, hi= -l.big, mu=0,  m2=0, 
-          pretty="%.0f", want=(s or ""):find"-$" and 0 or 1} end
+          fmt="%.0f", want=(s or ""):find"-$" and 0 or 1} end
 
 -- Update a `NUM`ber.
 function NUM:add(n,    d)
@@ -73,7 +71,7 @@ function NUM:add(n,    d)
   d    = n - self.mu
   self.mu = self.mu + d/self.n
   self.m2 = self.m2 + d*(n - self.mu)
-  if math.type(n) == "float" then self.pretty = "%g" end end
+  if math.type(n) == "float" then self.fmt = "%g" end end
 
 -- `mid,div` returns central tendency  and diversity.
 function NUM:mid(  nPlaces) 
@@ -90,28 +88,23 @@ function SYM.keys(sym1,sym2,     t)
   t = {}
   for k,n1 in pairs(sym1.has) do 
     if n1/sym1.n > (sym2.has[k] or 0)/sym2.n then 
-     local key=KEY(sym1,k,k)
-     t[key]= key end end
+      local key=KEY(sym1,k,k); t[key:show()] = key end end
   return t end
 
--- Return numeric ranges frequent in  `sym1` than `sym2`.
+-- Return numeric ranges that favor `num1` over `num2`.
 local _cross
-function NUM.keys(num1,num2,     a,z,mu,mid,d,tmp)
+function NUM.keys(num1,num2,     a,z,mu,mid,d,near,down,up,t)
   a, z, mu = -1E30, 1E30, num1.mu
-  mid = _cross(num1.mu, num2.mu, num1:div(), num2:div())
-  d   = math.abs(num1.mu - mid)
+  mid  = _cross(num1.mu, num2.mu, num1:div(), num2:div())
+  d    = math.abs(num1.mu - mid)
   near = {{mu-d, mu+d}, {mu-d/2, mu+d/2}} 
   down = {{a, mu},      {a, mu+d/2},     {a, mu+d}}
   up   = {{mu, z},      {mu-d/2, z},     {mu-d, z}}
-  lst1    = mu < num2.mu and down or up
-  oo(lst1)
-  oo(lst2)
-    -- oo(lst)
-    -- for _,x in pairs(lst) do
-    --   oo(x)
-    --   local key=KEY(num1,x[1],x[2])
-    --   t[key] = key end end
-  return {} end
+  t    = {}
+  for _,lst in pairs{near, mu < num2.mu and down or up} do
+    for _,x in pairs(lst) do 
+      local key=KEY(num1,x[1],x[2]); t[key:show()] = key end end
+  return t  end
 
 function _cross(mu1,mu2,sd1,sd2,      a,b,c,x1,x2)
   if mu2 < mu1 then return _cross(mu2,mu1,sd2,sd1) end
@@ -176,8 +169,15 @@ function DATA:stats(  what,cols,nPlaces,     t)
 -- ### TEST
 
 -- `KEY` ranges cover `lo..hi`, and `at` some column
-function KEY:new(col,lo,hi)
-  return {at=col.at, b=0, r=0, lo=lo, hi=hi, name=col.name} end
+function KEY:new(col, lo,hi)
+  return {at=col.at, fmt=col.fmt, b=0, r=0, lo=lo, hi=hi, name=col.name} end
+
+function KEY:show(      fmt)
+  function fmt(x) 
+    return x== -l.big and "ninf" or (x==l.big and "inf" or l.fmt(self.fmt,x)) end
+  return  self.lo==self.hi 
+            and l.fmt("%s = %s", self.name, self.lo) 
+            or  l.fmt("%s <= %s <= %s", fmt(self.lo),self.name,fmt(self.hi)) end
 
 -- Check if KEY covers `t`
 function KEY:covers(t)
@@ -207,11 +207,11 @@ function RULE:covers(t,    _ors)
     if not _ors(tests) then return nil end end
   return t end
 
-local function br(thing,bests,rests,     B,R)
+local function br(thing,bests,rests,     B,R,bs,rs)
   B, R = #bests.rows, #rests.rows 
-  bs   = map(bests.rows, function(t) return thing:covers(t) end)
-  rs   = map(rests.rows, function(t) return thing:covers(t) end)
-  thing.b, thing.r = #bs/(B + 1/l.big),  #rs/(R + 1/l.big) end
+  bs   = l.map(bests.rows, function(t) return thing:covers(t) end)
+  rs   = l.map(rests.rows, function(t) return thing:covers(t) end)
+  thing.b, thing.r = #bs/(B + 1/l.big),  #rs/(R + 1/l.big)  end
 
 local function goal(thing,     b,r)
   b, r = thing.b, thing.r
@@ -219,6 +219,7 @@ local function goal(thing,     b,r)
   if the.Goal == "monitor" then return r^2/(b+r) end
   if the.Goal == "xplore"  then return 1/(b+r)   end
   if the.Goal == "doubt"   then return (b+r)/math.abs(b-r) end end
+
 
 -------------------------------------------------------------------------------
 -- ## Demos
@@ -231,7 +232,6 @@ function egs.num(     num,d)
   num = NUM()
   for _ = 1,1000 do num:add(l.rand()^2) end
   d = num:div()
-  print(d)
   return .3 < d and d < .31  end
 
 function egs.ent(     sym,e,s) 
@@ -239,7 +239,6 @@ function egs.ent(     sym,e,s)
   s="aaaabbc"
   for c in s:gmatch"." do sym:add(c) end
   e = sym:div()
-  print(e)
   return 1.37 < e and e < 1.38 end
 
 function egs.cross()
@@ -264,24 +263,30 @@ function egs.slice(      t)
 function egs.sort(       data,ts1,ts2,ts3)
   data = DATA(the.file) 
   ts1 = data:sort() 
-  ts2 = l.slice(ts1,1,30)
-  ts3 = l.slice(ts1,-120)
+  ts2 = l.slice(ts1,1,20)
+  ts3 = l.slice(ts1,30)
+  print("#",o(data.cols.names))
+  for i=1,20,2   do print(i,o(ts1[i]),"+") end; print"#"
+  for i=30,#ts1,30 do print(i,o(ts1[i]),"-") end; print"#"
   print("all ", o(data:stats()))
-  print("best", o(data:clone(ts2):stats()))
-  print("rest", o(data:clone(ts3):stats())) end
+  print("+", o(data:clone(ts2):stats()))
+  print("-", o(data:clone(ts3):stats())) end
 
-function egs.keys(       data,best,rest,ts1,ts2,ts3,rest1)
+function egs.keys(       n,data,best,rest,ts1,ts2,ts3,rest1)
   data = DATA(the.file) 
+  n = (#data.rows)^the.min
   ts1 = data:sort() 
-  ts2 = l.slice(ts1,1,30); best = data:clone(ts2)
-  ts3 = l.slice(ts1,-120); rest = data:clone(ts3)
+  ts2 = l.slice(ts1,1,n);           best = data:clone(ts2)
+  ts3 = l.many(l.slice(ts1,n+1),n*the.rest); rest = data:clone(ts3)
   print("all ", o(data:stats()))
   print("best", o(best:stats()))
   print("rest", o(rest:stats())) 
   for n,best1 in pairs(best.cols.x) do
+    print""
     rest1 = rest.cols.x[n]
-    for _,key in pairs(best1:keys(rest1)) do
-       print(key.name, key.at, show(best1,key.lo), show(best1,key.hi)) end end      
+    for _,key in pairs(l.sort(l.list(best1:keys(rest1)),l.lt"lo")) do
+      br(key,best,rest)
+      print(key:show(), goal(key)) end end
 end
 
 -------------------------------------------------------------------------------
