@@ -232,6 +232,7 @@ function egs.num(     num,d)
   num = NUM()
   for _ = 1,1000 do num:add(l.rand()^2) end
   d = num:div()
+  print(num)
   return .3 < d and d < .31  end
 
 function egs.ent(     sym,e,s) 

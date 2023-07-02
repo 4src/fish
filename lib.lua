@@ -63,9 +63,12 @@ function lib.map(t, fun) return lib.kap(t, function(_,x) return fun(x) end) end
 
 -- Sorts `t` using `fun`, returns `t`.
 function lib.sort(t,fun) table.sort(t,fun); return t end
-function lib.lt(x) 
-  return function(t1,t2) 
-           return t1[x] < t2[x] end end
+
+-- Return a function that sorts ascending on slot `x`.
+function lib.lt(x) return function(t1,t2) return t1[x] < t2[x] end end
+
+-- Return a function that sorts ascending on slot `x`.
+function lib.gt(x) return function(t1,t2) return t1[x] > t2[x] end end
 
 function lib.list(t)
   return lib.map(t,function(x) return x end ) end
@@ -142,9 +145,9 @@ function lib.settings(s,       t)
 
 -- Create a klass and a constructor and a print method
 function lib.obj(s,    t) 
-  t = {__tostring = function(s) return lib.o(s) end}
+  t = {__tostring=lib.o}
   t.__index = t
-  return setmetatable(t, {__tostring=lib.o, __call=function(_,...) 
+  return setmetatable(t, {__call=function(_,...) 
     local self=setmetatable({a=s},t); 
     return setmetatable(t.new(self,...) or self,t) end}) end
 
