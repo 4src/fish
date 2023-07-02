@@ -2,16 +2,19 @@
 
 DO_what=      FISH: look around a little, find good stuff
 DO_copyright= Copyright (c) 2023 Tim Menzies, BSD-2.
-DO_repos=     . ../config ../data
+DO_repos=     . ../config ../data ../lua
 
 install: ## load python3 packages (requires `pip3`)
 	 pip3 install -qr requirements.txt
 
+../lua:
+	(cd ..; git clone https://github.com/4src/lua lua)
+
 ../data:
-	(cd ..; git clone https://gist.github.com/d47b8699d9953eef14d516d6e54e742e.git data)
+	(cd ..; git clone https://github.com/4src/data data)
 
 ../config:
-	(cd ..; git clone https://gist.github.com/42f78b8beec9e98434b55438f9983ecc.git config)
+	(cd ..; git clone https://github.com/4src/config config)
 
 tests: ## run test suite
 	if ./fish.py -g ok;\
