@@ -1,0 +1,184 @@
+#!/usr/bin/env lua
+-- <!--- vim : set filetype=lua et sts=2 sw=2 ts=2 : --->
+local l=dofile("../lua/lib.lua")
+local the,help = l.settings [[
+
+casual: what does it do
+(c) 2023 Tim Menzies <timm@ieee.org> BSD-2
+  
+USAGE: ./template [OPTIONS] [-g ACTIONS]
+  
+OPTIONS:
+  -b  --bins    initial numbe of bins    = 16
+  -c  --cohen   sd measure of difference = .35
+  -f  --file    data file                = ../data/auto93.csv
+  -g  --go      start-up action          = nothing
+  -h  --help    show help                = false
+  -m  --min     min size                 = .5
+  -r  --rest    expansion best to rest   = 4
+  -s  --seed    random number seed       = 93716221]]
+
+local o, obj, oo, rnd =  l.o, l.obj, l.oo, l.rnd
+local SYM,NUM,COLS,DATA = obj"SYM", obj"NUM", obj"COLS", obj"DATA"
+local BIN = obj"BIN"
+local COL
+------------------------------------------------
+function COL(n,s) 
+  return (s or ""):find"^[A-Z]" and NUM(n,s) or SYM(n,s) end
+------------------------------------------------------
+function SYM:new(n,s) 
+  return {name=s or "", at=n or 0, n=0, has={}, most=0, mode=nil, fmt="%s"}  end
+
+function SYM:add(x)
+  if x=="?" then return end
+  self.n      = 1 + self.n
+  self.has[x] = 1 + (self.has[x] or 0)
+  if self.has[x] > self.most then self.most,self.mode = self.has[x],x end end
+
+function SYM:mid(_) return self.mode end
+
+function SYM:div(  nPlaces,     e) 
+  e = 0
+  for _,v in pairs(self.has) do e = e - v/self.n * math.log(v/self.n,2) end
+  return nPlaces and rnd(e,nPlaces) or e end
+
+function SYM:bin(x) return x end
+------------------------------------------------------
+function NUM:new(n,s) 
+  return {name=s or "",  at=n or 0,  n=0, 
+          lo=l.big, hi= -l.big, mu=0,  m2=0, 
+          fmt="%.0f", want=(s or ""):find"-$" and 0 or 1} end
+
+function NUM:add(n,    d)
+  if n=="?" then return end
+  self.n  = 1 + self.n
+  self.lo = math.min(n, self.lo)
+  self.hi = math.max(n, self.hi)
+  d    = n - self.mu
+  self.mu = self.mu + d/self.n
+  self.m2 = self.m2 + d*(n - self.mu)
+  if math.type(n) == "float" then self.fmt = "%g" end end
+
+function NUM:bin(n,      tmp)
+  tmp = (col.hi - col.lo)/(the.bins - 1)
+  return col.hi == col.lo and 1 or math.floor(n/tmp + .5)*tmp end
+
+function NUM:mid(  nPlaces) 
+  return nPlaces and rnd(self.mu,nPlaces) or self.mu end
+
+function NUM:div(  nPlaces,      sd)
+  sd = (self.m2/(self.n - 1))^.5; return nPlaces and rnd(sd,nPlaces) or sd end
+
+function NUM:norm(n)
+  return n=="?" and x or (n - self.lo)/(self.hi - self.lo + 1/l.big) end
+------------------------------------------------------
+function COLS:new(ss) 
+  self.x, self.y, self.all, self.names = {},{},{},ss
+  for n,s in pairs(ss) do
+    local col = l.push(self.all, COL(n,s))
+    if not s:find"X$" then 
+      l.push(s:find"[!+-]$" and self.y or self.x, col)
+      if s:find"!$" then self.klass=col end  end end  end
+
+function COLS:add(t)
+  for _,cols in pairs{self.x, self.y} do
+    for _,col in pairs(cols) do 
+      col:add(t[col.at]) end end 
+  return t end
+------------------------------------------------------
+function DATA:new(  ts)
+  self.rows,self.cols = {},nil
+  if   type(ts)=="string" 
+  then l.csv(ts, function(t) self:add(t) end)  
+  else for _,t in pairs(ts or {}) do self:add(t) end end end
+
+function DATA:add(t)
+  if self.cols then l.push(self.rows, self.cols:add(t)) else self.cols=COLS(t) end end
+
+function DATA:clone(  ts,     data1)
+  data1 = DATA()
+  data1.cols = COLS(self.cols.names)
+  for _,t in pairs(ts or {}) do data1:add(t) end
+  return data1 end
+
+function DATA:d2h(t,     d)
+  d = 0
+  for _,col in pairs(self.cols.y) do d = d + (col.want - col:norm(t[col.at]))^2 end
+  return d^.5 end
+
+function DATA:sort()
+  return l.sort(self.rows, function(t1,t2) return self:d2h(t1) < self:d2h(t2) end) end
+
+function DATA:stats(  what,cols,nPlaces,     t)
+  t = {N=#self.rows}
+  for _,col in pairs(cols or self.cols.y) do
+    t[col.name] =rnd(getmetatable(col)[what or "mid"](col),nPlaces) end
+  return t end
+
+function DATA:bins() 
+  local rows,n,best,rest,bins
+  rows = self:sort() 
+  n    = (#rows)^the.min
+  best = self:clone( l.slice(rows,1,n) )
+  rest = self:clone( l.many( l.slice(rows,n+1), n*the.rest) )
+  local bins = {}
+  for _,col in pairs(data.cols.x) do
+    for klass,data in pairs{[true]=dataYes, [false]=dataNo} do
+      for _,row in pairs(data.rows) do
+        local x = row[col.at]
+        if x ~= "?" then
+          local k = col:bin(x)
+          bins[k] = bins[k] or BIN(col,x)
+          bins[k]:add(x,klass) end end end 
+   for _,bin in  col:merges(l.sort(l.list(bins),lt"lo")) do
+      l.push(bins, bin) end end end
+
+ local _id=0
+ function BIN:new(col)
+   _id = _id + 1
+   return {at=col.at, name=col.name, id=_id, lo=x,hi=x,y=SYM()} end
+
+function BIN:add(x,y)
+   self.lo = min(bin.lo, x)
+   self.hi = max(bin.hi, x)
+   self.y:add(y) end
+
+      
+
+------------------------------------------------------
+-- ## Demos
+local egs={all= {"the","ent", "cols", "csv","data","sort"}}
+function egs.the() oo(the) end
+
+function egs.ent(     sym,e,s) 
+  sym = SYM()
+  s="aaaabbc"
+  for c in s:gmatch"." do sym:add(c) end
+  e = sym:div()
+  return 1.37 < e and e < 1.38 end
+
+function egs.cols()
+  l.map(COLS({"Name", "Age", "Mpg-", "room"}).all, print) end
+
+function egs.csv()
+  l.csv(the.file,oo) end
+
+function egs.data(       data)
+  data = DATA(the.file) 
+  oo(data:stats()) end
+
+function egs.sort(       data,ts1,ts2,ts3)
+  data = DATA(the.file) 
+  ts1 = data:sort() 
+  ts2 = l.slice(ts1,1,20)
+  ts3 = l.slice(ts1,30)
+  print("#",o(data.cols.names))
+  for i=1,20,2   do print(i,o(ts1[i]),"+") end; print"#"
+  for i=30,#ts1,30 do print(i,o(ts1[i]),"-") end; print"#"
+  print("all ", o(data:stats()))
+  print("+", o(data:clone(ts2):stats()))
+  print("-", o(data:clone(ts3):stats())) end
+-------------------------------------------------------------------------------
+-- ## Start-up
+if not pcall(debug.getlocal,4,1) then the=l.cli(the, help); l.run(the,egs) end
+return {} -- list of classes
