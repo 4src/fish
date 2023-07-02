@@ -1,6 +1,6 @@
 #!/usr/bin/env lua
 -- <!--- vim : set filetype=lua et sts=2 sw=2 ts=2 : --->
-local l=require"lib"
+local l=dofile("../lua/lib.lua")
 local the,help = l.settings [[
 
 samplr: multi-goal semi-supervised explanation
