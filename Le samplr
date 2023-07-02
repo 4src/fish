@@ -64,7 +64,7 @@ function lib.map(t, fun) return lib.kap(t, function(_,x) return fun(x) end) end
 
 -- ### Lists
 
--- Sorts `t` using `fun`, returns `t`. 
+-- Sorts `t` using `fun`, returns `t`.
 function lib.sort(t,fun) 
   if #t==0 then t = lib.map(t,lib.same) end
   if #t==0 then return {} end

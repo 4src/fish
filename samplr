@@ -83,7 +83,7 @@ function NUM:div(  nPlaces,      sd)
 function NUM:norm(n)
   return n=="?" and x or (n - self.lo)/(self.hi - self.lo + 1/l.big) end
 
--- Return symbols more frequent in  `sym1` than `sym2`.
+-- Return ranges more frequent in  `sym1` than `sym2`.
 function SYM.keys(sym1,sym2,     t)
   t = {}
   for k,n1 in pairs(sym1.has) do 
@@ -219,8 +219,6 @@ local function goal(thing,     b,r)
   if the.Goal == "monitor" then return r^2/(b+r) end
   if the.Goal == "xplore"  then return 1/(b+r)   end
   if the.Goal == "doubt"   then return (b+r)/math.abs(b-r) end end
-
-
 -------------------------------------------------------------------------------
 -- ## Demos
 local egs={all= {"the","rnd","num","ent","cross",
@@ -285,7 +283,7 @@ function egs.keys(       n,data,best,rest,ts1,ts2,ts3,rest1)
   for n,best1 in pairs(best.cols.x) do
     print""
     rest1 = rest.cols.x[n]
-    for _,key in pairs(l.sort(l.list(best1:keys(rest1)),l.lt"lo")) do
+    for _,key in pairs(l.sort(best1:keys(rest1),l.lt"lo")) do
       br(key,best,rest)
       print(key:show(), goal(key)) end end
 end
