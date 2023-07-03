@@ -115,28 +115,33 @@ function DATA:stats(  what,cols,nPlaces,     t)
     t[col.name] =rnd(getmetatable(col)[what or "mid"](col),nPlaces) end
   return t end
 
+local _bins
 function DATA:bins() 
-  local rows,n,best,rest,bins
+  local bins,rows,n,best,rest = {}
   rows = self:sort() 
   n    = (#rows)^the.min
-  best = self:clone( l.slice(rows,1,n) )
-  rest = self:clone( l.many( l.slice(rows,n+1), n*the.rest) )
-  local bins = {}
+  best = self:clone(l.slice(rows,1,n))
+  rest = self:clone(l.many(l.slice(rows,n+1),n*the.rest)) 
   for _,col in pairs(data.cols.x) do
-    for klass,data in pairs{[true]=dataYes, [false]=dataNo} do
-      for _,row in pairs(data.rows) do
-        local x = row[col.at]
-        if x ~= "?" then
-          local k = col:bin(x)
-          bins[k] = bins[k] or BIN(col,x)
-          bins[k]:add(x,klass) end end end 
-   for _,bin in  col:merges(l.sort(l.list(bins),lt"lo")) do
-      l.push(bins, bin) end end end
+    for _,bin in col:merges(l.sort(_bins(data,col,best,rest),lt"lo")) do
+      l.push(bins, bin) end end
+  return bins end
 
- local _id=0
- function BIN:new(col)
-   _id = _id + 1
-   return {at=col.at, name=col.name, id=_id, lo=x,hi=x,y=SYM()} end
+function _bins(data0,col,best,rest)
+  for klass,data in pairs{[true]=best, [false]=rest} do
+    for _,row in pairs(data.rows) do
+      local x = row[col.at]
+      if x ~= "?" then
+        local k = col:bin(x)
+        tmp[k] = tmp[k] or BIN(col,x)
+        tmp[k]:add(x,klass) end end end end
+  for _,bin in pairs(col:merges(l.sort(l.list(tmp), lt"lo"))) do
+    push(out, bin) end end
+
+local _id=0
+function BIN:new(col)
+  _id = _id + 1
+  return {at=col.at, name=col.name, id=_id, lo=x,hi=x,y=SYM()} end
 
 function BIN:add(x,y)
    self.lo = min(bin.lo, x)
