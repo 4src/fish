@@ -30,8 +30,8 @@ class SOME(pretty):
   def add(i, x:atom) -> None:
     if x != "?":
       i.n += 1
-      if len(i.has) < the.some: i.ok=False; i.has += [x]
-      elif R() < the.some/i.n : i.ok=False; i.has[int(len(i.has)*R())] = x
+      if   len(i.has) < the.some : i.ok=False; i.has += [x]
+      elif R() < the.some/i.n    : i.ok=False; i.has[int(len(i.has)*R())] = x
   def ok(i) -> Self:
     if not i.ok: i.has.sort(); i.ok = True
     return i
