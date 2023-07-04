@@ -36,9 +36,6 @@ class SOME(pretty):
     if not i.ok: i.has.sort(); i.ok = True
     return i
 
-class ROW(pretty):
-  def __init__(i, a:list[atom]):  i.cells=a
-
 def COL(at:int=0, txt:str="") -> [SOME | SYM]:
   return (SOME if txt and txt[0].isupper() else SYM)(at,txt)
 
@@ -48,13 +45,13 @@ class COLS(pretty):
     i.all = [COL(at,txt) for at,txt in enumerate(txts)]
     for col in i.all:
       if col.txt[-1] != "X": (i.y if col.txt[-1] in "-+" else i.x).append(col)
-  def add(i,row):
+  def add(i,row:ROW) -> None:
     for cols in  [i.cols.x, i.cols.y]:
       for col in cols:
         col:add(row.cells[col.at])
 
-class ROW(BOX):
-  def __init__(i, a:list) -> Self:  i.cells, i.cooked = a, a[:]
+class ROW(pretty):
+  def __init__(i, a:list[atom]) -> Self:  i.cells, i.cooked = a, a[:]
 #--------------------------------------------------------------------
 big:float = 1E30
 R:callable = random.random
