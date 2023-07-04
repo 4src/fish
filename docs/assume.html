@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>assume API documentation</title>
+<meta name="description" content="assume: reason via pairs of contstraints between c attribites
+(c) 2023 Tim Menzies &lt;timm@ieee.org&gt; BSD-2 …" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>assume</code></h1>
+</header>
+<section id="section-intro">
+<p>assume: reason via pairs of contstraints between c attribites <br>
+(c) 2023 Tim Menzies <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#116;&#105;&#109;&#109;&#64;&#105;&#101;&#101;&#101;&#46;&#111;&#114;&#103;">&#116;&#105;&#109;&#109;&#64;&#105;&#101;&#101;&#101;&#46;&#111;&#114;&#103;</a> BSD-2</p>
+<p>USAGE:
+<br>
+python3 -B assume.lua [OPTIONS]</p>
+<p>OPTIONS:<br>
+-f
+&ndash;file
+data file
+= "../data/auto93.csv"<br>
+-g
+&ndash;go
+start-up action
+= "nothing"<br>
+-h
+&ndash;help
+show help
+= False<br>
+-s
+&ndash;seed
+random number seed
+= 937162211<br>
+-S
+&ndash;Some
+how many numbers to keep
+= 512</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">#!/usr/bin/env python3 -B
+# vim: set et sts=2 sw=2 ts=2 : 
+&#34;&#34;&#34;
+assume: reason via pairs of contstraints between c attribites   
+(c) 2023 Tim Menzies &lt;timm@ieee.org&gt; BSD-2
+
+USAGE:    
+  python3 -B assume.lua [OPTIONS]
+
+OPTIONS:  
+  -f  --file    data file                 = &#34;../data/auto93.csv&#34;  
+  -g  --go      start-up action           = &#34;nothing&#34;  
+  -h  --help    show help                 = False  
+  -s  --seed    random number seed        = 937162211  
+  -S  --Some    how many numbers to keep  = 512  
+&#34;&#34;&#34;
+from fileinput import FileInput as file_or_stdin
+import random,math,sys,re,os
+from copy import deepcopy
+from ast import literal_eval as eval
+from typing import T, Self, TypeVar, Generic, Iterator, List
+
+Atom  = [int | float | str | bool]
+class BOX(dict):
+  &#34;A `BOX` is a dictionary that supports `d[&#39;slot&#39;]` and `d.slot` access.&#34;
+  __getattr__ = dict.get
+
+the=BOX(**{m[1]:eval(m[2]) for m in re.finditer(r&#34;\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)&#34;,__doc__)})
+&#34;&#34;&#34;Parse help test to  create a BOX of  `key=default` pairs.&#34;&#34;&#34;
+
+class obj(object):
+  &#34;A class that knows how to pretty print itself.&#34;
+  def __repr__(i) -&gt; str:
+    return show(i.__dict__, i.__class__.__name__)
+
+class SYM(obj):
+  &#34;Summarize a stream of symbols.&#34;
+  def __init__(i, at:int=0, txt:str=&#34;&#34;) -&gt; Self:
+    i.n, i.at, i.txt = 0, at, txt
+    i.n,i.has,i.most,i.mode = 0,[],0,None
+  def add(i, x:Atom) -&gt; Atom:
+    &#34;&#34;&#34;Update count of thing seen (in `n`); the counts of each thing (in `has`) and the
+    most commonly seen thing (in `mode`).&#34;&#34;&#34;
+    if x != &#34;?&#34;:
+      i.n += 1
+      tmp = i.has[x] = 1 + i.has.get(x,0)
+      if tmp &gt; i.most: i.most,i.mode = tmp,x
+
+class NUM(obj):
+  &#34;Summarize stream of numbers.&#34;
+  def __init__(i, at:int=0, txt:str=&#34;&#34;) -&gt; Self:
+    i.n, i.at, i.txt = 0, at, txt
+    i.want = 0 if txt and txt[-1]==&#34;-&#34; else 1
+    i.mu, i.m2, i.lo, i.hi = 0,0,big, -big
+  def add(i, x:Atom) -&gt; None:
+    &#34;&#34;&#34;Update count of thing seen (in `n`); the mean of things seen so far (in `mu`)
+    and the second moment (in `m2`) which is need to calculate standard deviation.&#34;&#34;&#34;
+    if x != &#34;?&#34;:
+      i.n += 1
+      i.lo = min(x, i.lo)
+      i.hi = max(x, i.hi)
+      delta = x - i.mu
+      i.mu += delta/i.n
+      i.m2 += delta*(x - i.mu)
+
+class ROW(obj):
+  &#34;Keep a row of data.&#34;
+  def __init__(i, a:List[Atom]) -&gt; Self: i.cells, i.cooked = a, a[:]
+
+def COL(at:int=0, txt:str=&#34;&#34;) -&gt; [NUM | SYM]:
+  &#34;Factory. returns `NUM`s if name is upper case. Else return `SYM`.&#34;
+  return (NUM if txt and txt[0].isupper() else SYM)(at,txt)
+
+class COLS(obj):
+  &#34;&#34;&#34;Maintain a list of `NUM`s and `SYM`s (in `all`). Remember which are dependent `x` 
+    columns or dependent `y` columns. Ignore colums with names ending in `X`&#34;&#34;&#34;
+  def __init__(i, names:List[str]) -&gt; Self:
+    i.x, i.y, i.names = [],[],names
+    i.all = [COL(at,txt) for at,txt in enumerate(names)]
+    for col in i.all:
+      if col.txt[-1] != &#34;X&#34;:
+        (i.y if col.txt[-1] in &#34;-+&#34; else i.x).append(col)
+  def add(i, row:ROW) -&gt; None:
+    &#34;Update the independent and dependent columns from `row`.&#34;
+    for cols in  [i.x, i.y]:
+      for col in cols:
+        col:add(row.cells[col.at])
+  def clone(i, rows: List[ROW] = []) -&gt; Self: 
+   &#34;Return a `COLS` with the same structure as `i`. Optionally, add in some rows.&#34;
+   return adds(COLS(i.names), rows)
+
+#--------------------------------------------------------------------
+big:float = 1E30
+R:callable = random.random
+
+def adds(i, a:List=[]) -&gt; T:
+  &#34;Add everything in `a` into `i. Return `i`.&#34;
+  [i.add(x) for x in a]
+  return i
+
+def show(d:dict, pre:str=&#34;&#34;) -&gt; str:
+  &#34;Show `d`, shortening decimals on floats and  just printing function nams.&#34;
+  f= lambda x: x.__name__ if callable(x) else (f&#34;{x:3g}&#34; if isinstance(x,float) else x)
+  return pre+&#34;{&#34;+&#39; &#39;.join([f&#34;:{k} {f(v)}&#34; for k,v in d.items() if k[0] != &#34;_&#34;])+&#34;}&#34;
+
+def coerce(x:str):
+  try: return eval(x)
+  except: return x
+
+def csv(file:str,fun:callable=ROW) -&gt; Iterator[List[Atom]]:
+  &#34;Returns an iterator that returns lists from standard input (-) or a file.&#34;
+  if file==&#34;-&#34;: file=None
+  with file_or_stdin(file) as src:
+    for line in src:
+      line = re.sub(r&#39;([\n\t\r&#34;\&#39; ]|#.*)&#39;, &#39;&#39;, line)
+      if line:
+        yield fun([coerce(s.strip()) for s in line.split(&#34;,&#34;)])
+
+def per(a:List[float], p:float=.5):
+  p=int(p*len(a) + .5); return a[max(0,min(len(a)-1,p))] 
+
+def cli(d:dict, help: str) -&gt; dict:
+  &#34;&#34;&#34;For k,v in i, update `v` if there is a command-line flag `-k[0]` or `--k`. Note
+  that boolean values need no argument (since we will just negate `v`).&#34;&#34;&#34;
+  for k,v in d.items():
+    v = str(v)
+    for j,x in enumerate(sys.argv):
+      if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
+        v = &#34;True&#34; if v==&#34;False&#34; else (&#34;False&#34; if v==&#34;True&#34; else sys.argv[j+1])
+    d[k] = coerce(v)
+  if d.help: print(help)
+  return d
+#--------------------------------------------------------------------
+class EGS:
+  &#34;&#34;&#34;Stored examples as function starting in a lower case letter. If an example returns `False`
+  then that will add one to a count of failed examples.&#34;&#34;&#34;
+  All = locals()
+  def Failures(the:dict) -&gt; int:
+    &#34;&#34;&#34;When `RUN`ning examples, first reset globals and random seed to default values.
+   Then return a count of how often any example fails (indicated by returning False).&#34;&#34;&#34;
+    def reset()     : the.update(**b4); random.seed(the.seed); return True
+    def relevant(s) : return s[0].islower() and (the.go==s or the.go==&#34;all&#34;) and reset()
+    def bad(s,fail) : print(&#34;#❌ failed:&#34; if fail else &#34;#✅ passed:&#34;,s); return fail
+    #----------------------------------
+    b4 = deepcopy(the)
+    return sum((bad(s, fun()==False) for s,fun in EGS.All.items() if relevant(s) ))
+
+  def some() -&gt; [None | bool]:
+    n=adds(NUM(), range(10**6))
+    print(n.mu)
+
+  def main() -&gt; [None | bool]:
+    cols=None
+    for row in csv(the.file):
+      if not cols: cols=COLS(row.cells)
+      else: cols.add(row)
+    print(cols.x[1])
+
+if __name__== &#34;__main__&#34;: sys.exit( EGS.Failures( cli(the, __doc__) ))</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-variables">Global variables</h2>
+<dl>
+<dt id="assume.the"><code class="name">var <span class="ident">the</span></code></dt>
+<dd>
+<div class="desc"><p>Parse help test to
+create a BOX of
+<code>key=default</code> pairs.</p></div>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="assume.COL"><code class="name flex">
+<span>def <span class="ident">COL</span></span>(<span>at: int = 0, txt: str = '') ‑> [<a title="assume.NUM" href="#assume.NUM">NUM</a> | <a title="assume.SYM" href="#assume.SYM">SYM</a>]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Factory. returns <code><a title="assume.NUM" href="#assume.NUM">NUM</a></code>s if name is upper case. Else return <code><a title="assume.SYM" href="#assume.SYM">SYM</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def COL(at:int=0, txt:str=&#34;&#34;) -&gt; [NUM | SYM]:
+  &#34;Factory. returns `NUM`s if name is upper case. Else return `SYM`.&#34;
+  return (NUM if txt and txt[0].isupper() else SYM)(at,txt)</code></pre>
+</details>
+</dd>
+<dt id="assume.R"><code class="name flex">
+<span>def <span class="ident">R</span></span>(<span>) ‑> <built-in function callable></span>
+</code></dt>
+<dd>
+<div class="desc"><p>random() -&gt; x in the interval [0, 1).</p></div>
+</dd>
+<dt id="assume.adds"><code class="name flex">
+<span>def <span class="ident">adds</span></span>(<span>i, a: List = []) ‑> ~T</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Add everything in <code>a</code> into <code>i. Return </code>i`.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def adds(i, a:List=[]) -&gt; T:
+  &#34;Add everything in `a` into `i. Return `i`.&#34;
+  [i.add(x) for x in a]
+  return i</code></pre>
+</details>
+</dd>
+<dt id="assume.show"><code class="name flex">
+<span>def <span class="ident">show</span></span>(<span>d: dict, pre: str = '') ‑> str</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Show <code>d</code>, shortening decimals on floats and
+just printing function nams.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def show(d:dict, pre:str=&#34;&#34;) -&gt; str:
+  &#34;Show `d`, shortening decimals on floats and  just printing function nams.&#34;
+  f= lambda x: x.__name__ if callable(x) else (f&#34;{x:3g}&#34; if isinstance(x,float) else x)
+  return pre+&#34;{&#34;+&#39; &#39;.join([f&#34;:{k} {f(v)}&#34; for k,v in d.items() if k[0] != &#34;_&#34;])+&#34;}&#34;</code></pre>
+</details>
+</dd>
+<dt id="assume.coerce"><code class="name flex">
+<span>def <span class="ident">coerce</span></span>(<span>x: str)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def coerce(x:str):
+  try: return eval(x)
+  except: return x</code></pre>
+</details>
+</dd>
+<dt id="assume.csv"><code class="name flex">
+<span>def <span class="ident">csv</span></span>(<span>file: str, fun: <built-in function callable> = assume.ROW) ‑> Iterator[List[[int | float | str | bool]]]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns an iterator that returns lists from standard input (-) or a file.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def csv(file:str,fun:callable=ROW) -&gt; Iterator[List[Atom]]:
+  &#34;Returns an iterator that returns lists from standard input (-) or a file.&#34;
+  if file==&#34;-&#34;: file=None
+  with file_or_stdin(file) as src:
+    for line in src:
+      line = re.sub(r&#39;([\n\t\r&#34;\&#39; ]|#.*)&#39;, &#39;&#39;, line)
+      if line:
+        yield fun([coerce(s.strip()) for s in line.split(&#34;,&#34;)])</code></pre>
+</details>
+</dd>
+<dt id="assume.per"><code class="name flex">
+<span>def <span class="ident">per</span></span>(<span>a: List[float], p: float = 0.5)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def per(a:List[float], p:float=.5):
+  p=int(p*len(a) + .5); return a[max(0,min(len(a)-1,p))] </code></pre>
+</details>
+</dd>
+<dt id="assume.cli"><code class="name flex">
+<span>def <span class="ident">cli</span></span>(<span>d: dict, help: str) ‑> dict</span>
+</code></dt>
+<dd>
+<div class="desc"><p>For k,v in i, update <code>v</code> if there is a command-line flag <code>-k[0]</code> or <code>--k</code>. Note
+that boolean values need no argument (since we will just negate <code>v</code>).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cli(d:dict, help: str) -&gt; dict:
+  &#34;&#34;&#34;For k,v in i, update `v` if there is a command-line flag `-k[0]` or `--k`. Note
+  that boolean values need no argument (since we will just negate `v`).&#34;&#34;&#34;
+  for k,v in d.items():
+    v = str(v)
+    for j,x in enumerate(sys.argv):
+      if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
+        v = &#34;True&#34; if v==&#34;False&#34; else (&#34;False&#34; if v==&#34;True&#34; else sys.argv[j+1])
+    d[k] = coerce(v)
+  if d.help: print(help)
+  return d</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="assume.BOX"><code class="flex name class">
+<span>class <span class="ident">BOX</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A <code><a title="assume.BOX" href="#assume.BOX">BOX</a></code> is a dictionary that supports <code>d['slot']</code> and <code>d.slot</code> access.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class BOX(dict):
+  &#34;A `BOX` is a dictionary that supports `d[&#39;slot&#39;]` and `d.slot` access.&#34;
+  __getattr__ = dict.get</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>builtins.dict</li>
+</ul>
+</dd>
+<dt id="assume.obj"><code class="flex name class">
+<span>class <span class="ident">obj</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>A class that knows how to pretty print itself.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class obj(object):
+  &#34;A class that knows how to pretty print itself.&#34;
+  def __repr__(i) -&gt; str:
+    return show(i.__dict__, i.__class__.__name__)</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="assume.COLS" href="#assume.COLS">COLS</a></li>
+<li><a title="assume.NUM" href="#assume.NUM">NUM</a></li>
+<li><a title="assume.ROW" href="#assume.ROW">ROW</a></li>
+<li><a title="assume.SYM" href="#assume.SYM">SYM</a></li>
+</ul>
+</dd>
+<dt id="assume.SYM"><code class="flex name class">
+<span>class <span class="ident">SYM</span></span>
+<span>(</span><span>at: int = 0, txt: str = '')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Summarize a stream of symbols.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SYM(obj):
+  &#34;Summarize a stream of symbols.&#34;
+  def __init__(i, at:int=0, txt:str=&#34;&#34;) -&gt; Self:
+    i.n, i.at, i.txt = 0, at, txt
+    i.n,i.has,i.most,i.mode = 0,[],0,None
+  def add(i, x:Atom) -&gt; Atom:
+    &#34;&#34;&#34;Update count of thing seen (in `n`); the counts of each thing (in `has`) and the
+    most commonly seen thing (in `mode`).&#34;&#34;&#34;
+    if x != &#34;?&#34;:
+      i.n += 1
+      tmp = i.has[x] = 1 + i.has.get(x,0)
+      if tmp &gt; i.most: i.most,i.mode = tmp,x</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="assume.obj" href="#assume.obj">obj</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="assume.SYM.add"><code class="name flex">
+<span>def <span class="ident">add</span></span>(<span>i, x: [int | float | str | bool]) ‑> [int | float | str | bool]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Update count of thing seen (in <code>n</code>); the counts of each thing (in <code>has</code>) and the
+most commonly seen thing (in <code>mode</code>).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add(i, x:Atom) -&gt; Atom:
+  &#34;&#34;&#34;Update count of thing seen (in `n`); the counts of each thing (in `has`) and the
+  most commonly seen thing (in `mode`).&#34;&#34;&#34;
+  if x != &#34;?&#34;:
+    i.n += 1
+    tmp = i.has[x] = 1 + i.has.get(x,0)
+    if tmp &gt; i.most: i.most,i.mode = tmp,x</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="assume.NUM"><code class="flex name class">
+<span>class <span class="ident">NUM</span></span>
+<span>(</span><span>at: int = 0, txt: str = '')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Summarize stream of numbers.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class NUM(obj):
+  &#34;Summarize stream of numbers.&#34;
+  def __init__(i, at:int=0, txt:str=&#34;&#34;) -&gt; Self:
+    i.n, i.at, i.txt = 0, at, txt
+    i.want = 0 if txt and txt[-1]==&#34;-&#34; else 1
+    i.mu, i.m2, i.lo, i.hi = 0,0,big, -big
+  def add(i, x:Atom) -&gt; None:
+    &#34;&#34;&#34;Update count of thing seen (in `n`); the mean of things seen so far (in `mu`)
+    and the second moment (in `m2`) which is need to calculate standard deviation.&#34;&#34;&#34;
+    if x != &#34;?&#34;:
+      i.n += 1
+      i.lo = min(x, i.lo)
+      i.hi = max(x, i.hi)
+      delta = x - i.mu
+      i.mu += delta/i.n
+      i.m2 += delta*(x - i.mu)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="assume.obj" href="#assume.obj">obj</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="assume.NUM.add"><code class="name flex">
+<span>def <span class="ident">add</span></span>(<span>i, x: [int | float | str | bool]) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Update count of thing seen (in <code>n</code>); the mean of things seen so far (in <code>mu</code>)
+and the second moment (in <code>m2</code>) which is need to calculate standard deviation.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add(i, x:Atom) -&gt; None:
+  &#34;&#34;&#34;Update count of thing seen (in `n`); the mean of things seen so far (in `mu`)
+  and the second moment (in `m2`) which is need to calculate standard deviation.&#34;&#34;&#34;
+  if x != &#34;?&#34;:
+    i.n += 1
+    i.lo = min(x, i.lo)
+    i.hi = max(x, i.hi)
+    delta = x - i.mu
+    i.mu += delta/i.n
+    i.m2 += delta*(x - i.mu)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="assume.ROW"><code class="flex name class">
+<span>class <span class="ident">ROW</span></span>
+<span>(</span><span>a: List[[int | float | str | bool]])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Keep a row of data.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ROW(obj):
+  &#34;Keep a row of data.&#34;
+  def __init__(i, a:List[Atom]) -&gt; Self: i.cells, i.cooked = a, a[:]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="assume.obj" href="#assume.obj">obj</a></li>
+</ul>
+</dd>
+<dt id="assume.COLS"><code class="flex name class">
+<span>class <span class="ident">COLS</span></span>
+<span>(</span><span>names: List[str])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Maintain a list of <code><a title="assume.NUM" href="#assume.NUM">NUM</a></code>s and <code><a title="assume.SYM" href="#assume.SYM">SYM</a></code>s (in <code>all</code>). Remember which are dependent <code>x</code>
+columns or dependent <code>y</code> columns. Ignore colums with names ending in <code>X</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class COLS(obj):
+  &#34;&#34;&#34;Maintain a list of `NUM`s and `SYM`s (in `all`). Remember which are dependent `x` 
+    columns or dependent `y` columns. Ignore colums with names ending in `X`&#34;&#34;&#34;
+  def __init__(i, names:List[str]) -&gt; Self:
+    i.x, i.y, i.names = [],[],names
+    i.all = [COL(at,txt) for at,txt in enumerate(names)]
+    for col in i.all:
+      if col.txt[-1] != &#34;X&#34;:
+        (i.y if col.txt[-1] in &#34;-+&#34; else i.x).append(col)
+  def add(i, row:ROW) -&gt; None:
+    &#34;Update the independent and dependent columns from `row`.&#34;
+    for cols in  [i.x, i.y]:
+      for col in cols:
+        col:add(row.cells[col.at])
+  def clone(i, rows: List[ROW] = []) -&gt; Self: 
+   &#34;Return a `COLS` with the same structure as `i`. Optionally, add in some rows.&#34;
+   return adds(COLS(i.names), rows)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="assume.obj" href="#assume.obj">obj</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="assume.COLS.add"><code class="name flex">
+<span>def <span class="ident">add</span></span>(<span>i, row: <a title="assume.ROW" href="#assume.ROW">ROW</a>) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Update the independent and dependent columns from <code>row</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add(i, row:ROW) -&gt; None:
+  &#34;Update the independent and dependent columns from `row`.&#34;
+  for cols in  [i.x, i.y]:
+    for col in cols:
+      col:add(row.cells[col.at])</code></pre>
+</details>
+</dd>
+<dt id="assume.COLS.clone"><code class="name flex">
+<span>def <span class="ident">clone</span></span>(<span>i, rows: List[<a title="assume.ROW" href="#assume.ROW">ROW</a>] = []) ‑> Self</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Return a <code><a title="assume.COLS" href="#assume.COLS">COLS</a></code> with the same structure as <code>i</code>. Optionally, add in some rows.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def clone(i, rows: List[ROW] = []) -&gt; Self: 
+ &#34;Return a `COLS` with the same structure as `i`. Optionally, add in some rows.&#34;
+ return adds(COLS(i.names), rows)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="assume.EGS"><code class="flex name class">
+<span>class <span class="ident">EGS</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Stored examples as function starting in a lower case letter. If an example returns <code>False</code>
+then that will add one to a count of failed examples.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class EGS:
+  &#34;&#34;&#34;Stored examples as function starting in a lower case letter. If an example returns `False`
+  then that will add one to a count of failed examples.&#34;&#34;&#34;
+  All = locals()
+  def Failures(the:dict) -&gt; int:
+    &#34;&#34;&#34;When `RUN`ning examples, first reset globals and random seed to default values.
+   Then return a count of how often any example fails (indicated by returning False).&#34;&#34;&#34;
+    def reset()     : the.update(**b4); random.seed(the.seed); return True
+    def relevant(s) : return s[0].islower() and (the.go==s or the.go==&#34;all&#34;) and reset()
+    def bad(s,fail) : print(&#34;#❌ failed:&#34; if fail else &#34;#✅ passed:&#34;,s); return fail
+    #----------------------------------
+    b4 = deepcopy(the)
+    return sum((bad(s, fun()==False) for s,fun in EGS.All.items() if relevant(s) ))
+
+  def some() -&gt; [None | bool]:
+    n=adds(NUM(), range(10**6))
+    print(n.mu)
+
+  def main() -&gt; [None | bool]:
+    cols=None
+    for row in csv(the.file):
+      if not cols: cols=COLS(row.cells)
+      else: cols.add(row)
+    print(cols.x[1])</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="assume.EGS.All"><code class="name">var <span class="ident">All</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="assume.EGS.Failures"><code class="name flex">
+<span>def <span class="ident">Failures</span></span>(<span>the: dict) ‑> int</span>
+</code></dt>
+<dd>
+<div class="desc"><p>When <code>RUN</code>ning examples, first reset globals and random seed to default values.
+Then return a count of how often any example fails (indicated by returning False).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def Failures(the:dict) -&gt; int:
+  &#34;&#34;&#34;When `RUN`ning examples, first reset globals and random seed to default values.
+ Then return a count of how often any example fails (indicated by returning False).&#34;&#34;&#34;
+  def reset()     : the.update(**b4); random.seed(the.seed); return True
+  def relevant(s) : return s[0].islower() and (the.go==s or the.go==&#34;all&#34;) and reset()
+  def bad(s,fail) : print(&#34;#❌ failed:&#34; if fail else &#34;#✅ passed:&#34;,s); return fail
+  #----------------------------------
+  b4 = deepcopy(the)
+  return sum((bad(s, fun()==False) for s,fun in EGS.All.items() if relevant(s) ))</code></pre>
+</details>
+</dd>
+<dt id="assume.EGS.some"><code class="name flex">
+<span>def <span class="ident">some</span></span>(<span>) ‑> [None | bool]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def some() -&gt; [None | bool]:
+  n=adds(NUM(), range(10**6))
+  print(n.mu)</code></pre>
+</details>
+</dd>
+<dt id="assume.EGS.main"><code class="name flex">
+<span>def <span class="ident">main</span></span>(<span>) ‑> [None | bool]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def main() -&gt; [None | bool]:
+  cols=None
+  for row in csv(the.file):
+    if not cols: cols=COLS(row.cells)
+    else: cols.add(row)
+  print(cols.x[1])</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<center>
+<img src="Fly-Fishing_art.png" width=300>
+<p>
+<a href="https://github.com/4src/fish"><img width=30 src="github-mark.png"></a>
+<br>
+<img
+src="https://img.shields.io/badge/language-python3.11-yellow"> <img
+src="results.png"> <img
+src="https://img.shields.io/badge/license-BSD2-ff69b4"> <a
+href="https://zenodo.org/badge/latestdoi/631627449"><img
+src="https://img.shields.io/badge/purpose-se--ai-blueviolet"> <img
+src="https://img.shields.io/badge/platform-osx,linux-pink"> <a
+href="https://zenodo.org/badge/latestdoi/631627449"><img
+src="https://zenodo.org/badge/631627449.svg"></a>
+<br> <hr>
+<br></center>
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3><a href="#header-variables">Global variables</a></h3>
+<ul class="">
+<li><code><a title="assume.the" href="#assume.the">the</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="two-column">
+<li><code><a title="assume.COL" href="#assume.COL">COL</a></code></li>
+<li><code><a title="assume.R" href="#assume.R">R</a></code></li>
+<li><code><a title="assume.adds" href="#assume.adds">adds</a></code></li>
+<li><code><a title="assume.show" href="#assume.show">show</a></code></li>
+<li><code><a title="assume.coerce" href="#assume.coerce">coerce</a></code></li>
+<li><code><a title="assume.csv" href="#assume.csv">csv</a></code></li>
+<li><code><a title="assume.per" href="#assume.per">per</a></code></li>
+<li><code><a title="assume.cli" href="#assume.cli">cli</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="assume.BOX" href="#assume.BOX">BOX</a></code></h4>
+</li>
+<li>
+<h4><code><a title="assume.obj" href="#assume.obj">obj</a></code></h4>
+</li>
+<li>
+<h4><code><a title="assume.SYM" href="#assume.SYM">SYM</a></code></h4>
+<ul class="">
+<li><code><a title="assume.SYM.add" href="#assume.SYM.add">add</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="assume.NUM" href="#assume.NUM">NUM</a></code></h4>
+<ul class="">
+<li><code><a title="assume.NUM.add" href="#assume.NUM.add">add</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="assume.ROW" href="#assume.ROW">ROW</a></code></h4>
+</li>
+<li>
+<h4><code><a title="assume.COLS" href="#assume.COLS">COLS</a></code></h4>
+<ul class="">
+<li><code><a title="assume.COLS.add" href="#assume.COLS.add">add</a></code></li>
+<li><code><a title="assume.COLS.clone" href="#assume.COLS.clone">clone</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="assume.EGS" href="#assume.EGS">EGS</a></code></h4>
+<ul class="">
+<li><code><a title="assume.EGS.Failures" href="#assume.EGS.Failures">Failures</a></code></li>
+<li><code><a title="assume.EGS.some" href="#assume.EGS.some">some</a></code></li>
+<li><code><a title="assume.EGS.main" href="#assume.EGS.main">main</a></code></li>
+<li><code><a title="assume.EGS.All" href="#assume.EGS.All">All</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

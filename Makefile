@@ -22,6 +22,10 @@ tests: ## run test suite
 		else cp docs/fail.png docs/results.png; \
   fi
 
+docs/%.html: %.py
+	python3 -Bm pdoc -c sort_identifiers=False  \
+		       --template-dir docs --force --html -o docs   $^
+
 html: 
 	docco -o $(HOME)/tmp  lib.lua 
 	awk '/<h1>/{ print $$0; print "<p>"f"</p>";next} 1' f="`cat top.html`" ~/tmp/lib.html > tmp1
@@ -33,7 +37,3 @@ html:
 #html: docs/fish.html
 
 pdf: $(HOME)/tmp/fish.pdf
-
-docs/fish.html: fish.py
-	 python3 -Bm pdoc -c sort_identifiers=False  \
-		       --template-dir docs --force --html -o docs $<

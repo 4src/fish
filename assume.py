@@ -1,78 +1,136 @@
 #!/usr/bin/env python3 -B
 # vim: set et sts=2 sw=2 ts=2 : 
+"""
+assume: reason via pairs of contstraints between c attribites   
+(c) 2023 Tim Menzies <timm@ieee.org> BSD-2
+
+USAGE:    
+  python3 -B assume.lua [OPTIONS]
+
+OPTIONS:  
+  -f  --file    data file                 = "../data/auto93.csv"  
+  -g  --go      start-up action           = "nothing"  
+  -h  --help    show help                 = False  
+  -s  --seed    random number seed        = 937162211  
+  -S  --Some    how many numbers to keep  = 512  
+"""
 from fileinput import FileInput as file_or_stdin
-import random,math,sys,re,os
+import random,sys,re
 from copy import deepcopy
-from ast import literal_eval
-from typing import Self, TypeVar, Generic, Iterator
+from ast import literal_eval as make
+from typing import T, Self, TypeVar, Generic, Iterator, List
 
 Atom  = [int | float | str | bool]
-class BOX(dict): __getattr__ = dict.get
+class BOX(dict):
+  "A `BOX` is a dictionary that supports `d['slot']` and `d.slot` access."
+  __getattr__ = dict.get
 
-class public(object):
-  def __repr__(i) -> str: 
+the=BOX(**{m[1]:make(m[2]) for m in re.finditer(r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)",__doc__)})
+"""Parse help test to  create a BOX of  `key=default` pairs."""
+
+class obj(object):
+  "A class that knows how to pretty print itself."
+  def __repr__(i) -> str:
     return show(i.__dict__, i.__class__.__name__)
 
-the = BOX(some = 512, seed = 1234567891, go="none")
-
-class SYM(public):
+class SYM(obj):
+  "Summarize a stream of symbols."
   def __init__(i, at:int=0, txt:str="") -> Self:
-    i.n,i.has,i.most,i.mode = 0,[],0,None
+    i.n, i.at, i.txt = 0, at, txt
+    i.n,i.has,i.most,i.mode = 0,{},0,None
   def add(i, x:Atom) -> Atom:
+    """Update count of thing seen (in `n`); the counts of each thing (in `has`) and the
+    most commonly seen thing (in `mode`)."""
     if x != "?":
       i.n += 1
       tmp = i.has[x] = 1 + i.has.get(x,0)
       if tmp > i.most: i.most,i.mode = tmp,x
 
-class SOME(public):
+class NUM(obj):
+  "Summarize stream of numbers."
   def __init__(i, at:int=0, txt:str="") -> Self:
-    i.at, i.txt, i.want = at, txt, (0 if txt and txt[-1]=="-" else 1)
-    i.n,i.ok,i.has = 0,True,[]
+    i.n, i.at, i.txt = 0, at, txt
+    i.want = 0 if txt and txt[-1]=="-" else 1
+    i.mu, i.m2, i.lo, i.hi = 0,0,big, -big
   def add(i, x:Atom) -> None:
+    """Update count of thing seen (in `n`); the mean of things seen so far (in `mu`)
+    and the second moment (in `m2`) which is need to calculate standard deviation."""
     if x != "?":
       i.n += 1
-      if   len(i.has) < the.some : i.ok=False; i.has += [x]
-      elif R() < the.some/i.n    : i.ok=False; i.has[int(len(i.has)*R())] = x
-  def ok(i) -> Self:
-    if not i.ok: i.has.sort(); i.ok = True
-    return i
+      i.lo = min(x, i.lo)
+      i.hi = max(x, i.hi)
+      delta = x - i.mu
+      i.mu += delta/i.n
+      i.m2 += delta*(x - i.mu)
+  def div(i, decimals:[int | None]=None) -> float:
+    "Return diversity around the central tendency."
+    return rnd((i.m2/(i.n - 1))**.5 if i.m2>0 and i.n > 1 else 0, decimals)
+  def mid(i, decimals:[int | None]==None) -> float:
+    "Return central tendency."
+    return rnd(i.mu, decimals)
+  def norm(i,x:[float | str]) -> [float | str]:
+    "May `x` to 0..1 for `lo` to `hi`."
+    return x if x=="?" else  (x-i.lo)/(i.hi - i.lo + 1/big)
 
-class ROW(public):
-  def __init__(i, a:list[Atom]) -> Self:  
+class ROW(obj):
+  "Keep a row of data."
+  def __init__(i, a:List[Atom]) -> Self: 
     i.cells, i.cooked = a, a[:]
+  def d2h(i, ycols:List[NUM]) -> float;
+    "Distance to heaven (best performance). Returns 0..1 where _lower_ is _better_"
+    return sqrt(sum(((col.want - col.norm(i.cells[col.at]))**2 for col in ycols)) / len(ycols))
 
-def COL(at:int=0, txt:str="") -> [SOME | SYM]:
-  return (SOME if txt and txt[0].isupper() else SYM)(at,txt)
+def COL(at:int=0, txt:str="") -> [NUM | SYM]:
+  "Factory. returns `NUM`s if name is upper case. Else return `SYM`."
+  return (NUM if txt and txt[0].isupper() else SYM)(at,txt)
 
-class COLS(public):
-  def __init__(i, names:list[str]) -> Self:
+class COLS(obj):
+  """Maintain a list of `NUM`s and `SYM`s (in `all`). Remember which are dependent `x` 
+    columns or dependent `y` columns. Ignore colums with names ending in `X`"""
+  def __init__(i, names:List[str]) -> Self:
     i.x, i.y, i.names = [],[],names
-    i.all = [COL(at,txt) for at,txt in enumerate(txts)]
+    i.all = [COL(at,txt) for at,txt in enumerate(names)]
     for col in i.all:
-      if col.txt[-1] != "X": 
-       (i.y if col.txt[-1] in "-+" else i.x).append(col)
+      if col.txt[-1] != "X":
+        (i.y if col.txt[-1] in "-+" else i.x).append(col)
   def add(i, row:ROW) -> None:
-    for cols in  [i.cols.x, i.cols.y]:
+    "Update the independent and dependent columns from `row`."
+    for cols in  [i.x, i.y]:
       for col in cols:
-        col:add(row.cells[col.at])
-  def clone(i,rows: list[ROW]=[]) -> Self:
-    j = COLS(i.names)
-    [j.add(row) for row in rows]
-    return j
+        col.add(row.cells[col.at])
+  def clone(i, rows: List[ROW] = []) -> Self: 
+    "Return a `COLS` with the same structure as `i`. Optionally, add in some rows."
+    return adds(COLS(i.names), rows)
+  def sort(i,rows: List[ROW]):
+    return sorted(rows, key=lambda row: row.d2h(i.y))
 
+# the usual suspects
+class DATA(obj):
+  def __init__(i,rows=[]):
+    i.rows=[], i.cols=None
+    adds(i, rows)
+  def add(i,row)
+    if not cols: cols=COLS(row.cells)
+    else:  cols.add(row)
 #--------------------------------------------------------------------
 big:float = 1E30
 R:callable = random.random
 
-def show(d:dict, pre="") -> str:
+def adds(i, a:List=[]) -> T:
+  "Add everything in `a` into `i. Return `i`."
+  [i.add(x) for x in a]
+  return i
+
+def show(d:dict, pre:str="") -> str:
+  "Show `d`, shortening decimals on floats and  just printing function nams."
   f= lambda x: x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x,float) else x)
   return pre+"{"+' '.join([f":{k} {f(v)}" for k,v in d.items() if k[0] != "_"])+"}"
 
 def coerce(x:str):
-  try: return literal_eval(x)
+  try: return make(x)
   except: return x
 
-def csv(file:str,fun:callable=ROW) -> Iterator[list[Atom]]:
+def csv(file:str,fun:callable=ROW) -> Iterator[List[Atom]]:
   "Returns an iterator that returns lists from standard input (-) or a file."
   if file=="-": file=None
   with file_or_stdin(file) as src:
@@ -81,97 +139,54 @@ def csv(file:str,fun:callable=ROW) -> Iterator[list[Atom]]:
       if line:
         yield fun([coerce(s.strip()) for s in line.split(",")])
 
-def per(a:list[float], p:float=.5):
+def per(a:List[float], p:float=.5):
   p=int(p*len(a) + .5); return a[max(0,min(len(a)-1,p))] 
-# ---------------------------------------------
-#print([COL(*x) for x in enumerate(["asdas","Aasda","asdas"])])
 
+def cli(d:dict, help: str) -> dict:
+  """For k,v in i, update `v` if there is a command-line flag `-k[0]` or `--k`. Note
+  that boolean values need no argument (since we will just negate `v`)."""
+  for k,v in d.items():
+    v = str(v)
+    for j,x in enumerate(sys.argv):
+      if ("-"+k[0]) == x or ("--"+k) == x:
+        v = "True" if v=="False" else ("False" if v=="True" else sys.argv[j+1])
+    d[k] = coerce(v)
+  if d.help: print(help)
+  return d
+#--------------------------------------------------------------------
 class EGS:
-  ALL = locals()
-  def RUN():
-    def good(s)  : print("#passed :",s) # ; return None
-    def bad(s,f) : if f()==False: print("#failed :",s); return True
-    def reset(s) : the = deepcopy(b4); random.seed(the.seed); print("trying ",s")
-    def relevant(s) : 
-      if s[0].islower() and (s==the.go or the.go=="all"):  reset(s); return True
+  """Stored examples as function starting in a lower case letter. If an example returns `False`
+  then that will add one to a count of failed examples."""
+  All = locals()
+  def Failures(the:dict) -> int:
+    """Return a count of how often any example fails (indicated by returning False).
+    When running any example, first reset globals and random seed to default values."""
+    def reset()     : the.update(**b4); random.seed(the.seed); return True
+    def relevant(s) : return s[0].islower() and (the.go==s or the.go=="all") and reset()
+    def bad(s,fail) : print("#❌ failed:" if fail else "#✅ passed:",s); return fail
+    #----------------------------------
     b4 = deepcopy(the)
-    sys.exit( sum(((bad(s,f) or good(s)) for txt,fun in EGS.ALL.items() if relevant(txt))))
-  def some():
-    s=SOME()
-    [s.add(x) for x in range(10**6)]
-    print(len(s.has))
+    return sum((bad(s, fun()==False) for s,fun in EGS.All.items() if relevant(s) ))
 
-# class COL(public):
-#   "COLumns know the name, position and the count of rows seen."
-#   def __init__(i, txt="",at=0): i.n,i.at,i.txt = 0,at,txt
-#   def add(i,x:cell) -> cell:
-#     "Ignoring empty cells, increment `n` then do the adding."
-#     if x != "?":
-#       i.n += 1
-#       i.add1(x)
-#     return x
-# #---------------------------------------------
-# class NUM(COL):
-#   "Summarize stream of numbers. Knows the mean and standard deviation."
-#   def __init__(i, txt="",at=0):
-#     COL.__init__(i,txt=txt,at=at)
-#     i.want = 0 if len(i.txt) > 0 and i.txt[-1] == "-" else 1
-#     i.mu = i.m2 = 0
-#     i.lo, i.hi = big, -big
-#   def add1(i,x:float) -> None:
-#     "Update `lo,hi` and the variables needed to calculate stdev."
-#     i.lo = min(x, i.lo)
-#     i.hi = max(x, i.hi)
-#     delta = x - i.mu
-#     i.mu += delta/i.n
-#     i.m2 += delta*(x - i.mu)
-#   def norm(i,x: cell) -> float:
-#     "May `x` to 0..1 for `lo` to `hi`."
-#     return x if x=="?" else  (x-i.lo)/(i.hi - i.lo + 1/big)
-# #--------------------------------------------------------------------
-# class SYM(COL):
-#   "Summary a stream of symbols. Knows mode and entropy."
-#   def __init__(i,txt="",at=0):
-#     COL.__init__(i,txt=txt,at=at)
-#     i.counts,i.mode, i.most = {},None,0
-#   def add1(i,x):
-#     "Increment counts and mode."
-#     now = i.counts[x] = 1 + i.counts.get(x,0)
-#     if now > i.most: i.most, i.mode = now, x
-# #--------------------------------------------------------------------
-# class COLS(public):
-#   "Convert a list of names into NUMs and SYMs (kept different binds of cols in different lists)."
-#   def __init__(i,names):
-#     i.x, i.y, i.names = [],[],names
-#     i.all = [(NUM if s[0].isupper() else SYM)(at=n,txt=s) for n,s in enumerate(names)]
-#     for col in i.all:
-#       z = col.txt[-1]
-#       if z != "X": (i.y if z in "-+!" else i.x).append(col)
-#   def add(i,row: record) -> record:
-#     "Add a row's data to all the non-skipped columns."
-#     for cols in [i.x, i.y]:
-#       for col in cols: col.add(row[col.at])
-#     return row
-# #--------------------------------------------------------------------
-# class DATA(public):
-#   "Keep `rows` of data, summarized into col`umns."
-#   def __init__(i,src=[]):
-#     i.cols, i.rows = None,[]
-#     [i.add(row) for row in src]
-#   def add(i,row:record) -> None:
-#     "For first row, build the `cols`. Otherwise, update summaries and the rows."
-#     if i.cols: i.rows += [i.cols.add(row)]
-#     else:      i.cols = COLS(row)
-#   def d2h(i,row:record) -> float:
-#     return (sum(((col.want -  col.norm(row[col.at]))**2 for col in i.cols.y)) /
-#             len(i.cols.y))**.5
-#   def sorted(i) -> list[record]:
-#     return sorted(i.rows, key=lambda row: i.d2h(row)) 
-# #--------------------------------------------------------------------
-# d = DATA(csv("../data/auto93.csv"))
-# lst = d.sorted()
-# [print(x) for x in lst[:10]]; print("")
-# [print(x) for x in lst[-10:]]
-# 
-# 
-# 
+  def some() -> [None | bool]:
+    n=adds(NUM(), range(10**6))
+    print(n.mu)
+
+  def main() -> [None | bool]:
+    cols=None
+    for row in csv(the.file):
+      if not cols: cols=COLS(row.cells)
+      else:  cols.add(row)
+    print(cols.x[1])
+
+  def sort() -> [None | bool]:
+    cols=None
+    for row in csv(the.file):
+      if not cols: cols=COLS(row.cells)
+      else:  cols.add(row)
+    print(cols.x[1])
+
+if __name__== "__main__": 
+  sys.exit(                 # return failure count to the operating system
+    EGS.Failures(           # run some (or all) or the eamples
+        cli(the, __doc__))) # update the settings from the command line
