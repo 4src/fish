@@ -28,7 +28,6 @@ local COL
 -- All `COL`s know their name, their column loc`at`ion, their count `n` of items seen.
 function COL(n,s) 
   return (s or ""):find"^[A-Z]" and NUM(n,s) or SYM(n,s) end
-
 -------------------------------------------------------------------------------
 -- ### SYM
 
@@ -173,11 +172,10 @@ function KEY:new(col, lo,hi)
   return {at=col.at, fmt=col.fmt, b=0, r=0, lo=lo, hi=hi, name=col.name} end
 
 function KEY:show(      fmt)
-  function fmt(x) 
-    return x== -l.big and "ninf" or (x==l.big and "inf" or l.fmt(self.fmt,x)) end
-  return  self.lo==self.hi 
-            and l.fmt("%s = %s", self.name, self.lo) 
-            or  l.fmt("%s <= %s <= %s", fmt(self.lo),self.name,fmt(self.hi)) end
+  function fmt(x) return x== -l.big and "ninf" or (x==l.big and "inf" or l.fmt(self.fmt,x)) end
+  return self.lo==self.hi 
+              and l.fmt("%s = %s", self.name, self.lo) 
+              or  l.fmt("%s <= %s <= %s", fmt(self.lo),self.name,fmt(self.hi)) end
 
 -- Check if KEY covers `t`
 function KEY:covers(t)
@@ -285,9 +283,7 @@ function egs.keys(       n,data,best,rest,ts1,ts2,ts3,rest1)
     rest1 = rest.cols.x[n]
     for _,key in pairs(l.sort(best1:keys(rest1),l.lt"lo")) do
       br(key,best,rest)
-      print(key:show(), goal(key)) end end
-end
-
+      print(key:show(), goal(key)) end end end
 -------------------------------------------------------------------------------
 -- ## Start-up
 if   not pcall(debug.getlocal,4,1) 
