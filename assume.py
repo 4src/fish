@@ -2,32 +2,33 @@
 # vim: set et sts=2 sw=2 ts=2 : 
 from fileinput import FileInput as file_or_stdin
 import random,math,sys,re,os
-from functools import cmp_to_key
+from copy import deepcopy
 from ast import literal_eval
 from typing import Self, TypeVar, Generic, Iterator
 
-atom  = [int | float | str | bool]
+Atom  = [int | float | str | bool]
 class BOX(dict): __getattr__ = dict.get
 
-class pretty(object):
-  def __repr__(i) -> str: return showd(i.__dict__, i.__class__.__name__)
+class public(object):
+  def __repr__(i) -> str: 
+    return show(i.__dict__, i.__class__.__name__)
 
-the = BOX(some = 512, seed = 1234567891)
+the = BOX(some = 512, seed = 1234567891, go="none")
 
-class SYM(pretty):
-  def __init__(i, at:int=0, txt:str=""):
+class SYM(public):
+  def __init__(i, at:int=0, txt:str="") -> Self:
     i.n,i.has,i.most,i.mode = 0,[],0,None
-  def add(i, x:atom) -> atom:
+  def add(i, x:Atom) -> Atom:
     if x != "?":
       i.n += 1
       tmp = i.has[x] = 1 + i.has.get(x,0)
-      if tmp >  i.most: i.most,i.mode = tmp,x
+      if tmp > i.most: i.most,i.mode = tmp,x
 
-class SOME(pretty):
-  def __init__(i, at:int=0, txt:str=""):
+class SOME(public):
+  def __init__(i, at:int=0, txt:str="") -> Self:
     i.at, i.txt, i.want = at, txt, (0 if txt and txt[-1]=="-" else 1)
     i.n,i.ok,i.has = 0,True,[]
-  def add(i, x:atom) -> None:
+  def add(i, x:Atom) -> None:
     if x != "?":
       i.n += 1
       if   len(i.has) < the.some : i.ok=False; i.has += [x]
@@ -36,27 +37,34 @@ class SOME(pretty):
     if not i.ok: i.has.sort(); i.ok = True
     return i
 
+class ROW(public):
+  def __init__(i, a:list[Atom]) -> Self:  
+    i.cells, i.cooked = a, a[:]
+
 def COL(at:int=0, txt:str="") -> [SOME | SYM]:
   return (SOME if txt and txt[0].isupper() else SYM)(at,txt)
 
-class COLS(pretty):
-  def __init__(i, names:list[str]):
+class COLS(public):
+  def __init__(i, names:list[str]) -> Self:
     i.x, i.y, i.names = [],[],names
     i.all = [COL(at,txt) for at,txt in enumerate(txts)]
     for col in i.all:
-      if col.txt[-1] != "X": (i.y if col.txt[-1] in "-+" else i.x).append(col)
-  def add(i,row:ROW) -> None:
+      if col.txt[-1] != "X": 
+       (i.y if col.txt[-1] in "-+" else i.x).append(col)
+  def add(i, row:ROW) -> None:
     for cols in  [i.cols.x, i.cols.y]:
       for col in cols:
         col:add(row.cells[col.at])
+  def clone(i,rows: list[ROW]=[]) -> Self:
+    j = COLS(i.names)
+    [j.add(row) for row in rows]
+    return j
 
-class ROW(pretty):
-  def __init__(i, a:list[atom]) -> Self:  i.cells, i.cooked = a, a[:]
 #--------------------------------------------------------------------
 big:float = 1E30
 R:callable = random.random
 
-def showd(d:dict, pre="") -> str:
+def show(d:dict, pre="") -> str:
   f= lambda x: x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x,float) else x)
   return pre+"{"+' '.join([f":{k} {f(v)}" for k,v in d.items() if k[0] != "_"])+"}"
 
@@ -64,7 +72,7 @@ def coerce(x:str):
   try: return literal_eval(x)
   except: return x
 
-def csv(file:str,fun:callable=ROW) -> Iterator[list[atom]]:
+def csv(file:str,fun:callable=ROW) -> Iterator[list[Atom]]:
   "Returns an iterator that returns lists from standard input (-) or a file."
   if file=="-": file=None
   with file_or_stdin(file) as src:
@@ -75,25 +83,25 @@ def csv(file:str,fun:callable=ROW) -> Iterator[list[atom]]:
 
 def per(a:list[float], p:float=.5):
   p=int(p*len(a) + .5); return a[max(0,min(len(a)-1,p))] 
-
 # ---------------------------------------------
 #print([COL(*x) for x in enumerate(["asdas","Aasda","asdas"])])
-
 
 class EGS:
   ALL = locals()
   def RUN():
-    def relevant(s):
-      if s[0].islower(): print("#E> ",s); return True
-    sys.exit( sum((fun()==False for txt,fun in EGS.ALL.items() if relevant(txt))))
+    def good(s)  : print("#passed :",s) # ; return None
+    def bad(s,f) : if f()==False: print("#failed :",s); return True
+    def reset(s) : the = deepcopy(b4); random.seed(the.seed); print("trying ",s")
+    def relevant(s) : 
+      if s[0].islower() and (s==the.go or the.go=="all"):  reset(s); return True
+    b4 = deepcopy(the)
+    sys.exit( sum(((bad(s,f) or good(s)) for txt,fun in EGS.ALL.items() if relevant(txt))))
   def some():
     s=SOME()
     [s.add(x) for x in range(10**6)]
     print(len(s.has))
 
-EGS.RUN()
-
-# class COL(pretty):
+# class COL(public):
 #   "COLumns know the name, position and the count of rows seen."
 #   def __init__(i, txt="",at=0): i.n,i.at,i.txt = 0,at,txt
 #   def add(i,x:cell) -> cell:
@@ -131,7 +139,7 @@ EGS.RUN()
 #     now = i.counts[x] = 1 + i.counts.get(x,0)
 #     if now > i.most: i.most, i.mode = now, x
 # #--------------------------------------------------------------------
-# class COLS(pretty):
+# class COLS(public):
 #   "Convert a list of names into NUMs and SYMs (kept different binds of cols in different lists)."
 #   def __init__(i,names):
 #     i.x, i.y, i.names = [],[],names
@@ -145,7 +153,7 @@ EGS.RUN()
 #       for col in cols: col.add(row[col.at])
 #     return row
 # #--------------------------------------------------------------------
-# class DATA(pretty):
+# class DATA(public):
 #   "Keep `rows` of data, summarized into col`umns."
 #   def __init__(i,src=[]):
 #     i.cols, i.rows = None,[]
