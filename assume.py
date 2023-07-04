@@ -17,7 +17,7 @@ OPTIONS:
 from fileinput import FileInput as file_or_stdin
 import random,sys,re
 from copy import deepcopy
-from ast import literal_eval as make
+from ast import literal_eval as literal
 from typing import T, Self, TypeVar, Generic, Iterator, List
 
 Atom  = [int | float | str | bool]
@@ -25,8 +25,8 @@ class BOX(dict):
   "A `BOX` is a dictionary that supports `d['slot']` and `d.slot` access."
   __getattr__ = dict.get
 
-the=BOX(**{m[1]:make(m[2]) for m in re.finditer(r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)",__doc__)})
-"""Parse help test to  create a BOX of  `key=default` pairs."""
+the=BOX(**{m[1]:literal(m[2]) for m in re.finditer(r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)",__doc__)})
+"""Parse help test to  create a BOX of `key=default` pairs."""
 
 class obj(object):
   "A class that knows how to pretty print itself."
@@ -45,10 +45,26 @@ class SYM(obj):
       i.n += 1
       tmp = i.has[x] = 1 + i.has.get(x,0)
       if tmp > i.most: i.most,i.mode = tmp,x
+  def div(i, decimals=None):
+    "Return diversity around the central tendency."
+    a = i.has
+    return rnd( - sum(a[k]/i.n * math.log(a[k]/i.n,2) for k in a if a[k] > 0), decimals)
+  def mid(i,decimals=None):
+    "Return central tendency."
+    return i.mode
 
 class NUM(obj):
   "Summarize stream of numbers."
-  def __init__(i, at:int=0, txt:str="") -> Self:
+  cuts= {3:[-0.43,0.43]
+        ,4:[-0.67,0,0.67]
+        ,5:[-0.84,-0.25,0.25,0.84]
+        ,6:[-0.97,-0.43,0,0.43,0.97]
+        ,7:[-1.07,-0.57,-0.18,0.18,0.57,1.07]
+        ,8:[-1.15,-0.67,-0.32,0,0.32,0.67,1.15]
+        ,9:[-1.22,-0.76,-0.43,-0.14,0.14,0.43,0.76,1.22]
+        ,10:[-1.28,-0.84,-0.52,-0.25,0,0.25,0.52,0.84,1.28]}
+
+def __init__(i, at:int=0, txt:str="") -> Self:
     i.n, i.at, i.txt = 0, at, txt
     i.want = 0 if txt and txt[-1]=="-" else 1
     i.mu, i.m2, i.lo, i.hi = 0,0,big, -big
@@ -76,9 +92,6 @@ class ROW(obj):
   "Keep a row of data."
   def __init__(i, a:List[Atom]) -> Self: 
     i.cells, i.cooked = a, a[:]
-  def d2h(i, ycols:List[NUM]) -> float;
-    "Distance to heaven (best performance). Returns 0..1 where _lower_ is _better_"
-    return sqrt(sum(((col.want - col.norm(i.cells[col.at]))**2 for col in ycols)) / len(ycols))
 
 def COL(at:int=0, txt:str="") -> [NUM | SYM]:
   "Factory. returns `NUM`s if name is upper case. Else return `SYM`."
@@ -93,25 +106,31 @@ class COLS(obj):
     for col in i.all:
       if col.txt[-1] != "X":
         (i.y if col.txt[-1] in "-+" else i.x).append(col)
-  def add(i, row:ROW) -> None:
+  def add(i, row:ROW) -> ROW:
     "Update the independent and dependent columns from `row`."
     for cols in  [i.x, i.y]:
       for col in cols:
         col.add(row.cells[col.at])
-  def clone(i, rows: List[ROW] = []) -> Self: 
-    "Return a `COLS` with the same structure as `i`. Optionally, add in some rows."
-    return adds(COLS(i.names), rows)
-  def sort(i,rows: List[ROW]):
-    return sorted(rows, key=lambda row: row.d2h(i.y))
+    return row
 
 # the usual suspects
 class DATA(obj):
   def __init__(i,rows=[]):
-    i.rows=[], i.cols=None
-    adds(i, rows)
-  def add(i,row)
-    if not cols: cols=COLS(row.cells)
-    else:  cols.add(row)
+    i.rows,i.cols= [],None; adds(i, rows)
+  def add(i,row:ROW) -> Self:
+    "If this is the first row, use it to make the COLS. Else use it to update the COLS."
+    def _create(): i.cols  = COLS(row.cells)
+    def _update(): i.rows += [i.cols.add(row)]
+    _update() if i.cols else _create()
+    return i
+  def d2h(i, row:ROW) -> float:
+    "Distance to heaven (best performance). Returns 0..1 where _lower_ is _better_"
+    return (sum(((c.want - c.norm(row.cells[c.at]))**2 for c in i.cols.y)) / len(i.cols.y))**.5
+  def sort(i,rows: List[ROW] =[]):
+    return sorted(rows or i.rows, key=lambda row: i.d2h(row))
+  def clone(i, rows: List[ROW] = []) -> Self:
+    "Return a `COLS` with the same structure as `i`. Optionally, add in some rows."
+    return adds(DATA(), [i.cols.names] + rows)
 #--------------------------------------------------------------------
 big:float = 1E30
 R:callable = random.random
@@ -121,13 +140,16 @@ def adds(i, a:List=[]) -> T:
   [i.add(x) for x in a]
   return i
 
+def rnd(x:float, decimals:int=None):
+  return x if decimals==None else round(x,decimals)
+
 def show(d:dict, pre:str="") -> str:
   "Show `d`, shortening decimals on floats and  just printing function nams."
   f= lambda x: x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x,float) else x)
   return pre+"{"+' '.join([f":{k} {f(v)}" for k,v in d.items() if k[0] != "_"])+"}"
 
 def coerce(x:str):
-  try: return make(x)
+  try:    return literal(x)
   except: return x
 
 def csv(file:str,fun:callable=ROW) -> Iterator[List[Atom]]:
@@ -173,20 +195,20 @@ class EGS:
     print(n.mu)
 
   def main() -> [None | bool]:
-    cols=None
-    for row in csv(the.file):
-      if not cols: cols=COLS(row.cells)
-      else:  cols.add(row)
-    print(cols.x[1])
+    d=DATA(csv(the.file))
+    print(d.cols.x[1])
 
   def sort() -> [None | bool]:
-    cols=None
-    for row in csv(the.file):
-      if not cols: cols=COLS(row.cells)
-      else:  cols.add(row)
-    print(cols.x[1])
+    d=DATA(csv(the.file))
+    rows = d.sort()
+    print(d.cols.names)
+    [print(row.cells) for row in rows[:10]] ; print("#")
+    [print(row.cells) for row in rows[-10:]]
 
 if __name__== "__main__": 
   sys.exit(                 # return failure count to the operating system
     EGS.Failures(           # run some (or all) or the eamples
-        cli(the, __doc__))) # update the settings from the command line
+      cli(the, __doc__))) # update the settings from the command line
+
+
+
