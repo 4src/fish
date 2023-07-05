@@ -1,7 +1,20 @@
 #!/usr/bin/env python3 -B
+# <!--- vim: set et sts=2 sw=2 ts=2 : --->
 """
-hellp
-"""
+ord: simple multi-objective explanation (using unsupervised discretion)
+(c) 2023 Tim Menzies <timm@ieee.org> BSD-2
+
+USAGE:    
+  python3 -B ord.py [OPTIONS] [-g ACTIONS]
+
+OPTIONS:  
+  -b  --bins   max number of bins = 10  
+  -c  --cohen  measure of same = .35  
+  -f  --file  data file                 = "../data/auto93.csv"  
+  -g  --go    start-up action           = "nothing"  
+  -h  --help  show help                 = False
+  -s  --seed  random number seed        = 937162211  
+  -S  --Some  how may nums to keep      = 256"""
 
 from fileinput import FileInput as file_or_stdin
 import random,sys,re
@@ -9,21 +22,14 @@ from copy import deepcopy
 from ast import literal_eval as literal
 from typing import T, Self, TypeVar, Generic, Iterator, List
 
-
 class obj(object):
   def __init__(i,**d): i.__dict__.update(**d)
   def __repr__(i):
     f=lambda x: x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x,float) else x)
     return "{"+" ".join([f":{k} {f(v)}" for k,v in i.__dict__.items() if k[0] != "_"])+"}"
 
-the = obj(seed = 1234567891,
-          min  = .5,
-          cohen = .35,
-          bins = 16,
-          rest = 3,
-          some = 256,
-          beam = 10,
-          file = "../data/auto93.csv")
+find_keys_defaults = r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)"
+the = obj(**{m[1]:literal(m[2]) for m in re.finditer(find_keys_defaults,__doc__)})
 
 random.seed(the.seed)
 R= random.random
@@ -34,6 +40,10 @@ def COL(n=0, s=""): return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
 def SYM(n=0, s=""): return obj(this=SYM, at=n, txt=s, n=0, seen={}, most=0, mode=None)
 def NUM(n=0, s=""): return obj(this=NUM, at=n, txt=s, n=0, _kept=[], ok=True,
                                heaven= 0 if s and s[-1]=="-" else 1)
+
+def ok(col):
+  if col.this is NUM and not col.ok: col._kept.sort(); col.ok=True 
+  return col
 
 def COLS(names):
   x,y,all = [], [], [COL(*x) for x in enumerate(names)]
@@ -64,8 +74,8 @@ def x2Col(x,col):
     if tmp> col.most: col.most,col.mode = tmp,x
   def _num():
     a = col._kept
-    if   len(a) < the.some      : col.ok=False; a  += [x]
-    elif R() < the.some / col.n : col.ok=False; a[int(len(a)*R())] = x
+    if   len(a) < the.Some      : col.ok=False; a  += [x]
+    elif R() < the.Some / col.n : col.ok=False; a[int(len(a)*R())] = x
   if x != "?":
     col.n += 1
     _num() if col.this is NUM else _sym()
@@ -73,13 +83,14 @@ def x2Col(x,col):
 def chops(data):
   for col in data.cols.x:
     if col.this is SYM:
-      col.chops = i.seen.keys()
+      col.chops = col.seen.keys()
     else:
       col.chops = chop(ok(col)._kept)
       for row in data.rows:
         x = row.cells[col.at]
         if x != "?":
-          row.coooked[col.at] =_range4x(col.chops, x)/len(col.chops)
+          row.cooked[col.at] = range4x(col.chops, x)/len(col.chops)
+  return data
 
 def range4x(a,x):
   at=1
@@ -127,6 +138,15 @@ def csv(file, filter=ROW):
       line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
       if line:
         yield filter([coerce(s.strip()) for s in line.split(",")])
+
+def cli(d):
+  for k,v in d.items():
+    v = str(v)
+    for j,x in enumerate(sys.argv):
+      if ("-"+k[0]) == x or ("--"+k) == x:
+        v = "True" if v=="False" else ("False" if v=="True" else sys.argv[j+1])
+    d[k] = coerce(v)
+  if d["help"]: print(__doc__)
 #----------------------------------------------------
 def eg1(fun):
   the = deepcopy(EGS.saved)
@@ -137,11 +157,18 @@ def eg1(fun):
 
 class EGS:
   saved = deepcopy(the)
-  def run(a=sys.argv) : getattr(EGS, "h" if len(a)<=1 else a[1][1:], EGS.oops)()
+  def run(a=sys.argv) : cli(the.__dict__); getattr(EGS, the.go, EGS.oops)()
   def oops()          : print("??")
-  def h()             : print(__doc__)
+  def nothing()       : ...
   def all()           : sys.exit(sum(map(eg1, [EGS.the])))
   #--------------------------------
-  def the() : print(the);print(R())
+  def the()  : print(the)
+  def data() : d=DATA(csv(the.file)); print(len(d.rows), d.cols.x[3])
+  def chop() :
+    d=chops(DATA(csv(the.file)))
+    for i,row in enumerate(d.rows):
+                        print([row.cooked[col.at] for col in d.cols.x])
+
 #----------------------------------------------------
+
 EGS.run()
