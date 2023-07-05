@@ -29,7 +29,7 @@ ninf = -inf
 #--------------------------------------------------------
 def ROW(a)        : return obj(this=ROW, cells=a, cooked=a[:])
 def NUM(n=0, s=""): return obj(this=NUM, at=n, txt=s, n=0, _kept=[], ok=True)
-def SYM(n=0, s=""): return obj(this=SYM, at=n, txt=s, n=0, seen={})
+def SYM(n=0, s=""): return obj(this=SYM, at=n, txt=s, n=0, seen={}, most=0, mode=None)
 def COL(n=0, s=""): return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
 def COLS(names):
   x,y,all = [], [], [COL(*x) for x in enumerate(names)]
@@ -55,24 +55,27 @@ def row2Cols(row,cols):
   return row
 
 def x2Col(x,col):
+  def _sym():
+    tmp = col.seen[x] = 1 + col.seen.get(x,0)
+    if tmp> col.most: col.most,col.mode = tmp,x
   def _num():
     a = col._kept
     if   len(a) < the.some      : col.ok=False; a  += [x]
     elif R() < the.some / col.n : col.ok=False; a[int(len(a)*R())] = x
-  def _sym():
-    col.seen[x] = 1 + col.seen.get(x,0)
   if x != "?":
     col.n += 1
     _num() if col.this is NUM else _sym()
 
-def discretize(col,data):
-  def _sym(): return i.seen.keys()
-  def _num(): return chop(ok(col)._kept)
-  col.chops = _sym() if col.this is SYM else _num()
-  for row in data.rows:
-    old = row.cells[col.at]
-    if old != "?":
-      new = rows.coooked[col.at] = old if col.this is SYM else bisect(col.shops,old)
+def discretize(data):
+  for col in data.cols.x:
+    if col.this is SYM:
+      col.chops = i.seen.keys()
+    else:
+      col.chops = chop(ok(col)._kept)
+      for row in data.rows:
+        x = row.cells[col.at]
+        if x != "?":
+          row.coooked[col.at] = ramge4x(col.chops, x)
 
 def range4x(a,x):
   at=1
@@ -81,8 +84,7 @@ def range4x(a,x):
     else: at+= 1
   return at - 1
 
-for x in [9,11,19,20,21,29,30,31]:
-  print(x,range4x([10,20,30],x))
+#for x in [9,11,19,20,21,29,30,31]: print(x,range4x([10,20,30],x))
 
 # ## have to handle the symolucs too
 # def discretize(col):
@@ -139,6 +141,19 @@ def csv(file, filter=ROW):
       if line:
         yield filter([coerce(s.strip()) for s in line.split(",")])
 
-#d=DATA(csv(the.file))
+def go(fun, saved=deepcopy(the)):
+  the = deepcopy(saved)
+  random.seed(the.seed)
+  failed = fun() == False
+  print("❌ FAIL " if failed else "✅ PASS", fun.__name__)
+  return failed
 
+class EG:
+  def all() : sys.exit(sum(map(go, [EG.the,EG.the])))
+  def oops(): print("W: ["+sys.argv[1]+"] is unknown")
+  def the() : print(the);print(R())
+
+getattr(EG,sys.argv[1],EG.oops)()
+
+#d=DATA(csv(the.file))
 #print(d.cols.x[3])
