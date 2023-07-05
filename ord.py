@@ -67,6 +67,13 @@ def x2Col(x,col):
     _num() if col.this is NUM else _sym()
 
 def discretize(data):
+  def _range4x(a,x):
+    at=1
+    for n,y in enumerate(a):
+      if y> x: return at-1
+      else: at += 1
+    return at - 1
+  #--------------
   for col in data.cols.x:
     if col.this is SYM:
       col.chops = i.seen.keys()
@@ -75,14 +82,21 @@ def discretize(data):
       for row in data.rows:
         x = row.cells[col.at]
         if x != "?":
-          row.coooked[col.at] = ramge4x(col.chops, x)
+          row.coooked[col.at] = _range4x(col.chops, x)/len(col.chops)
 
-def range4x(a,x):
-  at=1
-  for n,y in enumerate(a):
-    if y> x: return at-1
-    else: at+= 1
-  return at - 1
+def dist(data,row1,row2):
+  def _sym(col,a,b):
+    return 0 if a==b else 1
+  def _num(col,a,b):
+    if a=="?" : a=1 if b<.5 else 0
+    if b=="?" : b=1 if a<.5 else 0
+    return abs(a-b)
+  def _col(col)
+    a,b = row1.cooked[col.at], rows2.cooked[col.at]
+    if a=="?" and b=="?": return 1
+    return (_num if col.this is NUM else _sym)(col,a,b)
+  return sum(map(_col, data.cols.x))/len(data.cols.x)
+
 
 #for x in [9,11,19,20,21,29,30,31]: print(x,range4x([10,20,30],x))
 
