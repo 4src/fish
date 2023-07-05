@@ -30,7 +30,7 @@ ninf = -inf
 def ROW(a)           : return BOX(this=ROW, cells=a, cooked=a[:])
 def NUM(at=0, txt=""): return BOX(this=NUM, at=at, txt=txt, n=0, _kept=[], ok=True)
 def SYM(at=0, txt=""): return BOX(this=SYM, at=at, txt=txt, n=0, seen={})
-def COL(at=0, txt=""): return (NUM if txt and txt[0].isupper() else SYM)(at=at,  txt=txt)
+def COL(at=0, txt=""): return (NUM if txt and txt[0].isupper() else SYM)(at=at,txt=txt)
 def COLS(names):
   x,y,all = [], [], [COL(at=n,txt=s) for n,s in enumerate(names)]
   for col in all:
@@ -38,50 +38,59 @@ def COLS(names):
       (y if col.txt[-1] in "+-!" else x).append(col)
   return BOX(this=COLS, x=x, y=y, all=all)
 
-def DATA(src):
-  i= BOX(this=DATA, rows=[], cols=None)
-  [data1(row) for row in src]
-  return i
+def cols1(cols,row):
+  for cols in [cols.x, cols.y]
+    for col in cols:
+      col1(col, row.cells[col.at])
+  return row
 
-def data1(data, row)
-  def _create(): cols = COLS(row.cells)
-  def _update():
-    rows += [row]
-    for cols in [cols.x, cols.y]
-      for col in cols:
-        col1(col, row.cells[col.at])
-  _update() if cols else _create()
+def DATA(src):
+  data = BOX(this=DATA, rows=[], cols=None)
+  [data1(data,row) for row in src]
+  return data
+
+def data1(data,row)
+  def _create(): data.cols  = COLS(row.cells)
+  def _update(): data.rows += [cols1(data.cols, row)]
+  _update() if data.cols else _create()
 
 def ok(col):
-  if not col.ok: col._kept.seen(); col.ok=True 
+  if col.this is NUM and not col.ok: col._kept.sort(); col.ok=True 
   return col
 
 def col1(col,x):
-  def _num1():
+  def _num():
     a = col._kept
-    if   len(a) < the.some : ok=False; a  += [x]
-    elif R() < the.some / col.n   : ok=False; a[int(len(a)*R())] = x
-  def _sym1():
+    if   len(a) < the.some      : col.ok=False; a  += [x]
+    elif R() < the.some / col.n : col.ok=False; a[int(len(a)*R())] = x
+  def _sym():
     col.seen[x] = 1 + col.seen.get(x,0)
   if x != "?":
     col.n += 1
-    _num1() if col.this == NUM else _sym1()
+    _num() if col.this is NUM else _sym()
 
 ## have to handle the symolucs too
-def discretize(data):
-  cols = [col for col in data.cols.x if col.this == NUM]
+def discretize(col):
   for col in cols:
-    if col.this == NUM:
-      tmp = SYM()
+    if col.this is NUM:
       col.chops = chop( ok(col)._kept )
       for row in data.rows:
         old = row.cells[col.at]
         if old != "?":
           at = rows.cooked[col.at] = bisect(col.chops, old)
           tmp.add(at)
-      col.div2= div(tmp)
-  all = sum(( div(col) for col in cols))
-  for col in cols: col.div2 = col.div2/all
+  _
+
+def discretizes(data):
+  cols = [col for col in data.cols.x if col.this is NUM]
+  for col in cols:
+    if col.this is NUM:
+      col.chops = chop( ok(col)._kept )
+      for row in data.rows:
+        old = row.cells[col.at]
+        if old != "?":
+          at = rows.cooked[col.at] = bisect(col.chops, old)
+          tmp.add(at)
 #----------------------------
 def bisect(a, x):
   lo,hi = 0,len(a)
@@ -107,7 +116,7 @@ def ent(d):
   N = sum((n for n in d.values()))
   return - sum(( n/N * math.log(n/N,2) for n in d.values() of n>0 ))
 
-def stdev(a): return (per(a,.9) - per(a,.1)) / 2.56
+1def stdev(a): return (per(a,.9) - per(a,.1)) / 2.56
 def per(a, p=.5): return a[int(p*len(a))]
 
 def coerce(x:str):
