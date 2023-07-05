@@ -7,14 +7,14 @@ from typing import T, Self, TypeVar, Generic, Iterator, List
 
 R= random.random
 
-class BOX(object):
+class obj(object):
   def __init__(i,**d): i.__dict__.update(**d)
   def __repr__(i):
     f=lambda x: x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x,float) else x)
     d=i.__dict__
     return "{"+" ".join([f":{k} {f(d[k])}" for k in d if  k[0] != "_"])+"}"
 
-the = BOX(seed = 1234567891,
+the = obj(seed = 1234567891,
           min  = .5,
           cohen = .35,
           bins = 7,
@@ -27,38 +27,34 @@ random.seed(the.seed)
 inf  = 1E30
 ninf = -inf
 #--------------------------------------------------------
-def ROW(a)           : return BOX(this=ROW, cells=a, cooked=a[:])
-def NUM(at=0, txt=""): return BOX(this=NUM, at=at, txt=txt, n=0, _kept=[], ok=True)
-def SYM(at=0, txt=""): return BOX(this=SYM, at=at, txt=txt, n=0, seen={})
-def COL(at=0, txt=""): return (NUM if txt and txt[0].isupper() else SYM)(at=at,txt=txt)
+def ROW(a)        : return obj(this=ROW, cells=a, cooked=a[:])
+def NUM(n=0, s=""): return obj(this=NUM, at=n, txt=s, n=0, _kept=[], ok=True)
+def SYM(n=0, s=""): return obj(this=SYM, at=n, txt=s, n=0, seen={})
+def COL(n=0, s=""): return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
 def COLS(names):
-  x,y,all = [], [], [COL(at=n,txt=s) for n,s in enumerate(names)]
+  x,y,all = [], [], [COL(*x) for x in enumerate(names)]
   for col in all:
     if col.txt[-1] != "X":
       (y if col.txt[-1] in "+-!" else x).append(col)
-  return BOX(this=COLS, x=x, y=y, all=all)
-
-def cols1(cols,row):
-  for cols in [cols.x, cols.y]
-    for col in cols:
-      col1(col, row.cells[col.at])
-  return row
+  return obj(this=COLS, x=x, y=y, all=all, names=names)
 
 def DATA(src):
-  data = BOX(this=DATA, rows=[], cols=None)
-  [data1(data,row) for row in src]
+  data = obj(this=DATA, rows=[], cols=None)
+  [row2Data(row,data) for row in src]
   return data
 
-def data1(data,row)
+def row2Data(row,data):
   def _create(): data.cols  = COLS(row.cells)
-  def _update(): data.rows += [cols1(data.cols, row)]
+  def _update(): data.rows += [row2Cols(row,data.cols)]
   _update() if data.cols else _create()
 
-def ok(col):
-  if col.this is NUM and not col.ok: col._kept.sort(); col.ok=True 
-  return col
+def row2Cols(row,cols):
+  for cols in [cols.x, cols.y]:
+    for col in cols:
+      x2Col(row.cells[col.at],col)
+  return row
 
-def col1(col,x):
+def x2Col(x,col):
   def _num():
     a = col._kept
     if   len(a) < the.some      : col.ok=False; a  += [x]
@@ -69,39 +65,52 @@ def col1(col,x):
     col.n += 1
     _num() if col.this is NUM else _sym()
 
-## have to handle the symolucs too
-def discretize(col):
-  for col in cols:
-    if col.this is NUM:
-      col.chops = chop( ok(col)._kept )
-      for row in data.rows:
-        old = row.cells[col.at]
-        if old != "?":
-          at = rows.cooked[col.at] = bisect(col.chops, old)
-          tmp.add(at)
-  _
+def discretize(col,data):
+  def _sym(): return i.seen.keys()
+  def _num(): return chop(ok(col)._kept)
+  col.chops = _sym() if col.this is SYM else _num()
+  for row in data.rows:
+    old = row.cells[col.at]
+    if old != "?":
+      new = rows.coooked[col.at] = old if col.this is SYM else bisect(col.shops,old)
 
-def discretizes(data):
-  cols = [col for col in data.cols.x if col.this is NUM]
-  for col in cols:
-    if col.this is NUM:
-      col.chops = chop( ok(col)._kept )
-      for row in data.rows:
-        old = row.cells[col.at]
-        if old != "?":
-          at = rows.cooked[col.at] = bisect(col.chops, old)
-          tmp.add(at)
+def range4x(a,x):
+  at=1
+  for n,y in enumerate(a):
+    if y> x: return at-1
+    else: at+= 1
+  return at - 1
+
+for x in [9,11,19,20,21,29,30,31]:
+  print(x,range4x([10,20,30],x))
+
+# ## have to handle the symolucs too
+# def discretize(col):
+#   for col in cols:
+#     if col.this is NUM:
+#       col.chops = chop( ok(col)._kept )
+#       for row in data.rows:
+#         old = row.cells[col.at]
+#         if old != "?":
+#           at = rows.cooked[col.at] = bisect(col.chops, old)
+#           tmp.add(at)
+#
+# def ok(col):
+#   if col.this is NUM and not col.ok: col._kept.sort(); col.ok=True 
+#   return col
+#
+#
+# def discretizes(data):
+#   cols = [col for col in data.cols.x if col.this is NUM]
+#   for col in cols:
+#     if col.this is NUM:
+#       col.chops = chop( ok(col)._kept )
+#       for row in data.rows:
+#         old = row.cells[col.at]
+#         if old != "?":
+#           at = rows.cooked[col.at] = bisect(col.chops, old)
+#           tmp.add(at)
 #----------------------------
-def bisect(a, x):
-  lo,hi = 0,len(a)
-  if x  < lo: return 0
-  if x >= hi: return len(a) + 1
-  while lo < hi:
-    mid = (lo + hi) // 2
-    if a[mid] < x: lo = mid + 1
-    else: hi = mid
-  return lo
-
 def chop(a):
   inc = int(len(a)/the.bins)
   n, cuts, enough  = inc, [], the.cohen*stdev(a)
@@ -114,9 +123,9 @@ def chop(a):
 
 def ent(d):
   N = sum((n for n in d.values()))
-  return - sum(( n/N * math.log(n/N,2) for n in d.values() of n>0 ))
+  return - sum(( n/N * math.log(n/N,2) for n in d.values() if n>0 ))
 
-1def stdev(a): return (per(a,.9) - per(a,.1)) / 2.56
+def stdev(a): return (per(a,.9) - per(a,.1)) / 2.56
 def per(a, p=.5): return a[int(p*len(a))]
 
 def coerce(x:str):
@@ -130,6 +139,6 @@ def csv(file, filter=ROW):
       if line:
         yield filter([coerce(s.strip()) for s in line.split(",")])
 
-d=DATA(csv(the.file))
+#d=DATA(csv(the.file))
 
-print(d.cols.x[3])
+#print(d.cols.x[3])
