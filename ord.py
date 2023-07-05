@@ -39,30 +39,35 @@ def COLS(names):
   return BOX(this=COLS, x=x, y=y, all=all)
 
 def DATA(src):
-  rows,cols = [],None
-  for row in src:
-    if not cols:
-      cols = COLS(row.cells)
-    else:
-      rows += [row]
-      [add(col,row.cells[col.at]) for cols in [cols.x, cols.y] for col in cols]
-  return BOX(this=DATA, rows=rows, cols=cols)
+  i= BOX(this=DATA, rows=[], cols=None)
+  [data1(row) for row in src]
+  return i
+
+def data1(data, row)
+  def _create(): cols = COLS(row.cells)
+  def _update():
+    rows += [row]
+    for cols in [cols.x, cols.y]
+      for col in cols:
+        col1(col, row.cells[col.at])
+  _update() if cols else _create()
 
 def ok(col):
   if not col.ok: col._kept.seen(); col.ok=True 
   return col
 
-def add(col,x):
-  def num():
+def col1(col,x):
+  def _num1():
     a = col._kept
     if   len(a) < the.some : ok=False; a  += [x]
     elif R() < the.some / col.n   : ok=False; a[int(len(a)*R())] = x
-  def sym():
+  def _sym1():
     col.seen[x] = 1 + col.seen.get(x,0)
   if x != "?":
     col.n += 1
-    num() if col.this == NUM else sym()
+    _num1() if col.this == NUM else _sym1()
 
+## have to handle the symolucs too
 def discretize(data):
   cols = [col for col in data.cols.x if col.this == NUM]
   for col in cols:
