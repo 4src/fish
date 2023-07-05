@@ -1,36 +1,40 @@
 #!/usr/bin/env python3 -B
+"""
+hellp
+"""
+
 from fileinput import FileInput as file_or_stdin
 import random,sys,re
 from copy import deepcopy
 from ast import literal_eval as literal
 from typing import T, Self, TypeVar, Generic, Iterator, List
 
-R= random.random
 
 class obj(object):
   def __init__(i,**d): i.__dict__.update(**d)
   def __repr__(i):
     f=lambda x: x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x,float) else x)
-    d=i.__dict__
-    return "{"+" ".join([f":{k} {f(d[k])}" for k in d if  k[0] != "_"])+"}"
+    return "{"+" ".join([f":{k} {f(v)}" for k,v in i.__dict__.items() if k[0] != "_"])+"}"
 
 the = obj(seed = 1234567891,
           min  = .5,
           cohen = .35,
-          bins = 7,
+          bins = 16,
           rest = 3,
           some = 256,
           beam = 10,
           file = "../data/auto93.csv")
 
 random.seed(the.seed)
-inf  = 1E30
-ninf = -inf
+R= random.random
+big  = 1E30
 #--------------------------------------------------------
 def ROW(a)        : return obj(this=ROW, cells=a, cooked=a[:])
-def NUM(n=0, s=""): return obj(this=NUM, at=n, txt=s, n=0, _kept=[], ok=True)
-def SYM(n=0, s=""): return obj(this=SYM, at=n, txt=s, n=0, seen={}, most=0, mode=None)
 def COL(n=0, s=""): return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
+def SYM(n=0, s=""): return obj(this=SYM, at=n, txt=s, n=0, seen={}, most=0, mode=None)
+def NUM(n=0, s=""): return obj(this=NUM, at=n, txt=s, n=0, _kept=[], ok=True,
+                               heaven= 0 if s and s[-1]=="-" else 1)
+
 def COLS(names):
   x,y,all = [], [], [COL(*x) for x in enumerate(names)]
   for col in all:
@@ -91,42 +95,12 @@ def dist(data,row1,row2):
     if a=="?" : a=1 if b<.5 else 0
     if b=="?" : b=1 if a<.5 else 0
     return abs(a-b)
-  def _col(col)
+  def _col(col):
     a,b = row1.cooked[col.at], rows2.cooked[col.at]
     if a=="?" and b=="?": return 1
     return (_num if col.this is NUM else _sym)(col,a,b)
-  return sum(map(_col, data.cols.x))/len(data.cols.x)
-
-
-#for x in [9,11,19,20,21,29,30,31]: print(x,range4x([10,20,30],x))
-
-# ## have to handle the symolucs too
-# def discretize(col):
-#   for col in cols:
-#     if col.this is NUM:
-#       col.chops = chop( ok(col)._kept )
-#       for row in data.rows:
-#         old = row.cells[col.at]
-#         if old != "?":
-#           at = rows.cooked[col.at] = bisect(col.chops, old)
-#           tmp.add(at)
-#
-# def ok(col):
-#   if col.this is NUM and not col.ok: col._kept.sort(); col.ok=True 
-#   return col
-#
-#
-# def discretizes(data):
-#   cols = [col for col in data.cols.x if col.this is NUM]
-#   for col in cols:
-#     if col.this is NUM:
-#       col.chops = chop( ok(col)._kept )
-#       for row in data.rows:
-#         old = row.cells[col.at]
-#         if old != "?":
-#           at = rows.cooked[col.at] = bisect(col.chops, old)
-#           tmp.add(at)
-#----------------------------
+  return sum(map(_col, data.cols.x)) / len(data.cols.x)
+#----------------------------------------------------
 def chop(a):
   inc = int(len(a)/the.bins)
   n, cuts, enough  = inc, [], the.cohen*stdev(a)
@@ -154,20 +128,21 @@ def csv(file, filter=ROW):
       line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
       if line:
         yield filter([coerce(s.strip()) for s in line.split(",")])
-
-def go(fun, saved=deepcopy(the)):
-  the = deepcopy(saved)
+#----------------------------------------------------
+def eg1(fun):
+  the = deepcopy(EGS.saved)
   random.seed(the.seed)
   failed = fun() == False
   print("❌ FAIL " if failed else "✅ PASS", fun.__name__)
   return failed
 
-class EG:
-  def all() : sys.exit(sum(map(go, [EG.the,EG.the])))
-  def oops(): print("W: ["+sys.argv[1]+"] is unknown")
+class EGS:
+  saved = deepcopy(the)
+  def run(a=sys.argv) : getattr(EGS, "h" if len(a)<=1 else a[1][1:], EGS.oops)()
+  def oops()          : print("??")
+  def h()             : print(__doc__)
+  def all()           : sys.exit(sum(map(eg1, [EGS.the])))
+  #--------------------------------
   def the() : print(the);print(R())
-
-getattr(EG,sys.argv[1],EG.oops)()
-
-#d=DATA(csv(the.file))
-#print(d.cols.x[3])
+#----------------------------------------------------
+EGS.run()
