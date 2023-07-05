@@ -1,18 +1,19 @@
 #!/usr/bin/env python3 -B
 # vim: set et sts=2 sw=2 ts=2 : 
 """
-assume: reason via pairs of contstraints between c attribites   
+assume: reason via pairs of contstraints between c attributes   
 (c) 2023 Tim Menzies <timm@ieee.org> BSD-2
 
 USAGE:    
   python3 -B assume.lua [OPTIONS]
 
 OPTIONS:  
-  -f  --file    data file                 = "../data/auto93.csv"  
-  -g  --go      start-up action           = "nothing"  
-  -h  --help    show help                 = False  
-  -s  --seed    random number seed        = 937162211  
-  -S  --Some    how many numbers to keep  = 512  
+  -b  --bins  number of bins (3..10)    = 7   
+  -f  --file  data file                 = "../data/auto93.csv"  
+  -g  --go    start-up action           = "nothing"  
+  -h  --help  show help                 = False  
+  -s  --seed  random number seed        = 937162211  
+  -S  --Some  how many numbers to keep  = 512  
 """
 from fileinput import FileInput as file_or_stdin
 import random,sys,re
@@ -55,16 +56,15 @@ class SYM(obj):
 
 class NUM(obj):
   "Summarize stream of numbers."
-  cuts= {3:[-0.43,0.43]
-        ,4:[-0.67,0,0.67]
-        ,5:[-0.84,-0.25,0.25,0.84]
-        ,6:[-0.97,-0.43,0,0.43,0.97]
-        ,7:[-1.07,-0.57,-0.18,0.18,0.57,1.07]
-        ,8:[-1.15,-0.67,-0.32,0,0.32,0.67,1.15]
-        ,9:[-1.22,-0.76,-0.43,-0.14,0.14,0.43,0.76,1.22]
-        ,10:[-1.28,-0.84,-0.52,-0.25,0,0.25,0.52,0.84,1.28]}
-
-def __init__(i, at:int=0, txt:str="") -> Self:
+  cuts= {  3:                      [-0.43,      0.43]
+        ,  4:                      [-0.67,  0,  0.67]
+        ,  5:               [-0.84, -0.25,      0.25, 0.84]
+        ,  6:               [-0.97, -0.43,  0,  0.43, 0.97]
+        ,  7:        [-1.07, -0.57, -0.18,      0.18, 0.57, 1.07]
+        ,  8:        [-1.15, -0.67, -0.32,  0,  0.32, 0.67, 1.15]
+        ,  9: [-1.22, -0.76, -0.43, -0.14,      0.14, 0.43, 0.76, 1.22]
+        , 10: [-1.28, -0.84, -0.52, -0.25,  0,  0.25, 0.52, 0.84, 1.28]}
+  def __init__(i, at:int=0, txt:str="") -> Self:
     i.n, i.at, i.txt = 0, at, txt
     i.want = 0 if txt and txt[-1]=="-" else 1
     i.mu, i.m2, i.lo, i.hi = 0,0,big, -big
@@ -87,6 +87,10 @@ def __init__(i, at:int=0, txt:str="") -> Self:
   def norm(i,x:[float | str]) -> [float | str]:
     "May `x` to 0..1 for `lo` to `hi`."
     return x if x=="?" else  (x-i.lo)/(i.hi - i.lo + 1/big)
+  def z(i, x:[float|str]) ->  [float | str]:
+    return x if x=="?" else (x - i.mu)/i.div()
+  def bin(i, x:[float|str]) ->  [float | str]:
+    return x if x=="?" else bisect(NUM.cuts[the.bins], i.z(x))
 
 class ROW(obj):
   "Keep a row of data."
@@ -175,6 +179,17 @@ def cli(d:dict, help: str) -> dict:
     d[k] = coerce(v)
   if d.help: print(help)
   return d
+
+def bisect(a:List[num], x:num) -> int:
+  lo,hi = 0,len(a)
+  if x  < lo: return 0
+  if x >= hi: return len(a) + 1
+  while lo < hi:
+    mid = (lo + hi) // 2
+    if a[mid] < x: lo = mid + 1
+    else: hi = mid
+  return lo
+
 #--------------------------------------------------------------------
 class EGS:
   """Stored examples as function starting in a lower case letter. If an example returns `False`
