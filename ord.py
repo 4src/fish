@@ -70,12 +70,12 @@ def x2Col(x,col):
     col.n += 1
     _num() if col.this is NUM else _sym()
 
-def discretize(data):
+def discretizes(data):
   for col in data.cols.x:
     if col.this is SYM:
       col.chops = i.seen.keys()
     else:
-      col.chops = chop(ok(col)._kept)
+      col.chops = discretize(ok(col)._kept)
       for row in data.rows:
         x = row.cells[col.at]
         if x != "?":
@@ -101,15 +101,15 @@ def dist(data,row1,row2):
     return (_num if col.this is NUM else _sym)(col,a,b)
   return sum(map(_col, data.cols.x)) / len(data.cols.x)
 #----------------------------------------------------
-def chop(a):
-  inc = int(len(a)/the.bins)
-  n, cuts, enough  = inc, [], the.cohen*stdev(a)
-  b4 = a[0]
-  while n < len(a) - inc - 1:
+def discretize(a):
+  n = inc = int(len(a)/the.bins)
+  small   = the.cohen*stdev(a)
+  b4,out  = a[0],[]
+  while n < len(a) - 1:
     x = a[n]
-    if  x==a[n+1] or x - b4 < enough:  n += 1
-    else: b4=x; n += inc; cuts += [x]
-  return cuts
+    if x==a[n+1] or x - b4 < small: n += 1 # keep looking for a cut
+    else                          : n += inc; out += [x]; b4=x
+  return out
 
 def ent(d):
   N = sum((n for n in d.values()))
