@@ -1,26 +1,29 @@
 #!/usr/bin/env python3 -B
 # <!--- vim: set et sts=2 sw=2 ts=2 : --->
 """
-ord: simple multi-objective explanation (using unsupervised discretion)
-(c) 2023 Tim Menzies <timm@ieee.org> BSD-2
+ORD: simple multi objective explanation (using unsupervised discretion)
+(c) 2023 Tim Menzies <timm@ieee.org> BSD.2
 
 USAGE:    
-  python3 -B ord.py [OPTIONS] [-g ACTIONS]
+  ./ord.py [OPTIONS] [-g ACTIONS]
 
 OPTIONS:  
-  -b  --bins   max number of bins = 10  
-  -c  --cohen  measure of same = .35  
-  -f  --file  data file                 = "../data/auto93.csv"  
-  -g  --go    start-up action           = "nothing"  
-  -h  --help  show help                 = False
-  -s  --seed  random number seed        = 937162211  
-  -S  --Some  how may nums to keep      = 256"""
-
-from fileinput import FileInput as file_or_stdin
+  -b  --bins   max number of bins   = 16  
+  -B  --Beam   search width         = 10   
+  -c  --cohen  measure of same      = .35  
+  -f  --file  data file             = "../data/auto93.csv"  
+  -g  --go    startup action        = "nothing"  
+  -h  --help  show help             = False   
+  -m  --min   min size              = .5   
+  -r  --rest  best times rest       = 4   
+  -s  --seed  random number seed    = 937162211  
+  -S  --Some  how may nums to keep  = 256"""
+#----------------------------------------------------
 import random,sys,re
 from copy import deepcopy
+from termcolor import colored
 from ast import literal_eval as literal
-from typing import T, Self, TypeVar, Generic, Iterator, List
+from fileinput import FileInput as file_or_stdin
 
 class obj(object):
   def __init__(i,**d): i.__dict__.update(**d)
@@ -28,8 +31,8 @@ class obj(object):
     f=lambda x: x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x,float) else x)
     return "{"+" ".join([f":{k} {f(v)}" for k,v in i.__dict__.items() if k[0] != "_"])+"}"
 
-find_keys_defaults = r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)"
-the = obj(**{m[1]:literal(m[2]) for m in re.finditer(find_keys_defaults,__doc__)})
+keys_and_defaults = r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)"
+the = obj(**{m[1]:literal(m[2]) for m in re.finditer(keys_and_defaults,__doc__)})
 
 random.seed(the.seed)
 R= random.random
@@ -89,7 +92,7 @@ def chops(data):
       for row in data.rows:
         x = row.cells[col.at]
         if x != "?":
-          row.cooked[col.at] = range4x(col.chops, x)/len(col.chops)
+          row.cooked[col.at] = round(range4x(col.chops, x)/len(col.chops),2)
   return data
 
 def range4x(a,x):
@@ -99,6 +102,43 @@ def range4x(a,x):
     else: at += 1
   return at - 1
 
+def sortedRows(data):
+  def _distance2heaven(row):
+    nom = sum(( (col.heaven - row.cooked[col.at])**2 for col in data.cols.y ))
+    return (nom/len(data.cols.y))**.5
+  return sorted(data.rows, key = _distance2heaven)
+
+def goodIdeas(data, bestRows, restRows):
+  def _count():
+    d={}
+    for klass,rows in [(True,bestRows), (False,restRows)]:
+      dk = d[klass] = {}
+      for row in rows:
+        for col in data.cols.x:
+         x = row.cells[col.at]
+         if x != "?":
+           k = (col.at, col.txt, x)
+           dk[k] = 1 + dk.get(k,0)
+    return d
+  def _score(d):
+    out = []
+    hi  = 0
+    for x,b in d[True].items():
+      r = d[False].get(x,0) + 1/big
+      b = b/len(bestRows)
+      r = r/len(restRows)
+      v = b**2/(b+r)
+      hi = max(v,hi)
+      out += [(v, b,r,x)]
+    return [x for x in out if x[0] > hi/10]
+  def _prune(lst):
+    return sorted(lst, reverse=True)[:the.Beam]
+  return _prune( _score( _count()))
+
+# def RULE(ranges):
+#   cols={}
+#   for v,b,r,x in ranges:
+#      
 def dist(data,row1,row2):
   def _sym(col,a,b):
     return 0 if a==b else 1
@@ -110,7 +150,7 @@ def dist(data,row1,row2):
     a,b = row1.cooked[col.at], rows2.cooked[col.at]
     return a=="?" and b=="?" and 1 or (_num if col.this is NUM else _sym)(col,a,b)
   return sum(map(_col, data.cols.x)) / len(data.cols.x)
-#----------------------------------------------------
+#----------------------------------------------------
 def chop(a):
   n = inc = int(len(a)/the.bins)
   small   = the.cohen*stdev(a)
@@ -140,14 +180,16 @@ def csv(file, filter=ROW):
         yield filter([coerce(s.strip()) for s in line.split(",")])
 
 def cli(d):
+  def bright(s): return colored(s[1],"yellow",attrs=["bold"])
+  def white(s) : return colored(s[1],"white", attrs=["bold"])
   for k,v in d.items():
     v = str(v)
     for j,x in enumerate(sys.argv):
       if ("-"+k[0]) == x or ("--"+k) == x:
         v = "True" if v=="False" else ("False" if v=="True" else sys.argv[j+1])
     d[k] = coerce(v)
-  if d["help"]: print(__doc__)
-#----------------------------------------------------
+  if d["help"]: print(re.sub(r"(\n[A-Z]+:)",bright,re.sub(r"(-[-]?[\w]+)",white,__doc__)))
+#----------------------------------------------------
 def eg1(fun):
   the = deepcopy(EGS.saved)
   random.seed(the.seed)
@@ -163,12 +205,28 @@ class EGS:
   def all()           : sys.exit(sum(map(eg1, [EGS.the])))
   #--------------------------------
   def the()  : print(the)
+
   def data() : d=DATA(csv(the.file)); print(len(d.rows), d.cols.x[3])
+
   def chop() :
     d=chops(DATA(csv(the.file)))
-    for i,row in enumerate(d.rows):
-                        print([row.cooked[col.at] for col in d.cols.x])
+    col = d.cols.x[1]
+    a  = ok(col)._kept
+    #for i,row in enumerate(d.rows): print(row.cells[col.at],row.cooked[ col.at], a[0], a[-1])
 
+  def sorted():
+    rows = sortedRows(DATA(csv(the.file)))
+    for row in  rows[:5]: print(row.cells)
+    print("")
+    for row in  rows[-5:]: print(row.cells)
+
+  def good():
+    data = DATA(csv(the.file))
+    rows = sortedRows(data)
+    n = int(len(rows)**the.min)
+    bestRows = rows[:n]
+    restRows = random.sample( rows[n+1:], n*the.rest )
+    for x in goodIdeas(data,bestRows,restRows): print(x)
 #----------------------------------------------------
 
 EGS.run()
