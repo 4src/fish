@@ -43,9 +43,9 @@ random.seed(the.seed)
 R= random.random
 big  = 1E30
 #--------------------------------------------------------
-def RANGE(col,lo,hi): return obj(this=RANGE, at=col.at, txt=col.txt,lo=lo,hi=hi)
-def OR(a): return obj(this=OR, all=[])
-def AND(a): return obj(this=OR, all={})
+def TEST(col,lo,hi): return obj(this=TEST, at=col.at, txt=col.txt,lo=lo,hi=hi)
+def ORS(a): return obj(this=OR, tests=[])
+def ANDS(a): return obj(this=OR, ors={})
 
 def ROW(a)        : return obj(this=ROW, cells=a, cooked=a[:])
 def COL(n=0, s=""): return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
@@ -113,22 +113,22 @@ def x2range(a,x):
 
 def range2loHi(r,col):
   n= int(len(r*len(col.chops))
-  if n=0: return RANGE(col, -big,col.chops[0])
-  if n>= len(col.chops): return RANGE(col, col.chops[-1], big)
-  return RANGE(col,  col.chops[n-1], col.chops[n])
+  if n=0: return TEST(col, -big,col.chops[0])
+  if n>= len(col.chops): return TEST(col, col.chops[-1], big)
+  return TEST(col,  col.chops[n-1], col.chops[n])
 
-def accepts(it, row):
-  def _range(it1):
-    x = row[it.at]
-    return x=="?" or it1.lo==it1.hi and x==it1.lor or it1.lo <= x and x < it1.hi
-  def _or(it1):
-    for range1 in or.all:
-      if _range(it1,row): return True
-o def _and(it1):
-    for ors in it1.all.values():
-      if not _or(ors,row): return False
+def selects(x, row):
+  def _test(test) : return (_sym if test.lo==test.hi else _num)(test,row[test.at])
+  def _num(test,v): return v=="?" or test.lo <= v and v < test.hi
+  def _sym(test,v): return v=="?" or v == test.lo
+  def _ors(ors):
+    for test in ors.tests:
+      if _test(test,row): return True
+  def _ands(ands):
+    for ors in ands.ors.values():
+      if not _ors(ors,row): return False
     return True
-  return (_and if it.this is AND else (_or if it.this is OR else _range)(it)
+  return (_ands if x.this is ANDS else (_ors if x.this is ORS else _tests)(x)
 
 def sortedRows(data):
   def _distance2heaven(row):
