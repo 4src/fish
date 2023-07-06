@@ -1,24 +1,24 @@
 #!/usr/bin/env python3 -B
 # <!--- vim: set et sts=2 sw=2 ts=2 : --->
 """
-ORD: simple multi objective explanation (using unsupervised discretion)
+ORD: simple multi objective explanation (using unsupervised discretion)   
 (c) 2023 Tim Menzies <timm@ieee.org> BSD.2
 
 USAGE:    
   ./ord.py [OPTIONS] [-g ACTIONS]
 
 OPTIONS:  
-  -b  --bins   max number of bins       = 16  
-  -B  --Beam   search width             = 10   
-  -c  --cohen  measure of same          = .35  
-  -f  --file  data file                 = "../data/auto93.csv"  
-  -g  --go    startup action            = "nothing"  
-  -h  --help  show help                 = False   
-  -m  --min   min size                  = .5   
-  -r  --rest  best times rest           = 4   
-  -s  --seed  random number seed        = 937162211  
-  -S  --Some  how may nums to keep      = 256   
-  -w  --want  plan|monitor|xplore|doubt = "plan""""
+  -b  --bins   max number of bins         = 16  
+  -B  --Beam   search width               = 10   
+  -c  --cohen  measure of same            = .35  
+  -f  --file   data file                  = "../data/auto93.csv"  
+  -g  --go     startup action             = "nothing"  
+  -h  --help   show help                  = False   
+  -m  --min    min size                   = .5   
+  -r  --rest   best times rest            = 4   
+  -s  --seed   random number seed         = 937162211  
+  -S  --Some   how may nums to keep       = 256   
+  -w  --want   plan|monitor|xplore|doubt  = "plan""""
 #----------------------------------------------------
 # def aa4Bb = some function that updated Bb using aa  
 # def aa2Bb = some function that conversts aa to Bb  
