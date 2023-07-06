@@ -128,7 +128,7 @@ def selects(x, row):
     for ors in ands.ors.values():
       if not _ors(ors,row): return False
     return True
-  return (_ands if x.this is ANDS else (_ors if x.this is ORS else _tests)(x)
+  return (_ands if x.this is ANDS else (_ors if x.this is ORS else _tests))(x)
 
 def sortedRows(data):
   def _distance2heaven(row):
