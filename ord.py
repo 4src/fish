@@ -118,15 +118,13 @@ def goodIdeas(data, bestRows, restRows):
          x = row.cells[col.at]
          if x != "?":
            k = (col.at, col.txt, x)
-           dk[k] = 1 + dk.get(k,0)
+           dk[k] = 1/len(rows) + dk.get(k,0)
     return d
   def _score(d):
     out = []
     hi  = 0
     for x,b in d[True].items():
       r = d[False].get(x,0) + 1/big
-      b = b/len(bestRows)
-      r = r/len(restRows)
       v = b**2/(b+r)
       hi = max(v,hi)
       out += [(v, b,r,x)]
