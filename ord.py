@@ -154,15 +154,15 @@ def goodIdeas(data, bestRows, restRows):
     hi  = 0
     for x,best in d[True].items():
       rest = d[False].get(x,0) + 1/big
-      score= want(b,r) 
-      hi   = max(hi, score)
-      out += [(score, best, rest, x)]
+      v    = score(b,r) 
+      hi   = max(hi, v)
+      out += [(v,  best, x, rest)]
     return [x for x in out if x[0] > hi/10]
   def _prune(lst):
     return sorted(lst, reverse=True)[:the.Beam]
   return _prune( _score( _count()))
 
-def want(b,r)
+def score(b,r)
   if the.want=="plan"    : return b**2  / (   b + r + 1/big)
   if the.want=="monitor" : return r**2  / (   b + r + 1/big)
   if the.want=="doubt"   : return (b+r) / abs(b - r + 1/big)
