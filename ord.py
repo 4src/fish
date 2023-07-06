@@ -8,17 +8,22 @@ USAGE:
   ./ord.py [OPTIONS] [-g ACTIONS]
 
 OPTIONS:  
-  -b  --bins   max number of bins   = 16  
-  -B  --Beam   search width         = 10   
-  -c  --cohen  measure of same      = .35  
-  -f  --file  data file             = "../data/auto93.csv"  
-  -g  --go    startup action        = "nothing"  
-  -h  --help  show help             = False   
-  -m  --min   min size              = .5   
-  -r  --rest  best times rest       = 4   
-  -s  --seed  random number seed    = 937162211  
-  -S  --Some  how may nums to keep  = 256"""
+  -b  --bins   max number of bins       = 16  
+  -B  --Beam   search width             = 10   
+  -c  --cohen  measure of same          = .35  
+  -f  --file  data file                 = "../data/auto93.csv"  
+  -g  --go    startup action            = "nothing"  
+  -h  --help  show help                 = False   
+  -m  --min   min size                  = .5   
+  -r  --rest  best times rest           = 4   
+  -s  --seed  random number seed        = 937162211  
+  -S  --Some  how may nums to keep      = 256   
+  -w  --want  plan|monitor|xplore|doubt = "plan""""
 #----------------------------------------------------
+# def aa4Bb = some function that updated Bb using aa  
+# def aa2Bb = some function that conversts aa to Bb  
+# def UPPERCASE = constructor     
+# xxx (where XXX is a constructor) = instance  
 import random,sys,re
 from copy import deepcopy
 from termcolor import colored
@@ -38,15 +43,15 @@ random.seed(the.seed)
 R= random.random
 big  = 1E30
 #--------------------------------------------------------
+def RANGE(col,lo,hi): return obj(this=RANGE, at=col.at, txt=col.txt,lo=lo,hi=hi)
+def OR(a): return obj(this=OR, all=[])
+def AND(a): return obj(this=OR, all={})
+
 def ROW(a)        : return obj(this=ROW, cells=a, cooked=a[:])
 def COL(n=0, s=""): return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
 def SYM(n=0, s=""): return obj(this=SYM, at=n, txt=s, n=0, seen={}, most=0, mode=None)
 def NUM(n=0, s=""): return obj(this=NUM, at=n, txt=s, n=0, _kept=[], ok=True,
                                heaven= 0 if s and s[-1]=="-" else 1)
-
-def ok(col):
-  if col.this is NUM and not col.ok: col._kept.sort(); col.ok=True 
-  return col
 
 def COLS(names):
   x,y,all = [], [], [COL(*x) for x in enumerate(names)]
@@ -57,21 +62,21 @@ def COLS(names):
 
 def DATA(src):
   data = obj(this=DATA, rows=[], cols=None)
-  [row2Data(row,data) for row in src]
+  [row4Data(row,data) for row in src]
   return data
 
-def row2Data(row,data):
+def row4Data(row,data):
   def _create(): data.cols  = COLS(row.cells)
-  def _update(): data.rows += [row2Cols(row,data.cols)]
+  def _update(): data.rows += [row4Cols(row,data.cols)]
   _update() if data.cols else _create()
 
-def row2Cols(row,cols):
+def row4Cols(row,cols):
   for cols in [cols.x, cols.y]:
     for col in cols:
-      x2Col(row.cells[col.at],col)
+      x4Col(row.cells[col.at],col)
   return row
 
-def x2Col(x,col):
+def x4Col(x,col):
   def _sym():
     tmp = col.seen[x] = 1 + col.seen.get(x,0)
     if tmp> col.most: col.most,col.mode = tmp,x
@@ -83,6 +88,10 @@ def x2Col(x,col):
     col.n += 1
     _num() if col.this is NUM else _sym()
 
+def ok(col):
+  if col.this is NUM and not col.ok: col._kept.sort(); col.ok=True 
+  return col
+
 def chops(data):
   for col in data.cols.x:
     if col.this is SYM:
@@ -92,15 +101,34 @@ def chops(data):
       for row in data.rows:
         x = row.cells[col.at]
         if x != "?":
-          row.cooked[col.at] = round(range4x(col.chops, x)/len(col.chops),2)
+          row.cooked[col.at] = round(x2range(col.chops, x)/len(col.chops),2)
   return data
 
-def range4x(a,x):
+def x2range(a,x):
   at=1
   for n,y in enumerate(a):
-    if y> x: return at-1
+    if y > x: return at-1
     else: at += 1
   return at - 1
+
+def range2loHi(r,col):
+  n= int(len(r*len(col.chops))
+  if n=0: return RANGE(col, -big,col.chops[0])
+  if n>= len(col.chops): return RANGE(col, col.chops[-1], big)
+  return RANGE(col,  col.chops[n-1], col.chops[n])
+
+def accepts(it, row):
+  def _range(it1):
+    x = row[it.at]
+    return x=="?" or it1.lo==it1.hi and x==it1.lor or it1.lo <= x and x < it1.hi
+  def _or(it1):
+    for range1 in or.all:
+      if _range(it1,row): return True
+o def _and(it1):
+    for ors in it1.all.values():
+      if not _or(ors,row): return False
+    return True
+  return (_and if it.this is AND else (_or if it.this is OR else _range)(it)
 
 def sortedRows(data):
   def _distance2heaven(row):
@@ -125,14 +153,19 @@ def goodIdeas(data, bestRows, restRows):
     hi  = 0
     for x,best in d[True].items():
       rest = d[False].get(x,0) + 1/big
-      v = best**2/(best+rest)
-      hi = max(v,hi)
-      out += [(v, best,rest,x)]
+      score= want(b,r) 
+      hi   = max(hi, score)
+      out += [(score, best, rest, x)]
     return [x for x in out if x[0] > hi/10]
   def _prune(lst):
     return sorted(lst, reverse=True)[:the.Beam]
   return _prune( _score( _count()))
 
+def want(b,r)
+  if the.want=="plan"    : return b**2  / (   b + r + 1/big)
+  if the.want=="monitor" : return r**2  / (   b + r + 1/big)
+  if the.want=="doubt"   : return (b+r) / abs(b - r + 1/big)
+  if the.want=="xplore"  : return 1     / (   b + r + 1/big)
 # def RULE(ranges):
 #   cols={}
 #   for v,b,r,x in ranges:
@@ -197,10 +230,10 @@ def eg1(fun):
 
 class EGS:
   saved = deepcopy(the)
-  def run(a=sys.argv) : cli(the.__dict__); getattr(EGS, the.go, EGS.oops)()
-  def oops()          : print("??")
-  def nothing()       : ...
-  def all()           : sys.exit(sum(map(eg1, [EGS.the])))
+  def run(a=sys.argv): cli(the.__dict__); getattr(EGS, the.go, EGS.oops)()
+  def oops()         : print("??")
+  def nothing()      : ...
+  def all()          : sys.exit(sum(map(eg1, [EGS.the])))
   #--------------------------------
   def the()  : print(the)
 
