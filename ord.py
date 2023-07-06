@@ -123,7 +123,7 @@ def selects(x, row):
   def _sym(test,v): return v=="?" or v == test.lo
   def _ors(ors):
     for test in ors.tests:
-      if _test(test,row): return True
+      if _test(test): return True
   def _ands(ands):
     for ors in ands.ors.values():
       if not _ors(ors,row): return False
