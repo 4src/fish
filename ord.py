@@ -123,11 +123,11 @@ def goodIdeas(data, bestRows, restRows):
   def _score(d):
     out = []
     hi  = 0
-    for x,b in d[True].items():
-      r = d[False].get(x,0) + 1/big
-      v = b**2/(b+r)
+    for x,best in d[True].items():
+      rest = d[False].get(x,0) + 1/big
+      v = best**2/(best+rest)
       hi = max(v,hi)
-      out += [(v, b,r,x)]
+      out += [(v, best,rest,x)]
     return [x for x in out if x[0] > hi/10]
   def _prune(lst):
     return sorted(lst, reverse=True)[:the.Beam]
