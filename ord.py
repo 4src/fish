@@ -68,7 +68,7 @@ def DATA(src):
 def row4Data(row,data):
   def _create(): data.cols  = COLS(row.cells)
   def _update(): data.rows += [row4Cols(row,data.cols)]
-  _update() if data.cols else _create()
+  (_update if data.cols else _create)()
 
 def row4Cols(row,cols):
   for cols in [cols.x, cols.y]:
@@ -86,22 +86,23 @@ def x4Col(x,col):
     elif R() < the.Some / col.n : col.ok=False; a[int(len(a)*R())] = x
   if x != "?":
     col.n += 1
-    _num() if col.this is NUM else _sym()
+    (_num if col.this is NUM else _sym)()
 
 def ok(col):
   if col.this is NUM and not col.ok: col._kept.sort(); col.ok=True 
   return col
 
 def chops(data):
+  def _sym(col):
+    col.chops = col.seen.keys()
+  def _num(col):
+    col.chops = chop(ok(col)._kept)
+    for row in data.rows:
+      x = row.cells[col.at]
+      if x != "?":
+        row.cooked[col.at] = round(x2range(col.chops, x)/len(col.chops),2)
   for col in data.cols.x:
-    if col.this is SYM:
-      col.chops = col.seen.keys()
-    else:
-      col.chops = chop(ok(col)._kept)
-      for row in data.rows:
-        x = row.cells[col.at]
-        if x != "?":
-          row.cooked[col.at] = round(x2range(col.chops, x)/len(col.chops),2)
+    (_sym if col.this is SYM else _num)(col)
   return data
 
 def x2range(a,x):
