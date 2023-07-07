@@ -18,7 +18,8 @@ OPTIONS:
   -r  --rest   best times rest            = 4   
   -s  --seed   random number seed         = 937162211  
   -S  --Some   how may nums to keep       = 256   
-  -w  --want   plan|monitor|xplore|doubt  = "plan""""
+  -w  --want   plan|monitor|xplore|doubt  = "plan"
+"""
 #----------------------------------------------------
 # def aa4Bb = some function that updated Bb using aa  
 # def aa2Bb = some function that conversts aa to Bb  
@@ -33,24 +34,23 @@ from fileinput import FileInput as file_or_stdin
 class obj(object):
   def __init__(i,**d): i.__dict__.update(**d)
   def __repr__(i):
-    f=lambda x: x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x,float) else x)
+    f=lambda x:x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x,float) else x)
     return "{"+" ".join([f":{k} {f(v)}" for k,v in i.__dict__.items() if k[0] != "_"])+"}"
 
-keys_and_defaults = r"\n\s*-\w+\s*--(\w+)[^=]*=\s*(\S+)"
-the = obj(**{m[1]:literal(m[2]) for m in re.finditer(keys_and_defaults,__doc__)})
+key_values = r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)"
+the = obj(**{m[1]:literal(m[2]) for m in re.finditer(key_values,__doc__)})
 
 random.seed(the.seed)
 R= random.random
 big  = 1E30
 #--------------------------------------------------------
 def TEST(col,lo,hi): return obj(this=TEST, at=col.at, txt=col.txt,lo=lo,hi=hi)
-def ORS(a): return obj(this=OR, tests=[])
-def ANDS(a): return obj(this=OR, ors={})
-
-def ROW(a)        : return obj(this=ROW, cells=a, cooked=a[:])
-def COL(n=0, s=""): return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
-def SYM(n=0, s=""): return obj(this=SYM, at=n, txt=s, n=0, seen={}, most=0, mode=None)
-def NUM(n=0, s=""): return obj(this=NUM, at=n, txt=s, n=0, _kept=[], ok=True,
+def ORS(a)         : return obj(this=OR, tests=[])
+def ANDS(a)        : return obj(this=ANDS, ors={})
+def ROW(a)         : return obj(this=ROW, cells=a, cooked=a[:])
+def COL(n=0, s="") : return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
+def SYM(n=0, s="") : return obj(this=SYM, at=n, txt=s, n=0, seen={}, most=0, mode=None)
+def NUM(n=0, s="") : return obj(this=NUM, at=n, txt=s, n=0, _kept=[], ok=True,
                                heaven= 0 if s and s[-1]=="-" else 1)
 
 def COLS(names):
@@ -113,8 +113,8 @@ def x2range(a,x):
   return at - 1
 
 def range2loHi(r,col):
-  n= int(len(r*len(col.chops))
-  if n=0: return TEST(col, -big,col.chops[0])
+  n= int(len(r*len(col.chops)))
+  if n==0: return TEST(col, -big,col.chops[0])
   if n>= len(col.chops): return TEST(col, col.chops[-1], big)
   return TEST(col,  col.chops[n-1], col.chops[n])
 
@@ -154,15 +154,15 @@ def goodIdeas(data, bestRows, restRows):
     hi  = 0
     for x,best in d[True].items():
       rest = d[False].get(x,0) + 1/big
-      v    = score(b,r) 
+      v    = score(best,rest)
       hi   = max(hi, v)
-      out += [(v,  best, x, rest)]
+      out += [(v,  best, rest, x)]
     return [x for x in out if x[0] > hi/10]
   def _prune(lst):
     return sorted(lst, reverse=True)[:the.Beam]
   return _prune( _score( _count()))
 
-def score(b,r)
+def score(b,r):
   if the.want=="plan"    : return b**2  / (   b + r + 1/big)
   if the.want=="monitor" : return r**2  / (   b + r + 1/big)
   if the.want=="doubt"   : return (b+r) / abs(b - r + 1/big)
@@ -232,9 +232,10 @@ def eg1(fun):
 class EGS:
   saved = deepcopy(the)
   def run(a=sys.argv): cli(the.__dict__); getattr(EGS, the.go, EGS.oops)()
-  def oops()         : print("??")
-  def nothing()      : ...
-  def all()          : sys.exit(sum(map(eg1, [EGS.the])))
+  def oops()    : print("??")
+  def nothing() : ...
+  def all()     : sys.exit(sum(map(eg1,
+                    [EGS.the,EGS.data,EGS.chop,EGS.sorted,EGS.good])))
   #--------------------------------
   def the()  : print(the)
 
