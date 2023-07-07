@@ -47,6 +47,20 @@ big  = 1E30
 def TEST(col,lo,hi): return obj(this=TEST, at=col.at, txt=col.txt,lo=lo,hi=hi)
 def ORS(a)         : return obj(this=OR, tests=[])
 def ANDS(a)        : return obj(this=ANDS, ors={})
+
+def selects(x, row):
+  def _test(test) : return (_sym if test.lo==test.hi else _num)(test,row[test.at])
+  def _num(test,v): return v=="?" or test.lo <= v and v < test.hi
+  def _sym(test,v): return v=="?" or v == test.lo
+  def _ors(ors):
+    for test in ors.tests:
+      if _test(test): return True
+  def _ands(ands):
+    for ors in ands.ors.values():
+      if not _ors(ors,row): return False
+    return True
+  return (_ands if x.this is ANDS else (_ors if x.this is ORS else _tests))(x)
+#--------------------------------------------------------
 def ROW(a)         : return obj(this=ROW, cells=a, cooked=a[:])
 def COL(n=0, s="") : return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
 def SYM(n=0, s="") : return obj(this=SYM, at=n, txt=s, n=0, seen={}, most=0, mode=None)
@@ -118,18 +132,6 @@ def range2loHi(r,col):
   if n>= len(col.chops): return TEST(col, col.chops[-1], big)
   return TEST(col,  col.chops[n-1], col.chops[n])
 
-def selects(x, row):
-  def _test(test) : return (_sym if test.lo==test.hi else _num)(test,row[test.at])
-  def _num(test,v): return v=="?" or test.lo <= v and v < test.hi
-  def _sym(test,v): return v=="?" or v == test.lo
-  def _ors(ors):
-    for test in ors.tests:
-      if _test(test): return True
-  def _ands(ands):
-    for ors in ands.ors.values():
-      if not _ors(ors,row): return False
-    return True
-  return (_ands if x.this is ANDS else (_ors if x.this is ORS else _tests))(x)
 
 def sortedRows(data):
   def _distance2heaven(row):
