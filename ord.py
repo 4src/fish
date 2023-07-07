@@ -183,6 +183,7 @@ def dist(data,row1,row2):
     return a=="?" and b=="?" and 1 or (_num if col.this is NUM else _sym)(col,a,b)
   return sum(map(_col, data.cols.x)) / len(data.cols.x)
 #----------------------------------------------------
+# XXX waht ranges and mtj etc/ return dict.
 def chop(a):
   n = inc = int(len(a)/the.bins)
   small   = the.cohen*stdev(a)
@@ -190,7 +191,9 @@ def chop(a):
   while n < len(a) - 1:
     x = a[n]
     if x==a[n+1] or x - b4 < small: n += 1 # keep looking for a cut
-    else                          : n += inc; out += [x]; b4=x
+    else                          : out += [(b4,a[n-1],at)]; n += inc; b4=x
+  out += [(b4,big)]
+  out[0][0] = -big
   return out
 
 def ent(d):
@@ -211,9 +214,11 @@ def csv(file, filter=ROW):
       if line:
         yield filter([coerce(s.strip()) for s in line.split(",")])
 
+def color(s,c): return colored(s,c,attrs=["bold"])
+
 def cli(d):
-  def bright(s): return colored(s[1],"yellow",attrs=["bold"])
-  def white(s) : return colored(s[1],"white", attrs=["bold"])
+  def bright(s): return color(s[1],"yellow")
+  def white(s) : return color(s[1],"white")
   for k,v in d.items():
     v = str(v)
     for j,x in enumerate(sys.argv):
