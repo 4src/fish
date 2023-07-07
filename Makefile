@@ -26,6 +26,17 @@ docs/%.html: %.py
 	python3 -Bm pdoc -c sort_identifiers=False  \
 		       --template-dir docs --force --html -o docs   $^
 
+# 'Makefile'
+MARKDOWN = pandoc --from gfm --to html --standalone
+all: $(patsubst %.md,%.html,$(wildcard *.md)) Makefile
+
+xclean:
+	rm -f $(patsubst %.md,%.html,$(wildcard *.md))
+	rm -f *.bak *~
+
+%.xhtml: %.xmd
+	$(MARKDOWN) $< --output $@
+
 html: 
 	docco -o $(HOME)/tmp  lib.lua 
 	awk '/<h1>/{ print $$0; print "<p>"f"</p>";next} 1' f="`cat top.html`" ~/tmp/lib.html > tmp1

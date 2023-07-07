@@ -1,6 +1,6 @@
 # Learn You Smart Scropting for Great Good!
 
-## About this tutorial
+## <a name=abaout>About this tutorial</a>
 
 Welcome to 
 **Learn You Smart  Scripting for Great Good!**
@@ -46,7 +46,7 @@ really contains $r \subset R$ of exemplary rows
 
 [^SSL]: adass
 
-Further,
+## <a name=simple>Why I bekieve in simplicty
 
 The general rule of thumb is that tabular data
 can be reduced to around 25% of its columns

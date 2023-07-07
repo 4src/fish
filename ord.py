@@ -23,8 +23,9 @@ OPTIONS:
 #----------------------------------------------------
 # def aa4Bb = some function that updated Bb using aa  
 # def aa2Bb = some function that conversts aa to Bb  
-# def UPPERCASE = constructor     
-# xxx (where XXX is a constructor) = instance  
+# def UPPERCASE = constructor   ; e.g. def ROW  
+# xxx (where XXX is a constructor) = an instance of XXX ; e.g. row isa ROW
+# xxxs = a list of xxx. eg. rows= list of ROW
 import random,sys,re
 from copy import deepcopy
 from termcolor import colored
@@ -41,6 +42,7 @@ key_values = r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)"
 the = obj(**{m[1]:literal(m[2]) for m in re.finditer(key_values,__doc__)})
 
 random.seed(the.seed)
+prints = lambda a: print(*a,sep="\t")
 R= random.random
 big  = 1E30
 #--------------------------------------------------------
@@ -62,10 +64,13 @@ def selects(x, row):
   return (_ands if x.this is ANDS else (_ors if x.this is ORS else _tests))(x)
 #--------------------------------------------------------
 def ROW(a)         : return obj(this=ROW, cells=a, cooked=a[:])
-def COL(n=0, s="") : return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
+
 def SYM(n=0, s="") : return obj(this=SYM, at=n, txt=s, n=0, seen={}, most=0, mode=None)
 def NUM(n=0, s="") : return obj(this=NUM, at=n, txt=s, n=0, _kept=[], ok=True,
                                heaven= 0 if s and s[-1]=="-" else 1)
+
+def COL(n=0, s=""):
+  return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
 
 def COLS(names):
   x,y,all = [], [], [COL(*x) for x in enumerate(names)]
@@ -132,7 +137,6 @@ def range2loHi(r,col):
   if n>= len(col.chops): return TEST(col, col.chops[-1], big)
   return TEST(col,  col.chops[n-1], col.chops[n])
 
-
 def sortedRows(data):
   def _distance2heaven(row):
     nom = sum(( (col.heaven - row.cooked[col.at])**2 for col in data.cols.y ))
@@ -169,10 +173,7 @@ def score(b,r):
   if the.want=="monitor" : return r**2  / (   b + r + 1/big)
   if the.want=="doubt"   : return (b+r) / abs(b - r + 1/big)
   if the.want=="xplore"  : return 1     / (   b + r + 1/big)
-# def RULE(ranges):
-#   cols={}
-#   for v,b,r,x in ranges:
-#      
+
 def dist(data,row1,row2):
   def _sym(col,a,b):
     return 0 if a==b else 1
@@ -184,7 +185,7 @@ def dist(data,row1,row2):
     a,b = row1.cooked[col.at], rows2.cooked[col.at]
     return a=="?" and b=="?" and 1 or (_num if col.this is NUM else _sym)(col,a,b)
   return sum(map(_col, data.cols.x)) / len(data.cols.x)
-#----------------------------------------------------
+#----------------------------------------------------
 # XXX waht ranges and mtj etc/ return dict.
 def chop(a):
   n = inc = int(len(a)/the.bins)
@@ -205,7 +206,7 @@ def ent(d):
 def stdev(a): return (per(a,.9) - per(a,.1)) / 2.56
 def per(a, p=.5): return a[int(p*len(a))]
 
-def coerce(x:str):
+def str2thing(x:str):
   try:    return literal(x)
   except: return x
 
@@ -214,35 +215,35 @@ def csv(file, filter=ROW):
     for line in src:
       line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
       if line:
-        yield filter([coerce(s.strip()) for s in line.split(",")])
+        yield filter([str2thing(s.strip()) for s in line.split(",")])
 
-def color(s,c): return colored(s,c,attrs=["bold"])
+def hue(s,c): return colored(s,c,attrs=["bold"])
 
 def cli(d):
-  yell = lambda s: color(s[1],"yellow")
-  bold = lambda s: color(s[1],"white")
+  yell = lambda s: hue(s[1],"yellow")
+  bold = lambda s: hue(s[1],"white")
   for k,v in d.items():
-    v = str(v)
+    s = str(v)
     for j,x in enumerate(sys.argv):
       if ("-"+k[0]) == x or ("--"+k) == x:
-        v = "True" if v=="False" else ("False" if v=="True" else sys.argv[j+1])
-    d[k] = coerce(v)
+        s = "True" if s=="False" else ("False" if s=="True" else sys.argv[j+1])
+    d[k] = str2thing(s)
   if d["help"]: print(re.sub(r"(\n[A-Z]+:)",yell,re.sub(r"(-[-]?[\w]+)",bold,__doc__)))
-#----------------------------------------------------
-def eg1(fun):
-  the = deepcopy(EGS.saved)
+#----------------------------------------------------
+def eg(fun):
+  the = deepcopy(EG.saved)
   random.seed(the.seed)
   failed = fun() == False
-  print("❌ FAIL " if failed else "✅ PASS", fun.__name__)
+  print("❌ FAIL" if failed else "✅ PASS", fun.__name__)
   return failed
 
-class EGS:
+class EG:
   saved = deepcopy(the)
-  def run(a=sys.argv): cli(the.__dict__); getattr(EGS, the.go, EGS.oops)()
+  def run(a=sys.argv): cli(the.__dict__); getattr(EG, the.go, EG.oops)()
   def oops()    : print("??")
   def nothing() : ...
-  def all()     : sys.exit(sum(map(eg1,
-                    [EGS.the,EGS.data,EGS.chop,EGS.sorted,EGS.good])))
+  def all()     : sys.exit(sum(map(eg,
+                    [EG.the,EG.data,EG.oops,EG.sorted,EG.good])))
   #--------------------------------
   def the()  : print(the)
 
@@ -255,10 +256,11 @@ class EGS:
     #for i,row in enumerate(d.rows): print(row.cells[col.at],row.cooked[ col.at], a[0], a[-1])
 
   def sorted():
-    rows = sortedRows(DATA(csv(the.file)))
-    for row in  rows[:5]: print(row.cells)
-    print("")
-    for row in  rows[-5:]: print(row.cells)
+    data = DATA(csv(the.file))
+    rows = sortedRows(data)
+    prints(data.cols.names)
+    [prints(row.cells) for row in rows[:5]]; print("")
+    [prints(row.cells) for row in rows[-5:]]
 
   def good():
     data = DATA(csv(the.file))
@@ -269,4 +271,4 @@ class EGS:
     for x in goodIdeas(data,bestRows,restRows): print(x)
 #----------------------------------------------------
 
-EGS.run()
+EG.run()
