@@ -217,15 +217,15 @@ def csv(file, filter=ROW):
 def color(s,c): return colored(s,c,attrs=["bold"])
 
 def cli(d):
-  def bright(s): return color(s[1],"yellow")
-  def white(s) : return color(s[1],"white")
+  yell = lambda s: color(s[1],"yellow")
+  bold = lambda s: color(s[1],"white")
   for k,v in d.items():
     v = str(v)
     for j,x in enumerate(sys.argv):
       if ("-"+k[0]) == x or ("--"+k) == x:
         v = "True" if v=="False" else ("False" if v=="True" else sys.argv[j+1])
     d[k] = coerce(v)
-  if d["help"]: print(re.sub(r"(\n[A-Z]+:)",bright,re.sub(r"(-[-]?[\w]+)",white,__doc__)))
+  if d["help"]: print(re.sub(r"(\n[A-Z]+:)",yell,re.sub(r"(-[-]?[\w]+)",bold,__doc__)))
 #----------------------------------------------------
 def eg1(fun):
   the = deepcopy(EGS.saved)
