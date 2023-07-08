@@ -8,7 +8,7 @@ USAGE:
   ./ord.py [OPTIONS] [-g ACTIONS]
 
 OPTIONS:  
-  -b  --bins   max number of bins         = 16  
+  -b  --bins   max number of bins         = 7  
   -B  --Beam   search width               = 10   
   -c  --cohen  measure of same            = .35  
   -f  --file   data file                  = "../data/auto93.csv"  
@@ -46,12 +46,24 @@ prints = lambda a: print(*a,sep="\t")
 R= random.random
 big  = 1E30
 #--------------------------------------------------------
-def TEST(col,lo,hi): return obj(this=TEST, at=col.at, txt=col.txt,lo=lo,hi=hi)
-def ORS(a)         : return obj(this=OR, tests=[])
-def ANDS(a)        : return obj(this=ANDS, ors={})
+def TEST(col,lo,hi): return obj(this=TEST, isSym=col.this==SYM, at=col.at, txt=col.txt,lo=lo,hi=hi)
+def ORS()          : return obj(this=ORS, tests=[])
+def ANDS()         : return obj(this=ANDS, ors={}, score=0)
+
+def score(b,r):
+  if the.want=="plan"    : return b**2  / (   b + r + 1/big)
+  if the.want=="monitor" : return r**2  / (   b + r + 1/big)
+  if the.want=="doubt"   : return (b+r) / abs(b - r + 1/big)
+  if the.want=="xplore"  : return 1     / (   b + r + 1/big)
+
+def ands2Score(ands, bestRows, restRows):
+  b = len([_ for _ in bestRows if selects(ands,row)])  / (len(bestRows) + 1/big)
+  r = len([_ for _ in restRows if selects(ands,row)] ) / (len(restRows) + 1/big)
+  ands.score= score(b,r) / sum((len(ors) for ors in ands.ors))
+  return ands.score
 
 def selects(x, row):
-  def _test(test) : return (_sym if test.lo==test.hi else _num)(test,row[test.at])
+  def _test(test) : return (_sym if test.isSym else _num)(test,row[test.at])
   def _num(test,v): return v=="?" or test.lo <= v and v < test.hi
   def _sym(test,v): return v=="?" or v == test.lo
   def _ors(ors):
@@ -62,6 +74,24 @@ def selects(x, row):
       if not _ors(ors,row): return False
     return True
   return (_ands if x.this is ANDS else (_ors if x.this is ORS else _tests))(x)
+
+def tests4Ands(tests,ands=None):
+  ands = ands or ANDS()
+  def _ors(ors, new):
+    out, used = [], False
+    for old in ors.tests:
+      if  (new.hi == old.hi and new.lo == old.lo): used=True; out += [old];
+      elif new.hi == old.lo                      : used=True; out += [old]; old.lo = new.lo
+      elif new.lo == old.hi                      : used=True; out += [old]; old.hi = new.hi
+      elif new.lo <  old.lo                      : used=True; out += [new,old]
+    if not used: out += [new]
+    return out
+  def _and(new):
+    ors = ands.ors[new.at] = ands.ors.get(new.at,ORS())
+    ors.tests =  _ors(ors,new)
+  [_ands(test) for test in tests]
+  return ands
+
 #--------------------------------------------------------
 def ROW(a)         : return obj(this=ROW, cells=a, cooked=a[:])
 
@@ -111,15 +141,19 @@ def ok(col):
   if col.this is NUM and not col.ok: col._kept.sort(); col.ok=True 
   return col
 
+def col2mid(col, decimals=None):
+  return rnd(median(ok(col)._kept), decimals) if col.this is NUM else col.mode
+
+def col2div(col, decimals=None):
+  return rnd(stdev(ok(col)._kept) if col.this is NUM else ent(col.seen),decimals)
+
 def chops(data):
   def _sym(col):
-    col.chops = col.seen.keys()
+    col.chops = {k:(k,k) for k in col.seen.keys()}
   def _num(col):
-    col.chops = chop(ok(col)._kept)
+    col.chops = chop(ok(col)._kept, the.cohen, the.bins)
     for row in data.rows:
-      x = row.cells[col.at]
-      if x != "?":
-        row.cooked[col.at] = x2range(col.chops.x)
+      row.cooked[col.at] = x2range(row.cells[col.at], col.chops)
   for col in data.cols.x:
     (_sym if col.this is SYM else _num)(col)
   return data
@@ -137,7 +171,7 @@ def goodIdeas(data, bestRows, restRows):
       dk = d[klass] = {}
       for row in rows:
         for col in data.cols.x:
-         x = row.cells[col.at]
+         x = row.cooked[col.at]
          if x != "?":
            k = (col.at, col.txt, x)
            dk[k] = 1/len(rows) + dk.get(k,0)
@@ -155,11 +189,8 @@ def goodIdeas(data, bestRows, restRows):
     return sorted(lst, reverse=True)[:the.Beam]
   return _prune( _score( _count()))
 
-def score(b,r):
-  if the.want=="plan"    : return b**2  / (   b + r + 1/big)
-  if the.want=="monitor" : return r**2  / (   b + r + 1/big)
-  if the.want=="doubt"   : return (b+r) / abs(b - r + 1/big)
-  if the.want=="xplore"  : return 1     / (   b + r + 1/big)
+def data2stats(data,cols=None,fun=col2mid,decimals=3):
+  return obj(N=len(data.rows), **{col.txt: fun(col,decimals) for col in (cols or data.cols.y)})
 
 def dist(data,row1,row2):
   def _sym(col,a,b):
@@ -175,23 +206,30 @@ def dist(data,row1,row2):
 #----------------------------------------------------
 # XXX waht ranges and mtj etc/ return dict.
 # d[short] = lomho
-def chop(a):
-  n = inc = int(len(a)/the.bins)
-  small   = the.cohen*stdev(a)
-  b4      = a[0]
-  while n < len(a) - inc - 1:
-    x  = a[n]
-    if x==a[n+1] or x - b4 < small: n += 1 # keep looking for a cut
-    else                          : tmp += [(b4, a[n-1])]; b4=x; n += inc; 
-  tmp += [b4,big)]
-  tmp[0][0] = -big
-  return {round(k/len(tmp),2): lohi for k,lohi in enumereate(tmp)}
+def chop(a,cohen,bins):
+  enough = len(a)/bins
+  medium  = cohen*stdev(a)
+  b4,tmp = a[0],[]
+  n = 0
+  for i,x in enumerate(a):
+    n += 1
+    if i < len(a) - 1 and x != a[i+1] and x - b4 >= medium and n >= enough:
+      tmp += [(b4, x)]
+      b4,n = x,0
+  tmp += [(b4,big)]
+  tmp[0] = (-big, tmp[0][1])
+  return {round(k/(len(tmp)-1),2): lohi for k,lohi in enumerate(tmp)}
 
 def x2range(x,ranges):
   if x=="?": return x
   for k,(lo,hi) in ranges.items(): 
-    if  lo <=x < hi: return k
+    if  lo <x <= hi: return k
   assert False,"should never get here"
+
+def rnd(x,decimals=None):
+  return x if decimals==None else round(x,decimals)
+
+def median(a): return per(a,.5)
 
 def ent(d):
   N = sum((n for n in d.values()))
@@ -237,32 +275,43 @@ class EG:
   def oops()    : print("??")
   def nothing() : ...
   def all()     : sys.exit(sum(map(eg,
-                    [EG.the,EG.data,EG.oops,EG.sorted,EG.good])))
+                    [EG.the,EG.data,EG.chop,EG.sorted,EG.ideas])))
   #--------------------------------
   def the()  : print(the)
 
-  def data() : d=DATA(csv(the.file)); print(len(d.rows), d.cols.x[3])
+  def data() : 
+    stats1=data2stats(DATA(csv(the.file)))
+    prints(stats1.__dict__.keys())
+    prints(stats1.__dict__.values())
 
   def chop() :
-    d=chops(DATA(csv(the.file)))
-    col = d.cols.x[1]
-    a  = ok(col)._kept
+    d=DATA(csv(the.file))
+    chops(d)
+    for col in d.cols.x: print(col.chops)
+    [prints(row.cooked) for row in d.rows[:10]]
+    #col = d.cols.x[1]
+    #a  = ok(col)._kept
     #for i,row in enumerate(d.rows): print(row.cells[col.at],row.cooked[ col.at], a[0], a[-1])
 
   def sorted():
     data = DATA(csv(the.file))
     rows = sortedRows(data)
     prints(data.cols.names)
-    [prints(row.cells) for row in rows[:5]]; print("")
-    [prints(row.cells) for row in rows[-5:]]
+    [prints(row.cells) for row in rows[:10]]; print("")
+    [prints(row.cells) for row in rows[-10:]]
 
-  def good():
+  def ideas():
     data = DATA(csv(the.file))
     rows = sortedRows(data)
-    n = int(len(rows)**the.min)
+    chops(data)
+    n    = int(len(rows)**the.min)
     bestRows = rows[:n]
     restRows = random.sample( rows[n+1:], n*the.rest )
+    prints(data.cols.names)
+    [prints(row.cooked) for row in rows[:10]]; print("")
+    [prints(row.cooked) for row in rows[-10:]]
     for x in goodIdeas(data,bestRows,restRows): print(x)
+    print(data.cols.x[1].chops[0])
 #----------------------------------------------------
 
 EG.run()
