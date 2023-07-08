@@ -119,23 +119,10 @@ def chops(data):
     for row in data.rows:
       x = row.cells[col.at]
       if x != "?":
-        row.cooked[col.at] = round(x2range(col.chops, x)/len(col.chops),2)
+        row.cooked[col.at] = x2range(col.chops.x)
   for col in data.cols.x:
     (_sym if col.this is SYM else _num)(col)
   return data
-
-def x2range(a,x):
-  at=1
-  for n,y in enumerate(a):
-    if y > x: return at-1
-    else: at += 1
-  return at - 1
-
-def range2loHi(r,col):
-  n= int(len(r*len(col.chops)))
-  if n==0: return TEST(col, -big,col.chops[0])
-  if n>= len(col.chops): return TEST(col, col.chops[-1], big)
-  return TEST(col,  col.chops[n-1], col.chops[n])
 
 def sortedRows(data):
   def _distance2heaven(row):
@@ -187,17 +174,24 @@ def dist(data,row1,row2):
   return sum(map(_col, data.cols.x)) / len(data.cols.x)
 #----------------------------------------------------
 # XXX waht ranges and mtj etc/ return dict.
+# d[short] = lomho
 def chop(a):
   n = inc = int(len(a)/the.bins)
   small   = the.cohen*stdev(a)
-  b4,out  = a[0],[]
-  while n < len(a) - 1:
-    x = a[n]
+  b4      = a[0]
+  while n < len(a) - inc - 1:
+    x  = a[n]
     if x==a[n+1] or x - b4 < small: n += 1 # keep looking for a cut
-    else                          : out += [(b4,a[n-1],at)]; n += inc; b4=x
-  out += [(b4,big)]
-  out[0][0] = -big
-  return out
+    else                          : tmp += [(b4, a[n-1])]; b4=x; n += inc; 
+  tmp += [b4,big)]
+  tmp[0][0] = -big
+  return {round(k/len(tmp),2): lohi for k,lohi in enumereate(tmp)}
+
+def x2range(x,ranges):
+  if x=="?": return x
+  for k,(lo,hi) in ranges.items(): 
+    if  lo <=x < hi: return k
+  assert False,"should never get here"
 
 def ent(d):
   N = sum((n for n in d.values()))
