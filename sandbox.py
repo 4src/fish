@@ -6,7 +6,7 @@ def combine(ranges):
   for col,v in ranges:
     tmp[col] = tmp.get(col,[])
     tmp[col] += v if isinstance(v,list) else [v]
-  return sorted([(k,sorted(v)) for k,v in tmp.items()])
+  return sorted([(k,tuple(sorted(v))) for k,v in tmp.items()]))
 
 def select(data,ranges,row):
   def _ors(chops,vals):
@@ -30,11 +30,11 @@ def merger(data,bestRows,RestRows):
 
 def grow(pairs,merge,peeks=32,top=5,beam=None):
   beam = beam or len(pairs)
-  pairs = sorted(set(pairs),         # "set" discards duplicates
-                 key=lambda y: -y[0] # sort descending on first part of pair
+  pairs = sorted(set(pairs),         # discard duplicates
+                 key=lambda y: -y[0] # sort, descending, on first part of pair
                  )[:int(beam)]       # only use the top ones
   if len(pairs) <= top: return pairs
-  total = sum((score  for (score,_) in pairs ))
+  total = sum((score  for (score,_) in pairs))
   new   = [merge(pick(pairs,total),pick(pairs,total))  _ in range(peeks)]
   return grow(pairs + new, combiner, peeks, top, beam/2)
 
