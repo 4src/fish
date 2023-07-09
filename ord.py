@@ -62,7 +62,7 @@ def ands2Score(ands, bestRows, restRows):
   b = [_ for _ in bestRows if selects(ands,row)]
   r = [_ for _ in restRows if selects(ands,row)]
   size = sum((len(ors) for ors in ands.ors))
-  ands.score= score(len(b),len(r), len(bestRows),len(restRows)]))) / size
+  ands.score= score(*map(len,[b,r,bestRows,restRows])) / size
   return ands.score
 
 def within(x,lo,hi): return lo <= x < hi
@@ -161,6 +161,9 @@ def sortedRows(data):
     return (nom/len(data.cols.y))**.5
   return sorted(data.rows, key = _distance2heaven)
 #----------------------------------------------------
+# pass1: over all values
+# pass2ab: counts for best.rest
+# pass3: merge using entropy
 def chop(a,cohen,bins):
   enough   = len(a)/bins
   medium   = cohen*stdev(a)
@@ -266,18 +269,20 @@ def cli(d):
     d[k] = str2thing(s)
   if d["help"]: print(re.sub(r"(\n[A-Z]+:)",yell,re.sub(r"(-[-]?[\w]+)",bold,__doc__)))
 
-def grow(lst,bestRows,restRows,beam):
+#--- oops! two scores
+#- hide bestRows,restORws inside a lambda
+def grow(lst,bestRows,restRows,peeks=32,beam=None):
   beam = beam or len(lst)
   if beam < 2 : return lst
-  lst = sorted([(score(x),x) for x in lst], key=lambda y: -y[0])[:int(.5+beam)]
+  lst = sorted(lst, key=lambda y: -y[0])[:int(.5+beam)]
   tmp = []
-  for a,b in pick2(lst,32):
+  for a,b in pick2(lst,peeks):
     c= TEST([test for ab in [a,b] for ors in ab.ors.values() for test in ors])
     b= [row for row in bestRows if selects(c,row)]
     r= [row for row  in restRows if selects(c,row)]
-    v= score(len(b),len(r),len(bests),len(rests))
+    v= score(*map(len,[b,r,bests,rests]))
     tmp += [(v,c)]
-  return grow(lst+tmp,bestRows,restRows, beam/2)
+  return grow(lst+tmp,bestRows,restRows, peeks,beam/2)
 
 def pick2(ordered,repeats):
   n = sum(( n1 for (n1,_) in ordered ))
