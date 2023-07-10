@@ -142,15 +142,16 @@ def x4Col(x,col):
     col.n += 1
     (_num if col.this is NUM else _sym)()
 
-def ok(col):
+def colIsOk(col):
   if col.this is NUM and not col.ok: col._kept.sort(); col.ok=True 
   return col
 
 def col2mid(col, decimals=None):
-  return rnd(median(ok(col)._kept), decimals) if col.this is NUM else col.mode
+  return col.mode if col.this is SYM else rnd(median(colIsOk(col)._kept), decimals)
 
 def col2div(col, decimals=None):
-  return rnd(stdev(ok(col)._kept) if col.this is NUM else ent(col.seen),decimals)
+  return rnd(ent(col.seen) if col.this is SYM else stdev(colIsOk(col)._kept),
+             decimals)
 
 def data2stats(data,cols=None,fun=col2mid,decimals=3):
   return obj(N=len(data.rows), **{col.txt: fun(col,decimals) for col in (cols or data.cols.y)})
@@ -164,12 +165,12 @@ def sortedRows(data):
 # pass1: over all values
 # pass2ab: counts for best.rest
 # pass3: merge using entropy
-def chop(col,bestRows,restRows,cohen,bins):
-  def x(row)  : return row.cells[col.at]
+def num2Chops(num,bestRows,restRows,cohen,bins):
+  def x(row)  : return row.cells[num.at]
   def x1(pair): return x(pair[1])
-  def _unsuper(pairs):
+  def _divide(pairs):
     few = int(len(pairs)/bins) - 1
-    tiny= cohen*col2div(col)
+    tiny= cohen*col2div(num)
     now = obj(lo=x1(pairs[0]), hi=x1(pairs[0]), n=obj(best=0, rest=0))
     tmp = [now]
     for i,(klass,row) in enumerate(pairs):
@@ -180,7 +181,7 @@ def chop(col,bestRows,restRows,cohen,bins):
       now.hi = here
       now.n[klass] += 1
     return tmp
-  def _super(ins):
+  def _merge(ins):
     outs,i = [],0
     while i < len(ins):
       a = ins[i]
@@ -188,31 +189,31 @@ def chop(col,bestRows,restRows,cohen,bins):
         b = ins[i+1]
         merged = obj(lo=a.lo, hi=b.hi, n=obj(best=a.n.best+b.n.best, rest=a.n.rest+b.n.rest))
         na, nb = a.n.best+a.n.rest, b.n.best+b.n.rest
-        if ent(merged.n) <= (ent(a.n)*na + ent(b.n)*nb) / (na+nb):
+        if ent(merged.n) <= (ent(a.n)*na + ent(b.n)*nb) / (na+nb): # if merged's signal is clearer
           a = merged
-          i += 1
+          i += 1 # skip over b
       outs += [a]
       i   += 1
-    return ins if len(ins) == len(outs) else _super(outs) 
+    return ins if len(ins) == len(outs) else _merge(outs) 
   bests  = [("best",row) for row in bestRows if x(row) != "?"]
   rests  = [("rest",row) for row in restRows if x(row) != "?"]
-  out    = [(o.lo, o.hi) for o in _super( _unsuper( sorted(bests+rests, key=x1)))]
-  out   += [(out[-1][1], big)]
-  out[0] = (-big, out[0][1])
+  tmp    = [(x.lo, x.hi) for x in _merge( _divide( sorted(bests+rests, key=x1)))]
+  tmp   += [(tmp[-1][1], big)]
+  tmp[0] = (-big, tmp[0][1])
   return {rnd2(k/(len(out)-1)): lohi for k,lohi in enumerate(tmp)}
 
-def chops(data):
+def cols2Chops(data):
   def _sym(col):
     col.chops = {k:(k,k) for k in col.seen.keys()}
   def _num(col):
-    col.chops = chop(ok(col)._kept, the.cohen, the.bins)
+    col.chops = num2Chops(col/2,colIsOk(col)._kept, the.cohen, the.bins)
     for row in data.rows:
       row.cooked[col.at] = x2range(row.cells[col.at], col.chops)
   for col in data.cols.x:
     (_sym if col.this is SYM else _num)(col)
   return data
 
-def goodChops(data, bestRows, restRows):
+def sortedChops(data, bestRows, restRows):
   def _count():
     d={}
     for klass,rows in [(True,bestRows), (False,restRows)]:
@@ -235,7 +236,7 @@ def goodChops(data, bestRows, restRows):
     return [x for x in out if x[0] > hi/10]
   return sorted( _score( _count()), reverse=True)[:the.Beam]
 #----------------------------------------------------
-def dist(data,row1,row2):
+def rows2dist(data,row1,row2):
   def _sym(col,a,b):
     return 0 if a==b else 1
   def _num(col,a,b):
@@ -273,12 +274,12 @@ def str2thing(x:str):
   try:    return literal(x)
   except: return x
 
-def csv(file, filter=ROW):
+def csv2Rows(file):
   with file_or_stdin(None if file =="-" else file) as src:
     for line in src:
       line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
       if line:
-        yield filter([str2thing(s.strip()) for s in line.split(",")])
+        yield ROW([str2thing(s.strip()) for s in line.split(",")])
 
 def hue(s,c): return colored(s,c,attrs=["bold"])
 
@@ -308,16 +309,12 @@ def grow(lst,bestRows,restRows,peeks=32,beam=None):
     tmp += [(v,c)]
   return grow(lst+tmp,bestRows,restRows, peeks,beam/2)
 
-def pick2(ordered,repeats):
-  n = sum(( n1 for (n1,_) in ordered ))
-  for _ in range(repeats):
-    yield pick1(n,ordered), pick1(n,ordered)
-
-def pick1(n,lst):
+def pick(lst,n):
   r = R()
-  for (n1,x) in lst:
-    r -= n1/n
+  for (m,x) in lst:
+    r -= m/n
     if r <= 0: return x
+  assert False,"should never get here"
 
 # def grow(lst,score):
 #   best={}
@@ -358,12 +355,12 @@ class EG:
   def the()  : print(the)
 
   def data() :
-    stats1=data2stats(DATA(csv(the.file)))
+    stats1=data2stats(DATA(csv2Rows(the.file)))
     prints(stats1.__dict__.keys())
     prints(stats1.__dict__.values())
 
   def chop() :
-    d=DATA(csv(the.file))
+    d=DATA(csv2Rows(the.file))
     chops(d)
     for col in d.cols.x: print(col.chops)
     [prints(row.cooked) for row in d.rows[:10]]
@@ -372,14 +369,14 @@ class EG:
     #for i,row in enumerate(d.rows): print(row.cells[col.at],row.cooked[ col.at], a[0], a[-1])
 
   def sorted():
-    data = DATA(csv(the.file))
+    data = DATA(csv2Rows(the.file))
     rows = sortedRows(data)
     prints(data.cols.names)
     [prints(row.cells) for row in rows[:10]]; print("")
     [prints(row.cells) for row in rows[-10:]]
 
   def ideas():
-    data = DATA(csv(the.file))
+    data = DATA(csv2Rows(the.file))
     rows = sortedRows(data)
     chops(data)
     n    = int(len(rows)**the.min)
