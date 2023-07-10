@@ -168,7 +168,7 @@ def chop(col,bestRows,restRows,cohen,bins):
   def x(row)  : return row.cells[col.at]
   def x1(pair): return x(pair[1])
   def _unsuper(pairs):
-    few= int(len(pairs)/bins) - 1
+    few = int(len(pairs)/bins) - 1
     tiny= cohen*col2div(col)
     now = obj(lo=x1(pairs[0]), hi=x1(pairs[0]), n=obj(best=0, rest=0))
     tmp = [now]
