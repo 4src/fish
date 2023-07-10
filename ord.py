@@ -164,18 +164,42 @@ def sortedRows(data):
 # pass1: over all values
 # pass2ab: counts for best.rest
 # pass3: merge using entropy
-def chop(a,cohen,bins):
-  enough   = len(a)/bins
-  medium   = cohen*stdev(a)
-  n,b4,tmp = 0,a[0],[]
-  for i,x in enumerate(a):
-    n += 1
-    if x != a[i-1] and x - b4 >= medium and n >= enough:
-      tmp += [(b4, x)]
-      b4,n = x,0
-  tmp += [(b4,big)]
-  tmp[0] = (-big, tmp[0][1])
-  return {round(k/(len(tmp)-1),2): lohi for k,lohi in enumerate(tmp)}
+def chop(col,bestRows,restRows,cohen,bins):
+  def x(row)  : return row.cells[col.at]
+  def x1(pair): return x(pair[1])
+  def _unsuper(pairs):
+    few= int(len(pairs)/bins) - 1
+    tiny= cohen*col2div(col)
+    now = obj(lo=x1(pairs[0]), hi=x1(pairs[0]), n=obj(best=0, rest=0))
+    tmp = [now]
+    for i,(klass,row) in enumerate(pairs):
+      here = x(row);
+      if here - now.lo > tiny and now.n.best + now.n.rest > few and here != x1(pairs[i-1]):
+        now  = obj(lo=now.hi, hi=here, n=obj(best=0,rest=0))
+        tmp += [now]
+      now.hi = here
+      now.n[klass] += 1
+    return tmp
+  def _super(ins):
+    outs,i = [],0
+    while i < len(ins):
+      a = ins[i]
+      if i < len(ins)-1:
+        b = ins[i+1]
+        merged = obj(lo=a.lo, hi=b.hi, n=obj(best=a.n.best+b.n.best, rest=a.n.rest+b.n.rest))
+        na, nb = a.n.best+a.n.rest, b.n.best+b.n.rest
+        if ent(merged.n) <= (ent(a.n)*na + ent(b.n)*nb) / (na+nb):
+          a = merged
+          i += 1
+      outs += [a]
+      i   += 1
+    return ins if len(ins) == len(outs) else _super(outs) 
+  bests  = [("best",row) for row in bestRows if x(row) != "?"]
+  rests  = [("rest",row) for row in restRows if x(row) != "?"]
+  out    = [(o.lo, o.hi) for o in _super( _unsuper( sorted(bests+rests, key=x1)))]
+  out   += [(out[-1][1], big)]
+  out[0] = (-big, out[0][1])
+  return {rnd2(k/(len(out)-1)): lohi for k,lohi in enumerate(tmp)}
 
 def chops(data):
   def _sym(col):
