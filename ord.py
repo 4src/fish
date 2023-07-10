@@ -190,18 +190,18 @@ def num2Chops(num,bestRows,restRows,cohen,bins):
         b = ins[i+1]
         merged = obj(lo=a.lo, hi=b.hi, n=obj(best=a.n.best+b.n.best, rest=a.n.rest+b.n.rest))
         na, nb = a.n.best+a.n.rest, b.n.best+b.n.rest
-        if ent(merged.n) <= (ent(a.n)*na + ent(b.n)*nb) / (na+nb): # if merged's signal is clearer
+        if ent(merged.n) <= (ent(a.n)*na + ent(b.n)*nb) / (na+nb): # merged's is clearer than a or b
           a = merged
-          i += 1 # skip over b
+          i += 1 # skip over b since we have just merged it with a
       outs += [a]
       i   += 1
     return ins if len(ins) == len(outs) else _merge(outs) 
   bests  = [("best",row) for row in bestRows if x(row) != "?"]
   rests  = [("rest",row) for row in restRows if x(row) != "?"]
-  tmp    = [(x.lo, x.hi) for x in _merge( _divide( sorted(bests+rests, key=x1)))]
-  tmp   += [(tmp[-1][1], big)]
-  tmp[0] = (-big, tmp[0][1])
-  return {rnd2(k/(len(out)-1)): lohi for k,lohi in enumerate(tmp)}
+  tmp    = [[x.lo, x.hi, x.n.best, x.n.rest] for x in _merge( _divide( sorted(bests+rests, key=x1)))]
+  tmp[ 0][0] = -big # lowest lo is negative infinity
+  tmp[-1][1] =  big # highest hi is positive infinity
+  return {rnd2(k/(len(out)-1)): set(lohi) for k,lohi in enumerate(tmp)}
 
 def cols2Chops(data):
   def _sym(col):
