@@ -175,7 +175,7 @@ def num2Chops(num,bestRows,restRows,cohen,bins):
     tmp = [now]
     for i,(klass,row) in enumerate(pairs):
       here = x(row);
-      if len(pairs) - i > few*.67 and here != x1(pairs[i-1]):
+      if len(pairs) - i > few *.67 and here != x1(pairs[i-1]):
         if here - now.lo > tiny and now.n.best + now.n.rest > few:
           now  = obj(lo=now.hi, hi=here, n=obj(best=0,rest=0))
           tmp += [now]
@@ -191,14 +191,15 @@ def num2Chops(num,bestRows,restRows,cohen,bins):
         merged = obj(lo=a.lo, hi=b.hi, n=obj(best=a.n.best+b.n.best, rest=a.n.rest+b.n.rest))
         na, nb = a.n.best+a.n.rest, b.n.best+b.n.rest
         if ent(merged.n) <= (ent(a.n)*na + ent(b.n)*nb) / (na+nb): # merged's is clearer than a or b
-          a = merged
+          a  = merged
           i += 1 # skip over b since we have just merged it with a
       outs += [a]
       i   += 1
     return ins if len(ins) == len(outs) else _merge(outs) 
   bests  = [("best",row) for row in bestRows if x(row) != "?"]
   rests  = [("rest",row) for row in restRows if x(row) != "?"]
-  tmp    = [[x.lo, x.hi, x.n.best, x.n.rest] for x in _merge( _divide( sorted(bests+rests, key=x1)))]
+  tmp    = [[x.lo, x.hi, x.n.best/(len(bestRows) + 1/big), x.n.rest/(len(restRows)+1/big)] 
+            for x in _merge( _divide( sorted(bests+rests, key=x1)))]
   tmp[ 0][0] = -big # lowest lo is negative infinity
   tmp[-1][1] =  big # highest hi is positive infinity
   return {rnd2(k/(len(out)-1)): set(lohi) for k,lohi in enumerate(tmp)}
