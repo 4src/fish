@@ -175,9 +175,10 @@ def num2Chops(num,bestRows,restRows,cohen,bins):
     tmp = [now]
     for i,(klass,row) in enumerate(pairs):
       here = x(row);
-      if here - now.lo > tiny and now.n.best + now.n.rest > few and here != x1(pairs[i-1]):
-        now  = obj(lo=now.hi, hi=here, n=obj(best=0,rest=0))
-        tmp += [now]
+      if len(pairs) - i > few*.67 and here != x1(pairs[i-1]):
+        if here - now.lo > tiny and now.n.best + now.n.rest > few:
+          now  = obj(lo=now.hi, hi=here, n=obj(best=0,rest=0))
+          tmp += [now]
       now.hi = here
       now.n[klass] += 1
     return tmp
