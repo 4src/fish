@@ -46,7 +46,6 @@ key_values = r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)"
 the = obj(**{m[1]: literal(m[2]) for m in re.finditer(key_values, __doc__)})
 
 random.seed(the.seed)
-def prints(a): return print(*a, sep="\t")
 
 
 R = random.random
@@ -75,12 +74,8 @@ class ROW(obj):
 class SYM(obj):
   def __init__(i, n=0, s="") :
     i.this = SYM
-    i.at = n
-    i.txt = s
-    i.n = 0
-    i.seen = {}
-    i.most = 0
-    i.mode = None
+    i.at,i.txt,i.n = n,s,0
+    i.seen, i.most, i.mode = {},0,None
 
   def add(i, x):
     if x != "?":
@@ -98,11 +93,8 @@ class SYM(obj):
 class NUM(obj):
   def __init__(i, n=0, s="") :
     i.this = NUM
-    i.at = n
-    i.txt = s
-    i.n = 0
-    i._kept = []
-    i.ok = True
+    i.at,i.txt,i.n = n,s,0
+    i._kept, i.ok = [],True
     i.heaven = 0 if s and s[-1] == "-" else 1
 
   def add(i, x):
@@ -271,6 +263,9 @@ def x2range(x, ranges):
       return k
   assert False, "should never get here"
 
+isa=isinstance
+
+def prints(a): return print(*a, sep="\t")
 def adds(i, l): [i.add(x) for x in l]; return i
 
 def rnd3(x): return rnd(x, 3)
