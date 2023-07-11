@@ -75,7 +75,7 @@ class NUM(obj):
 
 class COLS(obj):
   def __init__(i,names):
-    i.x,i.y,i.names, i.klass = names, [], [], names, None
+    i.x,i.y,i.names, i.klass =  [], [], names, None
     i.all = [COL(*x) for x in enumerate(names)]
     for col in i.all:
       z = col.txt[-1]
