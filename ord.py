@@ -198,11 +198,11 @@ def num2Chops(num,bestRows,restRows,cohen,bins):
     return ins if len(ins) == len(outs) else _merge(outs) 
   bests  = [("best",row) for row in bestRows if x(row) != "?"]
   rests  = [("rest",row) for row in restRows if x(row) != "?"]
-  tmp    = [[x.lo, x.hi, x.n.best/(len(bestRows) + 1/big), x.n.rest/(len(restRows)+1/big)] 
-            for x in _merge( _divide( sorted(bests+rests, key=x1)))]
+  B,R    = len(bestRows) + 1/big, len(restRows)+1/big 
+  tmp    = [[x.lo, x.hi, x.n.b/B, x.n.r/R] for x in _merge( _divide( sorted(bests+rests, key=x1)))]
   tmp[ 0][0] = -big # lowest lo is negative infinity
   tmp[-1][1] =  big # highest hi is positive infinity
-  return {rnd2(k/(len(out)-1)): set(lohi) for k,lohi in enumerate(tmp)}
+  return {rnd2(k/(len(out)-1)): tuple(lohi) for k,lohi in enumerate(tmp)}
 
 def cols2Chops(data):
   def _sym(col):
@@ -317,27 +317,6 @@ def pick(lst,n):
     r -= m/n
     if r <= 0: return x
   assert False,"should never get here"
-
-# def grow(lst,score):
-#   best={}
-#   sorted([(score(x),x) for x in lst], reverse=True)
-#
-#   for x in powerset(lst):
-#     n = len(x)
-#     if n==0: continue
-#     v = score(x)
-#     if n not in best:
-#       best[n]=0
-#       if n>2 and best[n-1] <= best[n=2]: lives -=1 
-#
-#
-#       
-#     best[n] = max(best[n],score(lst))
-#
-#      best[n] = best.get(n,0)
-#
-#       if n> len(best): 
-#
 #----------------------------------------------------
 def eg(fun):
   the = deepcopy(EG.saved)
