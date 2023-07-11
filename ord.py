@@ -337,8 +337,8 @@ class EG:
   Funs= locals()
   Saved = deepcopy(the)
   def Help(): return "\n".join([f"  -g  {s:8} {fun.__doc__}" for s,fun in EG.Todo().items()])
+  def Todo(): return {s:fun for s,fun in EG.Funs.items() if s[0].islower()}
   def Run(a=sys.argv) : cli(the.it); getattr(EG, the.go, exitWithHelp)()
-  def Todo()          : return {s:fun for s,fun in EG.Funs.items() if s[0].islower()}
   # --------------------------------
   def all() : 
     "run all tests, return sum of failures."
