@@ -36,32 +36,26 @@ class obj(object):
   def __init__(i, **d): i.it.update(**d)
   @property
   def it(i): return i.__dict__
-
   def __repr__(i):
-    def f(x): return x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x, float) else x)
-    return "{"+" ".join([f":{k} {f(i.it[k])}" for k in i.it if k[0] != "_"])+"}"
-
+    def pretty(x): return x.__name__ if callable(x) else (f"{x:3g}" if isa(x, float) else x)
+    return "{"+" ".join([f":{k} {pretty(i.it[k])}" for k in i.it if k[0] != "_"])+"}"
 
 key_values = r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)"
 the = obj(**{m[1]: literal(m[2]) for m in re.finditer(key_values, __doc__)})
 
 random.seed(the.seed)
-
-
 R = random.random
+isa = isinstance
 big = 1E30
 # --------------------------------------------------------
 def score(b, r, B, R):
   b = b/(B+1/big)
   r = r/(R+1/big)
-  if the.want == "plan"    :
-    return b**2 / (   b + r)
-  if the.want == "monitor" :
-    return r**2 / (   b + r)
-  if the.want == "doubt"   :
-    return (b+r) / abs(b - r)
-  if the.want == "xplore"  :
-    return 1 / (   b + r)
+  match the.want: 
+    case "plan"    : return b**2 / (   b + r)
+    case "monitor" : return r**2 / (   b + r)
+    case "doubt"   : return (b+r) / abs(b - r)
+    case "xplore"  : return 1 / (   b + r)
 
 def within(x, lo, hi): return lo <= x < hi
 # --------------------------------------------------------
@@ -263,8 +257,6 @@ def x2range(x, ranges):
       return k
   assert False, "should never get here"
 
-isa=isinstance
-
 def prints(a): return print(*a, sep="\t")
 def adds(i, l): [i.add(x) for x in l]; return i
 
@@ -301,12 +293,14 @@ def cli(d):
       if ("-"+k[0]) == x or ("--"+k) == x:
         s = "True" if s == "False" else ("False" if s == "True" else sys.argv[j+1])
     d[k] = str2thing(s)
-  if d["help"]: showHelp()
+  if d["help"]: exitWithHelp()
 
-def showHelp():
+def exitWithHelp():
   def yell(s): return colored(s[1], "yellow",attrs=["bold"])
   def bold(s): return colored(s[1], "white", attrs=["bold"])
-  print(re.sub(r"(\n[A-Z]+:)", yell, re.sub(r"(-[-]?[\w]+)", bold, __doc__)))
+  s= __doc__ + "\n" + EG.Help()
+  print(re.sub(r"(\n[A-Z]+:)", yell, re.sub(r"(-[-]?[\w]+)", bold, s)))
+  sys.exit(0)
 
 # --- oops! two scores
 # - hide bestRows,restORws inside a lambda
@@ -333,28 +327,36 @@ def pick(lst, n):
   assert False, "should never get here"
 # ----------------------------------------------------
 def eg(fun):
-  the = deepcopy(EG.saved)
+  the = deepcopy(EG.Saved)
   random.seed(the.seed)
   failed = fun() == False
   print("❌ FAIL" if failed else "✅ PASS", fun.__name__)
   return failed
 
 class EG:
-  saved = deepcopy(the)
-  def run(a=sys.argv): cli(the.it); getattr(EG, the.go, lambda: showHelp())()
-  def all(): sys.exit(sum(map(eg,[
-             EG.the, EG.data, EG.chop, EG.sorted, EG.ideas
-             ])))
+  Funs= locals()
+  Saved = deepcopy(the)
+  def Help(): return "\n".join([f"  -g  {s:8} {fun.__doc__}" for s,fun in EG.Todo().items()])
+  def Run(a=sys.argv) : cli(the.it); getattr(EG, the.go, exitWithHelp)()
+  def Todo()          : return {s:fun for s,fun in EG.Funs.items() if s[0].islower()}
   # --------------------------------
-  def the()  : print(the)
+  def all() : 
+    "run all tests, return sum of failures."
+    sys.exit(sum(map(eg,EG.Todo())))
+
+  def the()  : 
+    "show config options"
+    print(the)
 
   def data() :
+    "can we read data from disk and print its stats?"
     stats1 = DATA(csv2Rows(the.file)).stats()
     prints(stats1.it.keys())
     prints(stats1.it.values())
 
   # its flopped
   def sorted():
+    "can we sort the rows into best and rest?"
     data = DATA(csv2Rows(the.file))
     rows = data.sortedRows()
     prints(data.cols.names)
@@ -368,6 +370,7 @@ class EG:
     prints(["rest"]+list(stats2.it.values()))
 
   def ideas():
+    "can we find good ranges?"
     data = DATA(csv2Rows(the.file))
     rows = data.sortedRows()
     chops(data)
@@ -384,4 +387,4 @@ class EG:
 # ----------------------------------------------------
 
 
-EG.run()
+EG.Run()
