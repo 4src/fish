@@ -33,11 +33,12 @@ from ast import literal_eval as literal
 from fileinput import FileInput as file_or_stdin
 
 class obj(object):
-  def __init__(i,*lst,**d): i.__dict__.update(**i.has(*lst,**d))
-  def has(i,*lst,**d): return d
+  def __init__(i,**d): i.it.update(**d)
+  @property
+  def it(i): return i.__dict__
   def __repr__(i):
     f=lambda x:x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x,float) else x)
-    return "{"+" ".join([f":{k} {f(v)}" for k,v in i.__dict__.items() if k[0] != "_"])+"}"
+    return "{"+" ".join([f":{k} {f(v)}" for k,v in i.it.items() if k[0] != "_"])+"}"
 
 key_values = r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)"
 the = obj(**{m[1]:literal(m[2]) for m in re.finditer(key_values,__doc__)})
@@ -57,6 +58,9 @@ def score(b,r,B,R):
 
 def within(x,lo,hi): return lo <= x < hi
 #--------------------------------------------------------
+def COL(n=0, s=""):
+  return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
+
 class ROW(obj):
   def __init__(i,a):
     i.this=ROW; i.cells=a;  i.cooked=a[:]
@@ -66,19 +70,15 @@ class SYM(obj):
     i.this=SYM; i.at=n; i.txt=s; i.n=0; i.seen={}; i.most=0; i.mode=None
 
 class NUM(obj):
-  def __init__(i, n=0, s="") : 
+  def __init__(i, n=0, s="") :
     i.this=NUM;i.at=n; i.txt=s; i.n=0; i._kept=[]; i.ok=True; i.heaven= 0 if s and s[-1]=="-" else 1
 
-def COL(n=0, s=""):
-  return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
-
 class COLS(obj):
-  def has(i,names):
-    x,y,all = [], [], [COL(*x) for x in enumerate(names)]
-    for col in all:
+  def __init__(i,names):
+    i.names, i.x,i.y,i.all = names, [], [], [COL(*x) for x in enumerate(names)]
+    for col in i.all:
       if col.txt[-1] != "X":
-        (y if col.txt[-1] in "+-!" else x).append(col)
-    return dict(this=COLS, x=x, y=y, all=all, names=names)
+        (i.y if col.txt[-1] in "+-!" else i.x).append(col)
 
 def DATA(src):
   data = obj(this=DATA, rows=[], cols=None)
@@ -93,7 +93,7 @@ def clone(data,rows=[]):
 def row4Data(row,data):
   def _create(): data.cols  = COLS(row.cells)
   def _update(): data.rows += [row4Cols(row,data.cols)]
-  (_update if data.cols else _create)()
+  _update() if data.cols else _create()
 
 def row4Cols(row,cols):
   for cols in [cols.x, cols.y]:
@@ -114,7 +114,7 @@ def x4Col(x,col):
     (_num if col.this is NUM else _sym)()
 
 def colIsOk(col):
-  if col.this is NUM and not col.ok: col._kept.sort(); col.ok=True 
+  if col.this is NUM and not col.ok: col._kept.sort(); col.ok=True
   return col
 
 def col2mid(col, decimals=None):
@@ -142,13 +142,13 @@ def num2Chops(num,bestRows,restRows,cohen,bins):
   def _divide(pairs):
     few = int(len(pairs)/bins) - 1
     tiny= cohen*col2div(num)
-    now = obj(lo=x1(pairs[0]), hi=x1(pairs[0]), n=obj(best=0, rest=0))
+    now = obj(lo=x1(pairs[0]), hi=x1(pairs[0]), n=it(best=0, rest=0))
     tmp = [now]
     for i,(klass,row) in enumerate(pairs):
       here = x(row);
       if len(pairs) - i > few *.67 and here != x1(pairs[i-1]):
         if here - now.lo > tiny and now.n.best + now.n.rest > few:
-          now  = obj(lo=now.hi, hi=here, n=obj(best=0,rest=0))
+          now  = obj(lo=now.hi, hi=here, n=it(best=0,rest=0))
           tmp += [now]
       now.hi = here
       now.n[klass] += 1
@@ -159,7 +159,7 @@ def num2Chops(num,bestRows,restRows,cohen,bins):
       a = ins[i]
       if i < len(ins)-1:
         b = ins[i+1]
-        merged = obj(lo=a.lo, hi=b.hi, n=obj(best=a.n.best+b.n.best, rest=a.n.rest+b.n.rest))
+        merged = obj(lo=a.lo, hi=b.hi, n=it(best=a.n.best+b.n.best, rest=a.n.rest+b.n.rest))
         na, nb = a.n.best+a.n.rest, b.n.best+b.n.rest
         if ent(merged.n) <= (ent(a.n)*na + ent(b.n)*nb) / (na+nb): # merged's is clearer than a or b
           a  = merged
@@ -298,7 +298,7 @@ def eg(fun):
 
 class EG:
   saved = deepcopy(the)
-  def run(a=sys.argv): cli(the.__dict__); getattr(EG, the.go, EG.oops)()
+  def run(a=sys.argv): cli(the.it); getattr(EG, the.go, EG.oops)()
   def oops()    : print("??")
   def nothing() : ...
   def all()     : sys.exit(sum(map(eg,
@@ -308,8 +308,8 @@ class EG:
 
   def data() :
     stats1=data2stats(DATA(csv2Rows(the.file)))
-    prints(stats1.__dict__.keys())
-    prints(stats1.__dict__.values())
+    prints(stats1.it.keys())
+    prints(stats1.it.values())
 
   # its flopped
   def sorted():
@@ -320,9 +320,9 @@ class EG:
     [prints(row.cells) for row in rows[-10:]]
     stats1=data2stats(clone(data,rows[:40]))
     stats2=data2stats(clone(data,rows[40:]))
-    prints(["\n"]+list(stats1.__dict__.keys()))
-    prints(["best"]+list(stats1.__dict__.values()))
-    prints(["rest"]+list(stats2.__dict__.values()))
+    prints(["\n"]+list(stats1.it.keys()))
+    prints(["best"]+list(stats1.it.values()))
+    prints(["rest"]+list(stats2.it.values()))
 
   def ideas():
     data = DATA(csv2Rows(the.file))
