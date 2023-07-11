@@ -30,6 +30,9 @@ docs/%.html: %.py
 MARKDOWN = pandoc --from gfm --to html --standalone
 all: $(patsubst %.md,%.html,$(wildcard *.md)) Makefile
 
+pretty:
+	autopep8 -i -a --max-line-length 101 --indent-size 2 ord.py
+
 xclean:
 	rm -f $(patsubst %.md,%.html,$(wildcard *.md))
 	rm -f *.bak *~
