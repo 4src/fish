@@ -75,10 +75,12 @@ class NUM(obj):
 
 class COLS(obj):
   def __init__(i,names):
-    i.names, i.x,i.y,i.all = names, [], [], [COL(*x) for x in enumerate(names)]
+    i.x,i.y,i.names, i.klass = names, [], [], names, None
+    i.all = [COL(*x) for x in enumerate(names)]
     for col in i.all:
-      if col.txt[-1] != "X":
-        (i.y if col.txt[-1] in "+-!" else i.x).append(col)
+      z = col.txt[-1]
+      if z == "!": i.klass = col
+      if z != "X": (i.y if z in "+-!" else i.x).append(col)
 
 def DATA(src):
   data = obj(this=DATA, rows=[], cols=None)
