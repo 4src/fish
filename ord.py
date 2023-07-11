@@ -71,7 +71,8 @@ class SYM(obj):
 
 class NUM(obj):
   def __init__(i, n=0, s="") :
-    i.this=NUM;i.at=n; i.txt=s; i.n=0; i._kept=[]; i.ok=True; i.heaven= 0 if s and s[-1]=="-" else 1
+    i.this=NUM;i.at=n; i.txt=s; i.n=0; i._kept=[]; i.ok=True
+    i.heaven= 0 if s and s[-1]=="-" else 1
 
 class COLS(obj):
   def __init__(i,names):
