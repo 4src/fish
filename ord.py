@@ -33,7 +33,8 @@ from ast import literal_eval as literal
 from fileinput import FileInput as file_or_stdin
 
 class obj(object):
-  def __init__(i,**d): i.__dict__.update(**d)
+  def __init__(i,*lst,**d): i.__dict__.update(**i.has(*lst,**d))
+  def has(i,*lst,**d): return d
   def __repr__(i):
     f=lambda x:x.__name__ if callable(x) else (f"{x:3g}" if isinstance(x,float) else x)
     return "{"+" ".join([f":{k} {f(v)}" for k,v in i.__dict__.items() if k[0] != "_"])+"}"
@@ -46,10 +47,6 @@ prints = lambda a: print(*a,sep="\t")
 R= random.random
 big  = 1E30
 #--------------------------------------------------------
-def TEST(col,lo,hi): return obj(this=TEST, isSym=col.this==SYM, at=col.at, txt=col.txt,lo=lo,hi=hi)
-def ORS()          : return obj(this=ORS, tests=[])
-def ANDS()         : return obj(this=ANDS, ors={}, score=0)
-
 def score(b,r,B,R):
   b = b/(B+1/big)
   r = r/(R+1/big)
@@ -58,66 +55,40 @@ def score(b,r,B,R):
   if the.want=="doubt"   : return (b+r) / abs(b - r)
   if the.want=="xplore"  : return 1     / (   b + r)
 
-def ands2Score(ands, bestRows, restRows):
-  b = [_ for _ in bestRows if selects(ands,row)]
-  r = [_ for _ in restRows if selects(ands,row)]
-  size = sum((len(ors) for ors in ands.ors))
-  ands.score= score(*map(len,[b,r,bestRows,restRows])) / size
-  return ands.score
-
 def within(x,lo,hi): return lo <= x < hi
-
-def selects(x, row):
-  def _test(test) : return (_sym if test.isSym else _num)(test,row[test.at])
-  def _num(test,v): return v=="?" or within(v,test.lo,test.hi)
-  def _sym(test,v): return v=="?" or v == test.lo
-  def _ors(ors):
-    for test in ors.tests:
-      if _test(test): return True
-  def _ands(ands):
-    for ors in ands.ors.values():
-      if not _ors(ors,row): return False
-    return True
-  return (_ands if x.this is ANDS else (_ors if x.this is ORS else _tests))(x)
-
-def tests4Ands(tests,ands=None):
-  ands = ands or ANDS()
-  def _ors(ors, new):
-    out, used = [], False
-    for old in ors.tests:
-      if  (new.hi == old.hi and new.lo == old.lo): used=True; out += [old];
-      elif new.hi == old.lo                      : used=True; out += [old]; old.lo = new.lo
-      elif new.lo == old.hi                      : used=True; out += [old]; old.hi = new.hi
-      elif new.lo <  old.lo                      : used=True; out += [new,old]
-    if not used: out += [new]
-    return out
-  def _and(new):
-    ors = ands.ors[new.at] = ands.ors.get(new.at,ORS())
-    ors.tests =  _ors(ors,new)
-  [_ands(test) for test in tests]
-  return ands
-
 #--------------------------------------------------------
-def ROW(a)         : return obj(this=ROW, cells=a, cooked=a[:])
+class ROW(obj):
+  def __init__(i,a):
+    i.this=ROW; i.cells=a;  i.cooked=a[:]
 
-def SYM(n=0, s="") : return obj(this=SYM, at=n, txt=s, n=0, seen={}, most=0, mode=None)
-def NUM(n=0, s="") : return obj(this=NUM, at=n, txt=s, n=0, _kept=[], ok=True,
-                               heaven= 0 if s and s[-1]=="-" else 1)
+class SYM(obj):
+  def __init__(i,n=0,s="") :
+    i.this=SYM; i.at=n; i.txt=s; i.n=0; i.seen={}; i.most=0; i.mode=None
+
+class NUM(obj):
+  def __init__(i, n=0, s="") : 
+    i.this=NUM;i.at=n; i.txt=s; i.n=0; i._kept=[]; i.ok=True; i.heaven= 0 if s and s[-1]=="-" else 1
 
 def COL(n=0, s=""):
   return (NUM if s and s[0].isupper() else SYM)(n=n,s=s)
 
-def COLS(names):
-  x,y,all = [], [], [COL(*x) for x in enumerate(names)]
-  for col in all:
-    if col.txt[-1] != "X":
-      (y if col.txt[-1] in "+-!" else x).append(col)
-  return obj(this=COLS, x=x, y=y, all=all, names=names)
+class COLS(obj):
+  def has(i,names):
+    x,y,all = [], [], [COL(*x) for x in enumerate(names)]
+    for col in all:
+      if col.txt[-1] != "X":
+        (y if col.txt[-1] in "+-!" else x).append(col)
+    return dict(this=COLS, x=x, y=y, all=all, names=names)
 
 def DATA(src):
   data = obj(this=DATA, rows=[], cols=None)
   [row4Data(row,data) for row in src]
   return data
+
+def clone(data,rows=[]):
+  out=DATA([ROW(data.cols.names)])
+  [row4Data(row,out) for row in rows]
+  return out
 
 def row4Data(row,data):
   def _create(): data.cols  = COLS(row.cells)
@@ -340,21 +311,18 @@ class EG:
     prints(stats1.__dict__.keys())
     prints(stats1.__dict__.values())
 
-  def chop() :
-    d=DATA(csv2Rows(the.file))
-    chops(d)
-    for col in d.cols.x: print(col.chops)
-    [prints(row.cooked) for row in d.rows[:10]]
-    #col = d.cols.x[1]
-    #a  = ok(col)._kept
-    #for i,row in enumerate(d.rows): print(row.cells[col.at],row.cooked[ col.at], a[0], a[-1])
-
+  # its flopped
   def sorted():
     data = DATA(csv2Rows(the.file))
     rows = sortedRows(data)
     prints(data.cols.names)
     [prints(row.cells) for row in rows[:10]]; print("")
     [prints(row.cells) for row in rows[-10:]]
+    stats1=data2stats(clone(data,rows[:40]))
+    stats2=data2stats(clone(data,rows[40:]))
+    prints(["\n"]+list(stats1.__dict__.keys()))
+    prints(["best"]+list(stats1.__dict__.values()))
+    prints(["rest"]+list(stats2.__dict__.values()))
 
   def ideas():
     data = DATA(csv2Rows(the.file))
