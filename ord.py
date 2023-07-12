@@ -49,13 +49,14 @@ isa = isinstance
 big = 1E30
 # --------------------------------------------------------
 def score(b, r, B, R):
+  "Given you've found `b` or `r` items of `B,R`, how much do we like you?"
   b = b/(B+1/big)
   r = r/(R+1/big)
-  match the.want: 
-    case "plan"    : return b**2 / (   b + r)
-    case "monitor" : return r**2 / (   b + r)
-    case "doubt"   : return (b+r) / abs(b - r)
-    case "xplore"  : return 1 / (   b + r)
+  match the.want:
+    case "plan"    : return b**2 / (   b + r)    # seeking best
+    case "monitor" : return r**2 / (   b + r)    # seeking rest
+    case "doubt"   : return (b+r) / abs(b - r)   # seeking border of best/rest 
+    case "xplore"  : return 1 / (   b + r)       # seeking other
 
 def within(x, lo, hi): return lo <= x < hi
 # --------------------------------------------------------
@@ -64,7 +65,7 @@ class ROW(obj):
     i.this = ROW
     i.cells = a
     i.cooked = a[:]
-
+# --------------------------------------------------------
 class SYM(obj):
   def __init__(i, n=0, s="") :
     i.this = SYM
@@ -83,7 +84,7 @@ class SYM(obj):
 
   def mid(i, decimals=None):
     return i.mode
-
+# -----------------------------------------------------------------------------
 class NUM(obj):
   def __init__(i, n=0, s="") :
     i.this = NUM
@@ -107,13 +108,12 @@ class NUM(obj):
   @property
   def kept(i):
     if not i.ok:
-      i._kept.sort()
-      i.ok = True
+      i._kept, i.ok = sorted(i._kept), True
     return i._kept
 
   def mid(i, decimals=None):
     return rnd(median(i.kept), decimals)
-
+# -----------------------------------------------------------------------------
 class COLS(obj):
   def __init__(i, names):
     i.x, i.y, i.all, i.names = [], [], [], names
@@ -125,20 +125,22 @@ class COLS(obj):
 
   def add(i, row):
     [col.add(row.cells[col.at]) for cols in [i.x, i.y] for col in cols]
-
-
+# -----------------------------------------------------------------------------
 class DATA(obj):
   def __init__(i, src=[]):
     i.rows, i.cols = [], None
-    adds(i, src)
+    i.adds(src)
 
   def add(i, row):
     def _create(): i.cols = COLS(row.cells)
     def _update(): i.rows += [i.cols.add(row)]
     _update() if i.cols else _create()
 
+  def adds(i, l):
+    [i.add(x) for x in l]; return i
+
   def clone(data, rows=[]):
-    return adds(DATA([ROW(data.cols.names)]), rows)
+    return DATA([ROW(data.cols.names)]).add(rows)
 
   def sortedRows(i, rows=None, cols=None):
     def _distance2heaven(row):
@@ -149,7 +151,7 @@ class DATA(obj):
   def stats(i, cols=None, what="mid", decimals=3):
     def fun(col): return col.mid(decimals) if what == "mid" else col.div(decimals)
     return obj(N=len(i.rows),**{col.txt: fun(col) for col in cols or i.cols.y})
-# ----------------------------------------------------
+# -----------------------------------------------------------------------------
 # pass1: over all values
 # pass2ab: counts for best.rest
 # pass3: merge using entropy
@@ -249,7 +251,6 @@ def rows2dist(data, row1, row2):
 # XXX waht ranges and mtj etc/ return dict.
 # d[short] = lomho
 # -- this needs to be in a test
-def adds(i, l): [i.add(x) for x in l]; return i
 
 def cli(d):
   for k, v in d.items():
