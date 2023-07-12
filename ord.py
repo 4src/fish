@@ -334,7 +334,7 @@ def pick(lst, n):
 # ----------------------------------------------------
 class EG:
   def DO(a=locals()) : return {s:fun for s,fun in a.items() if s[0].islower()}
-  def RUN(a=sys.argv): cli(the.it); getattr(EG, the.go, dir)()
+  def RUN(a=sys.argv): cli(the.it); getattr(EG, the.go, exit)()
   def RUN1(fun):
     saved = deepcopy(the)
     random.seed(the.seed)
