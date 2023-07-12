@@ -249,42 +249,7 @@ def rows2dist(data, row1, row2):
 # XXX waht ranges and mtj etc/ return dict.
 # d[short] = lomho
 # -- this needs to be in a test
-def x2range(x, ranges):
-  if x == "?":
-    return x
-  for k, (lo, hi) in ranges.items():
-    if within(x, lo, hi):
-      return k
-  assert False, "should never get here"
-
-def prints(a): return print(*a, sep="\t")
 def adds(i, l): [i.add(x) for x in l]; return i
-
-def rnd3(x): return rnd(x, 3)
-def rnd2(x): return rnd(x, 2)
-def rnd(x, decimals=None): return x if decimals is None else round(x, decimals)
-
-def median(a): return per(a, .5)
-
-def ent(d):
-  N = sum((n for n in d.values()))
-  return - sum(( n/N * math.log(n/N, 2) for n in d.values() if n > 0 ))
-
-def stdev(a): return (per(a, .9) - per(a, .1)) / 2.56
-def per(a, p=.5): return a[int(p*len(a))]
-
-def str2thing(x: str):
-  try:
-    return literal(x)
-  except BaseException:
-    return x
-
-def csv2Rows(file):
-  with file_or_stdin(None if file == "-" else file) as src:
-    for line in src:
-      line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
-      if line:
-        yield ROW([str2thing(s.strip()) for s in line.split(",")])
 
 def cli(d):
   for k, v in d.items():
@@ -295,12 +260,49 @@ def cli(d):
     d[k] = str2thing(s)
   if d["help"]: exitWithHelp()
 
+def csv2Rows(file):
+  with file_or_stdin(None if file == "-" else file) as src:
+    for line in src:
+      line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
+      if line:
+        yield ROW([str2thing(s.strip()) for s in line.split(",")])
+
+def ent(d):
+  N = sum((n for n in d.values()))
+  return - sum(( n/N * math.log(n/N, 2) for n in d.values() if n > 0 ))
+
 def exitWithHelp():
   def yell(s): return colored(s[1], "yellow",attrs=["bold"])
   def bold(s): return colored(s[1], "white", attrs=["bold"])
-  s= __doc__ + "\n" + EG.Help()
-  print(re.sub(r"(\n[A-Z]+:)", yell, re.sub(r"(-[-]?[\w]+)", bold, s)))
+  egs= "ACTIONS:\n"+"\n".join([f"  -g  {s:8} {f.__doc__}" for s,f in EG.DO().items()])
+  print(re.sub(r"(\n[A-Z]+:)", yell, re.sub(r"(-[-]?[\w]+)", bold, __doc__ + "\n" + egs)))
   sys.exit(0)
+
+def median(a): return per(a, .5)
+
+def per(a, p=.5): return a[int(p*len(a))]
+
+def prints(a): return print(*a, sep="\t")
+
+def rnd(x, decimals=None): return x if decimals is None else round(x, decimals)
+def rnd3(x): return rnd(x, 3)
+def rnd2(x): return rnd(x, 2)
+
+def stdev(a): return (per(a, .9) - per(a, .1)) / 2.56
+
+def str2thing(x: str):
+  try:
+    return literal(x)
+  except BaseException:
+    return x
+
+def x2range(x, ranges):
+  if x == "?":
+    return x
+  for k, (lo, hi) in ranges.items():
+    if within(x, lo, hi):
+      return k
+  assert False, "should never get here"
 
 # --- oops! two scores
 # - hide bestRows,restORws inside a lambda
@@ -327,24 +329,22 @@ def pick(lst, n):
   assert False, "should never get here"
 # ----------------------------------------------------
 def eg(fun):
-  the = deepcopy(EG.Saved)
+  saved = deepcopy(the)
   random.seed(the.seed)
   failed = fun() == False
   print("❌ FAIL" if failed else "✅ PASS", fun.__name__)
+  the = deepcopy(saved)
   return failed
 
 class EG:
-  Funs= locals()
-  Saved = deepcopy(the)
-  def Help(): return "\n".join([f"  -g  {s:8} {fun.__doc__}" for s,fun in EG.Todo().items()])
-  def Todo(): return {s:fun for s,fun in EG.Funs.items() if s[0].islower()}
-  def Run(a=sys.argv) : cli(the.it); getattr(EG, the.go, exitWithHelp)()
+  def DO(a=locals()) : return {s:fun for s,fun in a.items() if s[0].islower()}
+  def RUN(a=sys.argv): cli(the.it); getattr(EG, the.go, exitWithHelp)()
   # --------------------------------
-  def all() : 
-    "run all tests, return sum of failures."
-    sys.exit(sum(map(eg,EG.Todo())))
+  def all() :
+    "run all actions, return sum of failures."
+    sys.exit(sum(map(eg,EG.DO())))
 
-  def the()  : 
+  def the() :
     "show config options"
     print(the)
 
@@ -386,5 +386,4 @@ class EG:
       prints(x)
 # ----------------------------------------------------
 
-
-EG.Run()
+EG.RUN()
