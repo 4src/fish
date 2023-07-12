@@ -20,6 +20,8 @@ OPTIONS:
   -S  --Some   how may nums to keep       = 256
   -w  --want   plan|monitor|xplore|doubt  = "plan"
 """
+"Define system options"
+
 # ----------------------------------------------------
 # def aa4Bb = some function that updated Bb using aa
 # def aa2Bb = some function that conversts aa to Bb
@@ -33,6 +35,8 @@ from ast import literal_eval as literal
 from fileinput import FileInput as file_or_stdin
 
 class obj(object):
+  """My base objects:  pretty prints; can be initialized easily;
+  all content available via self.it.""" 
   def __init__(i, **d): i.it.update(**d)
   @property
   def it(i): return i.__dict__
@@ -329,21 +333,20 @@ def pick(lst, n):
       return x
   assert False, "should never get here"
 # ----------------------------------------------------
-def eg(fun):
-  saved = deepcopy(the)
-  random.seed(the.seed)
-  failed = fun() == False
-  print("❌ FAIL" if failed else "✅ PASS", fun.__name__)
-  the = deepcopy(saved)
-  return failed
-
 class EG:
   def DO(a=locals()) : return {s:fun for s,fun in a.items() if s[0].islower()}
-  def RUN(a=sys.argv): cli(the.it); getattr(EG, the.go, exitWithHelp)()
+  def RUN(a=sys.argv): cli(the.it); getattr(EG, the.go, exit)()
+  def RUN1(fun):
+    saved = deepcopy(the)
+    random.seed(the.seed)
+    failed = fun() == False
+    print("❌ FAIL" if failed else "✅ PASS", fun.__name__)
+    the = deepcopy(saved)
+    return failed
   # --------------------------------
   def all() :
     "run all actions, return sum of failures."
-    sys.exit(sum(map(eg,EG.DO())))
+    sys.exit(sum(map(EG.RUN1,EG.DO())))
 
   def the() :
     "show config options"
