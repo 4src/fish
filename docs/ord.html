@@ -98,8 +98,6 @@ OPTIONS:
   -S  --Some   how may nums to keep       = 256
   -w  --want   plan|monitor|xplore|doubt  = &#34;plan&#34;
 &#34;&#34;&#34;
-&#34;Define system options&#34;
-
 # ----------------------------------------------------
 # def aa4Bb = some function that updated Bb using aa
 # def aa2Bb = some function that conversts aa to Bb
@@ -122,22 +120,20 @@ class obj(object):
     def pretty(x): return x.__name__ if callable(x) else (f&#34;{x:3g}&#34; if isa(x, float) else x)
     return &#34;{&#34;+&#34; &#34;.join([f&#34;:{k} {pretty(i.it[k])}&#34; for k in i.it if k[0] != &#34;_&#34;])+&#34;}&#34;
 
-key_values = r&#34;\n\s*-\w+\s*--(\w+).*=\s*(\S+)&#34;
-the = obj(**{m[1]: literal(m[2]) for m in re.finditer(key_values, __doc__)})
-
-random.seed(the.seed)
+the = None
 R = random.random
 isa = isinstance
 big = 1E30
 # --------------------------------------------------------
 def score(b, r, B, R):
+  &#34;Given you&#39;ve found `b` or `r` items of `B,R`, how much do we like you?&#34;
   b = b/(B+1/big)
   r = r/(R+1/big)
-  match the.want: 
-    case &#34;plan&#34;    : return b**2 / (   b + r)
-    case &#34;monitor&#34; : return r**2 / (   b + r)
-    case &#34;doubt&#34;   : return (b+r) / abs(b - r)
-    case &#34;xplore&#34;  : return 1 / (   b + r)
+  match the.want:
+    case &#34;plan&#34;    : return b**2 / (   b + r)    # seeking best
+    case &#34;monitor&#34; : return r**2 / (   b + r)    # seeking rest
+    case &#34;doubt&#34;   : return (b+r) / abs(b - r)   # seeking border of best/rest 
+    case &#34;xplore&#34;  : return 1 / (   b + r)       # seeking other
 
 def within(x, lo, hi): return lo &lt;= x &lt; hi
 # --------------------------------------------------------
@@ -146,7 +142,7 @@ class ROW(obj):
     i.this = ROW
     i.cells = a
     i.cooked = a[:]
-
+# --------------------------------------------------------
 class SYM(obj):
   def __init__(i, n=0, s=&#34;&#34;) :
     i.this = SYM
@@ -165,7 +161,7 @@ class SYM(obj):
 
   def mid(i, decimals=None):
     return i.mode
-
+# -----------------------------------------------------------------------------
 class NUM(obj):
   def __init__(i, n=0, s=&#34;&#34;) :
     i.this = NUM
@@ -184,18 +180,19 @@ class NUM(obj):
         i._kept[int(len(i._kept)*R())] = x
 
   def div(i, decimals=None):
-    return rnd(stdev(i.kept), decimals)
+    n=len(i.kept)
+    return rnd((i.kept[.9*n//1] - i.kept[.1*n//1])/2.56, decimals)
 
   @property
   def kept(i):
     if not i.ok:
-      i._kept.sort()
-      i.ok = True
+      i._kept, i.ok = sorted(i._kept), True
     return i._kept
 
   def mid(i, decimals=None):
-    return rnd(median(i.kept), decimals)
-
+    n=len(i.kept)
+    return rnd(i.kept[.5*n//1], decimals)
+# -----------------------------------------------------------------------------
 class COLS(obj):
   def __init__(i, names):
     i.x, i.y, i.all, i.names = [], [], [], names
@@ -207,20 +204,22 @@ class COLS(obj):
 
   def add(i, row):
     [col.add(row.cells[col.at]) for cols in [i.x, i.y] for col in cols]
-
-
+# -----------------------------------------------------------------------------
 class DATA(obj):
   def __init__(i, src=[]):
     i.rows, i.cols = [], None
-    adds(i, src)
+    i.adds(src)
 
   def add(i, row):
     def _create(): i.cols = COLS(row.cells)
     def _update(): i.rows += [i.cols.add(row)]
     _update() if i.cols else _create()
 
+  def adds(i, l):
+    [i.add(x) for x in l]; return i
+
   def clone(data, rows=[]):
-    return adds(DATA([ROW(data.cols.names)]), rows)
+    return DATA([ROW(data.cols.names)]).add(rows)
 
   def sortedRows(i, rows=None, cols=None):
     def _distance2heaven(row):
@@ -229,9 +228,9 @@ class DATA(obj):
     return sorted(rows or i.rows, key=_distance2heaven)
 
   def stats(i, cols=None, what=&#34;mid&#34;, decimals=3):
-    def fun(col): return col.mid(decimals) if what == &#34;mid&#34; else col.div(decimals)
+    def fun(col): return (col.mid if what == &#34;mid&#34; else col.div)(decimals)
     return obj(N=len(i.rows),**{col.txt: fun(col) for col in cols or i.cols.y})
-# ----------------------------------------------------
+# -----------------------------------------------------------------------------
 # pass1: over all values
 # pass2ab: counts for best.rest
 # pass3: merge using entropy
@@ -274,7 +273,7 @@ def num2Chops(num, bestRows, restRows, cohen, bins):
   tmp = [[x.lo, x.hi, x.n.b/B, x.n.r/R] for x in _merge( _divide( sorted(bests+rests, key=x1)))]
   tmp[ 0][0] = -big  # lowest lo is negative infinity
   tmp[-1][1] = big  # highest hi is positive infinity
-  return {rnd2(k/(len(out)-1)): tuple(lohi) for k, lohi in enumerate(tmp)}
+  return {rnd(k/(len(out)-1)): tuple(lohi) for k, lohi in enumerate(tmp)}
 
 def cols2Chops(data):
   def _sym(col):
@@ -331,16 +330,29 @@ def rows2dist(data, row1, row2):
 # XXX waht ranges and mtj etc/ return dict.
 # d[short] = lomho
 # -- this needs to be in a test
-def adds(i, l): [i.add(x) for x in l]; return i
 
-def cli(d):
-  for k, v in d.items():
-    s = str(v)
-    for j, x in enumerate(sys.argv):
-      if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
-        s = &#34;True&#34; if s == &#34;False&#34; else (&#34;False&#34; if s == &#34;True&#34; else sys.argv[j+1])
-    d[k] = str2thing(s)
-  if d[&#34;help&#34;]: exitWithHelp()
+class SETTINGS(obj):
+  def __init__(i,s):
+    i.help = s
+    want = r&#34;\n\s*-\w+\s*--(\w+).*=\s*(\S+)&#34;
+    super().__init__(**{m[1]: literal(m[2]) for m in re.finditer(want, s)})
+
+  def cli(i):
+    for k, v in i.it.items():
+      s = str(v)
+      for j, x in enumerate(sys.argv):
+        if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
+          s = &#34;True&#34; if s == &#34;False&#34; else (&#34;False&#34; if s == &#34;True&#34; else sys.argv[j+1])
+      i.it[k] = str2thing(s)
+    if i.it[&#34;help&#34;]: i.exitWithHelp()
+    return i
+
+  def exitWithHelp(i):
+    def yell(s): return colored(s[1], &#34;yellow&#34;,attrs=[&#34;bold&#34;])
+    def bold(s): return colored(s[1], &#34;white&#34;, attrs=[&#34;bold&#34;])
+    egs= &#34;ACTIONS:\n&#34;+&#34;\n&#34;.join([f&#34;  -g  {s:8} {i.help}&#34; for s,f in EG.DO().items()])
+    print(re.sub(r&#34;(\n[A-Z]+:)&#34;, yell, re.sub(r&#34;(-[-]?[\w]+)&#34;, bold, __doc__ + &#34;\n&#34; + egs)))
+    sys.exit(0)
 
 def csv2Rows(file):
   with file_or_stdin(None if file == &#34;-&#34; else file) as src:
@@ -353,24 +365,8 @@ def ent(d):
   N = sum((n for n in d.values()))
   return - sum(( n/N * math.log(n/N, 2) for n in d.values() if n &gt; 0 ))
 
-def exitWithHelp():
-  def yell(s): return colored(s[1], &#34;yellow&#34;,attrs=[&#34;bold&#34;])
-  def bold(s): return colored(s[1], &#34;white&#34;, attrs=[&#34;bold&#34;])
-  egs= &#34;ACTIONS:\n&#34;+&#34;\n&#34;.join([f&#34;  -g  {s:8} {f.__doc__}&#34; for s,f in EG.DO().items()])
-  print(re.sub(r&#34;(\n[A-Z]+:)&#34;, yell, re.sub(r&#34;(-[-]?[\w]+)&#34;, bold, __doc__ + &#34;\n&#34; + egs)))
-  sys.exit(0)
-
-def median(a): return per(a, .5)
-
-def per(a, p=.5): return a[int(p*len(a))]
-
-def prints(a): return print(*a, sep=&#34;\t&#34;)
-
-def rnd(x, decimals=None): return x if decimals is None else round(x, decimals)
-def rnd3(x): return rnd(x, 3)
-def rnd2(x): return rnd(x, 2)
-
-def stdev(a): return (per(a, .9) - per(a, .1)) / 2.56
+def rnd(x, decimals=3): 
+  return x if decimals is None else round(x, decimals)
 
 def str2thing(x: str):
   try:
@@ -386,6 +382,13 @@ def x2range(x, ranges):
       return k
   assert False, &#34;should never get here&#34;
 
+def pick(lst, n):
+  r = R()
+  for (m, x) in lst:
+    r -= m/n
+    if r &lt;= 0:
+      return x
+  assert False, &#34;should never get here&#34;
 # --- oops! two scores
 # - hide bestRows,restORws inside a lambda
 def grow(lst, bestRows, restRows, peeks=32, beam=None):
@@ -402,29 +405,21 @@ def grow(lst, bestRows, restRows, peeks=32, beam=None):
     tmp += [(v, c)]
   return grow(lst+tmp, bestRows, restRows, peeks, beam/2)
 
-def pick(lst, n):
-  r = R()
-  for (m, x) in lst:
-    r -= m/n
-    if r &lt;= 0:
-      return x
-  assert False, &#34;should never get here&#34;
 # ----------------------------------------------------
-def eg(fun):
-  saved = deepcopy(the)
-  random.seed(the.seed)
-  failed = fun() == False
-  print(&#34;❌ FAIL&#34; if failed else &#34;✅ PASS&#34;, fun.__name__)
-  the = deepcopy(saved)
-  return failed
-
 class EG:
   def DO(a=locals()) : return {s:fun for s,fun in a.items() if s[0].islower()}
-  def RUN(a=sys.argv): cli(the.it); getattr(EG, the.go, dir)()
+  def RUN(a=sys.argv): the.cli(); getattr(EG, the.go, dir)()
+  def RUN1(fun):
+    saved = deepcopy(the)
+    random.seed(the.seed)
+    failed = fun() == False
+    print(&#34;❌ FAIL&#34; if failed else &#34;✅ PASS&#34;, fun.__name__)
+    the = deepcopy(saved)
+    return failed
   # --------------------------------
   def all() :
     &#34;run all actions, return sum of failures.&#34;
-    sys.exit(sum(map(eg,EG.DO())))
+    sys.exit(sum(map(EG.RUN1,EG.DO())))
 
   def the() :
     &#34;show config options&#34;
@@ -433,23 +428,23 @@ class EG:
   def data() :
     &#34;can we read data from disk and print its stats?&#34;
     stats1 = DATA(csv2Rows(the.file)).stats()
-    prints(stats1.it.keys())
-    prints(stats1.it.values())
+    print(*stats1.it.keys(),sep=&#34;\t&#34;)
+    print(*stats1.it.values(),sep=&#34;\t&#34;)
 
   # its flopped
   def sorted():
     &#34;can we sort the rows into best and rest?&#34;
     data = DATA(csv2Rows(the.file))
     rows = data.sortedRows()
-    prints(data.cols.names)
-    [prints(row.cells) for row in rows[:10]]
+    print(*data.cols.names,sep=&#34;\t&#34;)
+    [print(*row.cells,sep=&#34;\t&#34;) for row in rows[:10]]
     print(&#34;&#34;)
-    [prints(row.cells) for row in rows[-10:]]
+    [print(*row.cells,sep=&#34;\t&#34;) for row in rows[-10:]]
     stats1 = clone(data, rows[:40]).stats()
     stats2 = clone(data, rows[40:]).stats()
-    prints([&#34;\n&#34;]+list(stats1.it.keys()))
-    prints([&#34;best&#34;]+list(stats1.it.values()))
-    prints([&#34;rest&#34;]+list(stats2.it.values()))
+    print(*[&#34;\n&#34;]+list(stats1.it.keys()),sep=&#34;\t&#34;)
+    print(*[&#34;best&#34;]+list(stats1.it.values()),sep=&#34;\t&#34;)
+    print(*[&#34;rest&#34;]+list(stats2.it.values()),sep=&#34;\t&#34;)
 
   def ideas():
     &#34;can we find good ranges?&#34;
@@ -459,15 +454,16 @@ class EG:
     n = int(len(rows)**the.min)
     bestRows = rows[:n]
     restRows = random.sample( rows[n+1:], n*the.rest )
-    prints(data.cols.names)
-    [prints(row.cooked) for row in rows[:10]]
+    print(*data.cols.names,sep=&#34;\t&#34;)
+    [print(*row.cooked,sep=&#34;\t&#34;) for row in rows[:10]]
     print(&#34;&#34;)
-    [prints(row.cooked) for row in rows[-10:]]
-    prints([&#34;\nv&#34;, &#34;b&#34;, &#34;r&#34;, &#34;x&#34;])
+    [print(*row.cooked,sep=&#34;\t&#34;) for row in rows[-10:]]
+    print(*[&#34;\nv&#34;, &#34;b&#34;, &#34;r&#34;, &#34;x&#34;],sep=&#34;\t&#34;)
     for x in goodChops(data, bestRows, restRows):
-      prints(x)
+      print(*x,sep=&#34;\t&#34;)
 # ----------------------------------------------------
 
+the = SETTINGS(__doc__)
 EG.RUN()</code></pre>
 </details>
 </section>
@@ -488,19 +484,20 @@ EG.RUN()</code></pre>
 <span>def <span class="ident">score</span></span>(<span>b, r, B, R)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Given you've found <code>b</code> or <code>r</code> items of <code>B,<a title="ord.R" href="#ord.R">Random.random()</a></code>, how much do we like you?</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def score(b, r, B, R):
+  &#34;Given you&#39;ve found `b` or `r` items of `B,R`, how much do we like you?&#34;
   b = b/(B+1/big)
   r = r/(R+1/big)
-  match the.want: 
-    case &#34;plan&#34;    : return b**2 / (   b + r)
-    case &#34;monitor&#34; : return r**2 / (   b + r)
-    case &#34;doubt&#34;   : return (b+r) / abs(b - r)
-    case &#34;xplore&#34;  : return 1 / (   b + r)</code></pre>
+  match the.want:
+    case &#34;plan&#34;    : return b**2 / (   b + r)    # seeking best
+    case &#34;monitor&#34; : return r**2 / (   b + r)    # seeking rest
+    case &#34;doubt&#34;   : return (b+r) / abs(b - r)   # seeking border of best/rest 
+    case &#34;xplore&#34;  : return 1 / (   b + r)       # seeking other</code></pre>
 </details>
 </dd>
 <dt id="ord.within"><code class="name flex">
@@ -563,7 +560,7 @@ EG.RUN()</code></pre>
   tmp = [[x.lo, x.hi, x.n.b/B, x.n.r/R] for x in _merge( _divide( sorted(bests+rests, key=x1)))]
   tmp[ 0][0] = -big  # lowest lo is negative infinity
   tmp[-1][1] = big  # highest hi is positive infinity
-  return {rnd2(k/(len(out)-1)): tuple(lohi) for k, lohi in enumerate(tmp)}</code></pre>
+  return {rnd(k/(len(out)-1)): tuple(lohi) for k, lohi in enumerate(tmp)}</code></pre>
 </details>
 </dd>
 <dt id="ord.cols2Chops"><code class="name flex">
@@ -648,37 +645,6 @@ EG.RUN()</code></pre>
   return sum(map(_col, data.cols.x)) / len(data.cols.x)</code></pre>
 </details>
 </dd>
-<dt id="ord.adds"><code class="name flex">
-<span>def <span class="ident">adds</span></span>(<span>i, l)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def adds(i, l): [i.add(x) for x in l]; return i</code></pre>
-</details>
-</dd>
-<dt id="ord.cli"><code class="name flex">
-<span>def <span class="ident">cli</span></span>(<span>d)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cli(d):
-  for k, v in d.items():
-    s = str(v)
-    for j, x in enumerate(sys.argv):
-      if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
-        s = &#34;True&#34; if s == &#34;False&#34; else (&#34;False&#34; if s == &#34;True&#34; else sys.argv[j+1])
-    d[k] = str2thing(s)
-  if d[&#34;help&#34;]: exitWithHelp()</code></pre>
-</details>
-</dd>
 <dt id="ord.csv2Rows"><code class="name flex">
 <span>def <span class="ident">csv2Rows</span></span>(<span>file)</span>
 </code></dt>
@@ -710,61 +676,8 @@ EG.RUN()</code></pre>
   return - sum(( n/N * math.log(n/N, 2) for n in d.values() if n &gt; 0 ))</code></pre>
 </details>
 </dd>
-<dt id="ord.exitWithHelp"><code class="name flex">
-<span>def <span class="ident">exitWithHelp</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def exitWithHelp():
-  def yell(s): return colored(s[1], &#34;yellow&#34;,attrs=[&#34;bold&#34;])
-  def bold(s): return colored(s[1], &#34;white&#34;, attrs=[&#34;bold&#34;])
-  egs= &#34;ACTIONS:\n&#34;+&#34;\n&#34;.join([f&#34;  -g  {s:8} {f.__doc__}&#34; for s,f in EG.DO().items()])
-  print(re.sub(r&#34;(\n[A-Z]+:)&#34;, yell, re.sub(r&#34;(-[-]?[\w]+)&#34;, bold, __doc__ + &#34;\n&#34; + egs)))
-  sys.exit(0)</code></pre>
-</details>
-</dd>
-<dt id="ord.median"><code class="name flex">
-<span>def <span class="ident">median</span></span>(<span>a)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def median(a): return per(a, .5)</code></pre>
-</details>
-</dd>
-<dt id="ord.per"><code class="name flex">
-<span>def <span class="ident">per</span></span>(<span>a, p=0.5)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def per(a, p=.5): return a[int(p*len(a))]</code></pre>
-</details>
-</dd>
-<dt id="ord.prints"><code class="name flex">
-<span>def <span class="ident">prints</span></span>(<span>a)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def prints(a): return print(*a, sep=&#34;\t&#34;)</code></pre>
-</details>
-</dd>
 <dt id="ord.rnd"><code class="name flex">
-<span>def <span class="ident">rnd</span></span>(<span>x, decimals=None)</span>
+<span>def <span class="ident">rnd</span></span>(<span>x, decimals=3)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -772,43 +685,8 @@ EG.RUN()</code></pre>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def rnd(x, decimals=None): return x if decimals is None else round(x, decimals)</code></pre>
-</details>
-</dd>
-<dt id="ord.rnd3"><code class="name flex">
-<span>def <span class="ident">rnd3</span></span>(<span>x)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def rnd3(x): return rnd(x, 3)</code></pre>
-</details>
-</dd>
-<dt id="ord.rnd2"><code class="name flex">
-<span>def <span class="ident">rnd2</span></span>(<span>x)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def rnd2(x): return rnd(x, 2)</code></pre>
-</details>
-</dd>
-<dt id="ord.stdev"><code class="name flex">
-<span>def <span class="ident">stdev</span></span>(<span>a)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stdev(a): return (per(a, .9) - per(a, .1)) / 2.56</code></pre>
+<pre><code class="python">def rnd(x, decimals=3): 
+  return x if decimals is None else round(x, decimals)</code></pre>
 </details>
 </dd>
 <dt id="ord.str2thing"><code class="name flex">
@@ -845,6 +723,24 @@ EG.RUN()</code></pre>
   assert False, &#34;should never get here&#34;</code></pre>
 </details>
 </dd>
+<dt id="ord.pick"><code class="name flex">
+<span>def <span class="ident">pick</span></span>(<span>lst, n)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def pick(lst, n):
+  r = R()
+  for (m, x) in lst:
+    r -= m/n
+    if r &lt;= 0:
+      return x
+  assert False, &#34;should never get here&#34;</code></pre>
+</details>
+</dd>
 <dt id="ord.grow"><code class="name flex">
 <span>def <span class="ident">grow</span></span>(<span>lst, bestRows, restRows, peeks=32, beam=None)</span>
 </code></dt>
@@ -867,42 +763,6 @@ EG.RUN()</code></pre>
     v = score(*map(len, [b, r, bests, rests]))
     tmp += [(v, c)]
   return grow(lst+tmp, bestRows, restRows, peeks, beam/2)</code></pre>
-</details>
-</dd>
-<dt id="ord.pick"><code class="name flex">
-<span>def <span class="ident">pick</span></span>(<span>lst, n)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def pick(lst, n):
-  r = R()
-  for (m, x) in lst:
-    r -= m/n
-    if r &lt;= 0:
-      return x
-  assert False, &#34;should never get here&#34;</code></pre>
-</details>
-</dd>
-<dt id="ord.eg"><code class="name flex">
-<span>def <span class="ident">eg</span></span>(<span>fun)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def eg(fun):
-  saved = deepcopy(the)
-  random.seed(the.seed)
-  failed = fun() == False
-  print(&#34;❌ FAIL&#34; if failed else &#34;✅ PASS&#34;, fun.__name__)
-  the = deepcopy(saved)
-  return failed</code></pre>
 </details>
 </dd>
 </dl>
@@ -938,6 +798,7 @@ all content available via self.it.</p></div>
 <li><a title="ord.DATA" href="#ord.DATA">DATA</a></li>
 <li><a title="ord.NUM" href="#ord.NUM">NUM</a></li>
 <li><a title="ord.ROW" href="#ord.ROW">ROW</a></li>
+<li><a title="ord.SETTINGS" href="#ord.SETTINGS">SETTINGS</a></li>
 <li><a title="ord.SYM" href="#ord.SYM">SYM</a></li>
 </ul>
 <h3>Instance variables</h3>
@@ -1090,17 +951,18 @@ all content available via self.it.</p></div>
         i._kept[int(len(i._kept)*R())] = x
 
   def div(i, decimals=None):
-    return rnd(stdev(i.kept), decimals)
+    n=len(i.kept)
+    return rnd((i.kept[.9*n//1] - i.kept[.1*n//1])/2.56, decimals)
 
   @property
   def kept(i):
     if not i.ok:
-      i._kept.sort()
-      i.ok = True
+      i._kept, i.ok = sorted(i._kept), True
     return i._kept
 
   def mid(i, decimals=None):
-    return rnd(median(i.kept), decimals)</code></pre>
+    n=len(i.kept)
+    return rnd(i.kept[.5*n//1], decimals)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1118,8 +980,7 @@ all content available via self.it.</p></div>
 <pre><code class="python">@property
 def kept(i):
   if not i.ok:
-    i._kept.sort()
-    i.ok = True
+    i._kept, i.ok = sorted(i._kept), True
   return i._kept</code></pre>
 </details>
 </dd>
@@ -1156,7 +1017,8 @@ def kept(i):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def div(i, decimals=None):
-  return rnd(stdev(i.kept), decimals)</code></pre>
+  n=len(i.kept)
+  return rnd((i.kept[.9*n//1] - i.kept[.1*n//1])/2.56, decimals)</code></pre>
 </details>
 </dd>
 <dt id="ord.NUM.mid"><code class="name flex">
@@ -1169,7 +1031,8 @@ def kept(i):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def mid(i, decimals=None):
-  return rnd(median(i.kept), decimals)</code></pre>
+  n=len(i.kept)
+  return rnd(i.kept[.5*n//1], decimals)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1234,15 +1097,18 @@ all content available via self.it.</p></div>
 <pre><code class="python">class DATA(obj):
   def __init__(i, src=[]):
     i.rows, i.cols = [], None
-    adds(i, src)
+    i.adds(src)
 
   def add(i, row):
     def _create(): i.cols = COLS(row.cells)
     def _update(): i.rows += [i.cols.add(row)]
     _update() if i.cols else _create()
 
+  def adds(i, l):
+    [i.add(x) for x in l]; return i
+
   def clone(data, rows=[]):
-    return adds(DATA([ROW(data.cols.names)]), rows)
+    return DATA([ROW(data.cols.names)]).add(rows)
 
   def sortedRows(i, rows=None, cols=None):
     def _distance2heaven(row):
@@ -1251,7 +1117,7 @@ all content available via self.it.</p></div>
     return sorted(rows or i.rows, key=_distance2heaven)
 
   def stats(i, cols=None, what=&#34;mid&#34;, decimals=3):
-    def fun(col): return col.mid(decimals) if what == &#34;mid&#34; else col.div(decimals)
+    def fun(col): return (col.mid if what == &#34;mid&#34; else col.div)(decimals)
     return obj(N=len(i.rows),**{col.txt: fun(col) for col in cols or i.cols.y})</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -1275,6 +1141,19 @@ all content available via self.it.</p></div>
   _update() if i.cols else _create()</code></pre>
 </details>
 </dd>
+<dt id="ord.DATA.adds"><code class="name flex">
+<span>def <span class="ident">adds</span></span>(<span>i, l)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def adds(i, l):
+  [i.add(x) for x in l]; return i</code></pre>
+</details>
+</dd>
 <dt id="ord.DATA.clone"><code class="name flex">
 <span>def <span class="ident">clone</span></span>(<span>data, rows=[])</span>
 </code></dt>
@@ -1285,7 +1164,7 @@ all content available via self.it.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def clone(data, rows=[]):
-  return adds(DATA([ROW(data.cols.names)]), rows)</code></pre>
+  return DATA([ROW(data.cols.names)]).add(rows)</code></pre>
 </details>
 </dd>
 <dt id="ord.DATA.sortedRows"><code class="name flex">
@@ -1314,8 +1193,88 @@ all content available via self.it.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def stats(i, cols=None, what=&#34;mid&#34;, decimals=3):
-  def fun(col): return col.mid(decimals) if what == &#34;mid&#34; else col.div(decimals)
+  def fun(col): return (col.mid if what == &#34;mid&#34; else col.div)(decimals)
   return obj(N=len(i.rows),**{col.txt: fun(col) for col in cols or i.cols.y})</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="ord.SETTINGS"><code class="flex name class">
+<span>class <span class="ident">SETTINGS</span></span>
+<span>(</span><span>s)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>My base objects:
+pretty prints; can be initialized easily;
+all content available via self.it.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SETTINGS(obj):
+  def __init__(i,s):
+    i.help = s
+    want = r&#34;\n\s*-\w+\s*--(\w+).*=\s*(\S+)&#34;
+    super().__init__(**{m[1]: literal(m[2]) for m in re.finditer(want, s)})
+
+  def cli(i):
+    for k, v in i.it.items():
+      s = str(v)
+      for j, x in enumerate(sys.argv):
+        if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
+          s = &#34;True&#34; if s == &#34;False&#34; else (&#34;False&#34; if s == &#34;True&#34; else sys.argv[j+1])
+      i.it[k] = str2thing(s)
+    if i.it[&#34;help&#34;]: i.exitWithHelp()
+    return i
+
+  def exitWithHelp(i):
+    def yell(s): return colored(s[1], &#34;yellow&#34;,attrs=[&#34;bold&#34;])
+    def bold(s): return colored(s[1], &#34;white&#34;, attrs=[&#34;bold&#34;])
+    egs= &#34;ACTIONS:\n&#34;+&#34;\n&#34;.join([f&#34;  -g  {s:8} {i.help}&#34; for s,f in EG.DO().items()])
+    print(re.sub(r&#34;(\n[A-Z]+:)&#34;, yell, re.sub(r&#34;(-[-]?[\w]+)&#34;, bold, __doc__ + &#34;\n&#34; + egs)))
+    sys.exit(0)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="ord.obj" href="#ord.obj">obj</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="ord.SETTINGS.cli"><code class="name flex">
+<span>def <span class="ident">cli</span></span>(<span>i)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cli(i):
+  for k, v in i.it.items():
+    s = str(v)
+    for j, x in enumerate(sys.argv):
+      if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
+        s = &#34;True&#34; if s == &#34;False&#34; else (&#34;False&#34; if s == &#34;True&#34; else sys.argv[j+1])
+    i.it[k] = str2thing(s)
+  if i.it[&#34;help&#34;]: i.exitWithHelp()
+  return i</code></pre>
+</details>
+</dd>
+<dt id="ord.SETTINGS.exitWithHelp"><code class="name flex">
+<span>def <span class="ident">exitWithHelp</span></span>(<span>i)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def exitWithHelp(i):
+  def yell(s): return colored(s[1], &#34;yellow&#34;,attrs=[&#34;bold&#34;])
+  def bold(s): return colored(s[1], &#34;white&#34;, attrs=[&#34;bold&#34;])
+  egs= &#34;ACTIONS:\n&#34;+&#34;\n&#34;.join([f&#34;  -g  {s:8} {i.help}&#34; for s,f in EG.DO().items()])
+  print(re.sub(r&#34;(\n[A-Z]+:)&#34;, yell, re.sub(r&#34;(-[-]?[\w]+)&#34;, bold, __doc__ + &#34;\n&#34; + egs)))
+  sys.exit(0)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1331,11 +1290,18 @@ all content available via self.it.</p></div>
 </summary>
 <pre><code class="python">class EG:
   def DO(a=locals()) : return {s:fun for s,fun in a.items() if s[0].islower()}
-  def RUN(a=sys.argv): cli(the.it); getattr(EG, the.go, dir)()
+  def RUN(a=sys.argv): the.cli(); getattr(EG, the.go, dir)()
+  def RUN1(fun):
+    saved = deepcopy(the)
+    random.seed(the.seed)
+    failed = fun() == False
+    print(&#34;❌ FAIL&#34; if failed else &#34;✅ PASS&#34;, fun.__name__)
+    the = deepcopy(saved)
+    return failed
   # --------------------------------
   def all() :
     &#34;run all actions, return sum of failures.&#34;
-    sys.exit(sum(map(eg,EG.DO())))
+    sys.exit(sum(map(EG.RUN1,EG.DO())))
 
   def the() :
     &#34;show config options&#34;
@@ -1344,23 +1310,23 @@ all content available via self.it.</p></div>
   def data() :
     &#34;can we read data from disk and print its stats?&#34;
     stats1 = DATA(csv2Rows(the.file)).stats()
-    prints(stats1.it.keys())
-    prints(stats1.it.values())
+    print(*stats1.it.keys(),sep=&#34;\t&#34;)
+    print(*stats1.it.values(),sep=&#34;\t&#34;)
 
   # its flopped
   def sorted():
     &#34;can we sort the rows into best and rest?&#34;
     data = DATA(csv2Rows(the.file))
     rows = data.sortedRows()
-    prints(data.cols.names)
-    [prints(row.cells) for row in rows[:10]]
+    print(*data.cols.names,sep=&#34;\t&#34;)
+    [print(*row.cells,sep=&#34;\t&#34;) for row in rows[:10]]
     print(&#34;&#34;)
-    [prints(row.cells) for row in rows[-10:]]
+    [print(*row.cells,sep=&#34;\t&#34;) for row in rows[-10:]]
     stats1 = clone(data, rows[:40]).stats()
     stats2 = clone(data, rows[40:]).stats()
-    prints([&#34;\n&#34;]+list(stats1.it.keys()))
-    prints([&#34;best&#34;]+list(stats1.it.values()))
-    prints([&#34;rest&#34;]+list(stats2.it.values()))
+    print(*[&#34;\n&#34;]+list(stats1.it.keys()),sep=&#34;\t&#34;)
+    print(*[&#34;best&#34;]+list(stats1.it.values()),sep=&#34;\t&#34;)
+    print(*[&#34;rest&#34;]+list(stats2.it.values()),sep=&#34;\t&#34;)
 
   def ideas():
     &#34;can we find good ranges?&#34;
@@ -1370,18 +1336,18 @@ all content available via self.it.</p></div>
     n = int(len(rows)**the.min)
     bestRows = rows[:n]
     restRows = random.sample( rows[n+1:], n*the.rest )
-    prints(data.cols.names)
-    [prints(row.cooked) for row in rows[:10]]
+    print(*data.cols.names,sep=&#34;\t&#34;)
+    [print(*row.cooked,sep=&#34;\t&#34;) for row in rows[:10]]
     print(&#34;&#34;)
-    [prints(row.cooked) for row in rows[-10:]]
-    prints([&#34;\nv&#34;, &#34;b&#34;, &#34;r&#34;, &#34;x&#34;])
+    [print(*row.cooked,sep=&#34;\t&#34;) for row in rows[-10:]]
+    print(*[&#34;\nv&#34;, &#34;b&#34;, &#34;r&#34;, &#34;x&#34;],sep=&#34;\t&#34;)
     for x in goodChops(data, bestRows, restRows):
-      prints(x)</code></pre>
+      print(*x,sep=&#34;\t&#34;)</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
 <dt id="ord.EG.DO"><code class="name flex">
-<span>def <span class="ident">DO</span></span>(<span>a={&#x27;__module__&#x27;: &#x27;ord&#x27;, &#x27;__qualname__&#x27;: &#x27;EG&#x27;, &#x27;DO&#x27;: &lt;function EG.DO&gt;, &#x27;RUN&#x27;: &lt;function EG.RUN&gt;, &#x27;all&#x27;: &lt;function EG.all&gt;, &#x27;the&#x27;: &lt;function EG.the&gt;, &#x27;data&#x27;: &lt;function EG.data&gt;, &#x27;sorted&#x27;: &lt;function EG.sorted&gt;, &#x27;ideas&#x27;: &lt;function EG.ideas&gt;})</span>
+<span>def <span class="ident">DO</span></span>(<span>a={&#x27;__module__&#x27;: &#x27;ord&#x27;, &#x27;__qualname__&#x27;: &#x27;EG&#x27;, &#x27;DO&#x27;: &lt;function EG.DO&gt;, &#x27;RUN&#x27;: &lt;function EG.RUN&gt;, &#x27;RUN1&#x27;: &lt;function EG.RUN1&gt;, &#x27;all&#x27;: &lt;function EG.all&gt;, &#x27;the&#x27;: &lt;function EG.the&gt;, &#x27;data&#x27;: &lt;function EG.data&gt;, &#x27;sorted&#x27;: &lt;function EG.sorted&gt;, &#x27;ideas&#x27;: &lt;function EG.ideas&gt;})</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1393,7 +1359,7 @@ all content available via self.it.</p></div>
 </details>
 </dd>
 <dt id="ord.EG.RUN"><code class="name flex">
-<span>def <span class="ident">RUN</span></span>(<span>a=['/opt/homebrew/lib/python3.11/site-packages/pdoc/__main__.py', '-c', 'sort_identifiers=False', '--template-dir', 'docs', '--force', '--html', '-o', 'docs', 'ord.py'])</span>
+<span>def <span class="ident">RUN</span></span>(<span>a=['/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pdoc/__main__.py', '-c', 'sort_identifiers=False', '--template-dir', 'docs', '--force', '--html', '-o', 'docs', 'ord.py'])</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1401,7 +1367,25 @@ all content available via self.it.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def RUN(a=sys.argv): cli(the.it); getattr(EG, the.go, dir)()</code></pre>
+<pre><code class="python">def RUN(a=sys.argv): the.cli(); getattr(EG, the.go, dir)()</code></pre>
+</details>
+</dd>
+<dt id="ord.EG.RUN1"><code class="name flex">
+<span>def <span class="ident">RUN1</span></span>(<span>fun)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def RUN1(fun):
+  saved = deepcopy(the)
+  random.seed(the.seed)
+  failed = fun() == False
+  print(&#34;❌ FAIL&#34; if failed else &#34;✅ PASS&#34;, fun.__name__)
+  the = deepcopy(saved)
+  return failed</code></pre>
 </details>
 </dd>
 <dt id="ord.EG.all"><code class="name flex">
@@ -1415,7 +1399,7 @@ all content available via self.it.</p></div>
 </summary>
 <pre><code class="python">def all() :
   &#34;run all actions, return sum of failures.&#34;
-  sys.exit(sum(map(eg,EG.DO())))</code></pre>
+  sys.exit(sum(map(EG.RUN1,EG.DO())))</code></pre>
 </details>
 </dd>
 <dt id="ord.EG.the"><code class="name flex">
@@ -1444,8 +1428,8 @@ all content available via self.it.</p></div>
 <pre><code class="python">def data() :
   &#34;can we read data from disk and print its stats?&#34;
   stats1 = DATA(csv2Rows(the.file)).stats()
-  prints(stats1.it.keys())
-  prints(stats1.it.values())</code></pre>
+  print(*stats1.it.keys(),sep=&#34;\t&#34;)
+  print(*stats1.it.values(),sep=&#34;\t&#34;)</code></pre>
 </details>
 </dd>
 <dt id="ord.EG.sorted"><code class="name flex">
@@ -1461,15 +1445,15 @@ all content available via self.it.</p></div>
   &#34;can we sort the rows into best and rest?&#34;
   data = DATA(csv2Rows(the.file))
   rows = data.sortedRows()
-  prints(data.cols.names)
-  [prints(row.cells) for row in rows[:10]]
+  print(*data.cols.names,sep=&#34;\t&#34;)
+  [print(*row.cells,sep=&#34;\t&#34;) for row in rows[:10]]
   print(&#34;&#34;)
-  [prints(row.cells) for row in rows[-10:]]
+  [print(*row.cells,sep=&#34;\t&#34;) for row in rows[-10:]]
   stats1 = clone(data, rows[:40]).stats()
   stats2 = clone(data, rows[40:]).stats()
-  prints([&#34;\n&#34;]+list(stats1.it.keys()))
-  prints([&#34;best&#34;]+list(stats1.it.values()))
-  prints([&#34;rest&#34;]+list(stats2.it.values()))</code></pre>
+  print(*[&#34;\n&#34;]+list(stats1.it.keys()),sep=&#34;\t&#34;)
+  print(*[&#34;best&#34;]+list(stats1.it.values()),sep=&#34;\t&#34;)
+  print(*[&#34;rest&#34;]+list(stats2.it.values()),sep=&#34;\t&#34;)</code></pre>
 </details>
 </dd>
 <dt id="ord.EG.ideas"><code class="name flex">
@@ -1489,13 +1473,13 @@ all content available via self.it.</p></div>
   n = int(len(rows)**the.min)
   bestRows = rows[:n]
   restRows = random.sample( rows[n+1:], n*the.rest )
-  prints(data.cols.names)
-  [prints(row.cooked) for row in rows[:10]]
+  print(*data.cols.names,sep=&#34;\t&#34;)
+  [print(*row.cooked,sep=&#34;\t&#34;) for row in rows[:10]]
   print(&#34;&#34;)
-  [prints(row.cooked) for row in rows[-10:]]
-  prints([&#34;\nv&#34;, &#34;b&#34;, &#34;r&#34;, &#34;x&#34;])
+  [print(*row.cooked,sep=&#34;\t&#34;) for row in rows[-10:]]
+  print(*[&#34;\nv&#34;, &#34;b&#34;, &#34;r&#34;, &#34;x&#34;],sep=&#34;\t&#34;)
   for x in goodChops(data, bestRows, restRows):
-    prints(x)</code></pre>
+    print(*x,sep=&#34;\t&#34;)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1534,23 +1518,13 @@ src="https://zenodo.org/badge/631627449.svg"></a>
 <li><code><a title="ord.cols2Chops" href="#ord.cols2Chops">cols2Chops</a></code></li>
 <li><code><a title="ord.sortedChops" href="#ord.sortedChops">sortedChops</a></code></li>
 <li><code><a title="ord.rows2dist" href="#ord.rows2dist">rows2dist</a></code></li>
-<li><code><a title="ord.adds" href="#ord.adds">adds</a></code></li>
-<li><code><a title="ord.cli" href="#ord.cli">cli</a></code></li>
 <li><code><a title="ord.csv2Rows" href="#ord.csv2Rows">csv2Rows</a></code></li>
 <li><code><a title="ord.ent" href="#ord.ent">ent</a></code></li>
-<li><code><a title="ord.exitWithHelp" href="#ord.exitWithHelp">exitWithHelp</a></code></li>
-<li><code><a title="ord.median" href="#ord.median">median</a></code></li>
-<li><code><a title="ord.per" href="#ord.per">per</a></code></li>
-<li><code><a title="ord.prints" href="#ord.prints">prints</a></code></li>
 <li><code><a title="ord.rnd" href="#ord.rnd">rnd</a></code></li>
-<li><code><a title="ord.rnd3" href="#ord.rnd3">rnd3</a></code></li>
-<li><code><a title="ord.rnd2" href="#ord.rnd2">rnd2</a></code></li>
-<li><code><a title="ord.stdev" href="#ord.stdev">stdev</a></code></li>
 <li><code><a title="ord.str2thing" href="#ord.str2thing">str2thing</a></code></li>
 <li><code><a title="ord.x2range" href="#ord.x2range">x2range</a></code></li>
-<li><code><a title="ord.grow" href="#ord.grow">grow</a></code></li>
 <li><code><a title="ord.pick" href="#ord.pick">pick</a></code></li>
-<li><code><a title="ord.eg" href="#ord.eg">eg</a></code></li>
+<li><code><a title="ord.grow" href="#ord.grow">grow</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -1591,9 +1565,17 @@ src="https://zenodo.org/badge/631627449.svg"></a>
 <h4><code><a title="ord.DATA" href="#ord.DATA">DATA</a></code></h4>
 <ul class="">
 <li><code><a title="ord.DATA.add" href="#ord.DATA.add">add</a></code></li>
+<li><code><a title="ord.DATA.adds" href="#ord.DATA.adds">adds</a></code></li>
 <li><code><a title="ord.DATA.clone" href="#ord.DATA.clone">clone</a></code></li>
 <li><code><a title="ord.DATA.sortedRows" href="#ord.DATA.sortedRows">sortedRows</a></code></li>
 <li><code><a title="ord.DATA.stats" href="#ord.DATA.stats">stats</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="ord.SETTINGS" href="#ord.SETTINGS">SETTINGS</a></code></h4>
+<ul class="">
+<li><code><a title="ord.SETTINGS.cli" href="#ord.SETTINGS.cli">cli</a></code></li>
+<li><code><a title="ord.SETTINGS.exitWithHelp" href="#ord.SETTINGS.exitWithHelp">exitWithHelp</a></code></li>
 </ul>
 </li>
 <li>
@@ -1601,6 +1583,7 @@ src="https://zenodo.org/badge/631627449.svg"></a>
 <ul class="two-column">
 <li><code><a title="ord.EG.DO" href="#ord.EG.DO">DO</a></code></li>
 <li><code><a title="ord.EG.RUN" href="#ord.EG.RUN">RUN</a></code></li>
+<li><code><a title="ord.EG.RUN1" href="#ord.EG.RUN1">RUN1</a></code></li>
 <li><code><a title="ord.EG.all" href="#ord.EG.all">all</a></code></li>
 <li><code><a title="ord.EG.the" href="#ord.EG.the">the</a></code></li>
 <li><code><a title="ord.EG.data" href="#ord.EG.data">data</a></code></li>

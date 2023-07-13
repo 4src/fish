@@ -20,20 +20,13 @@ OPTIONS:
   -S  --Some   how may nums to keep       = 256
   -w  --want   plan|monitor|xplore|doubt  = "plan"
 """
-"Define system options"
-
 # ----------------------------------------------------
-# def aa4Bb = some function that updated Bb using aa
-# def aa2Bb = some function that conversts aa to Bb
-# def UPPERCASE = constructor   ; e.g. def ROW
-# xxx (where XXX is a constructor) = an instance of XXX ; e.g. row isa ROW
-# xxxs = a list of xxx. eg. rows= list of ROW
 import random, sys, re
 from copy import deepcopy
 from termcolor import colored
 from ast import literal_eval as literal
 from fileinput import FileInput as file_or_stdin
-
+# --------------------------------------------------------
 class obj(object):
   """My base objects:  pretty prints; can be initialized easily;
   all content available via self.it.""" 
@@ -43,14 +36,6 @@ class obj(object):
   def __repr__(i):
     def pretty(x): return x.__name__ if callable(x) else (f"{x:3g}" if isa(x, float) else x)
     return "{"+" ".join([f":{k} {pretty(i.it[k])}" for k in i.it if k[0] != "_"])+"}"
-
-key_values = r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)"
-the = obj(**{m[1]: literal(m[2]) for m in re.finditer(key_values, __doc__)})
-
-random.seed(the.seed)
-R = random.random
-isa = isinstance
-big = 1E30
 # --------------------------------------------------------
 def score(b, r, B, R):
   "Given you've found `b` or `r` items of `B,R`, how much do we like you?"
@@ -66,13 +51,10 @@ def within(x, lo, hi): return lo <= x < hi
 # --------------------------------------------------------
 class ROW(obj):
   def __init__(i, a):
-    i.this = ROW
-    i.cells = a
-    i.cooked = a[:]
+    i.cells, i.cooked = a, a[:]
 # --------------------------------------------------------
 class SYM(obj):
   def __init__(i, n=0, s="") :
-    i.this = SYM
     i.at,i.txt,i.n = n,s,0
     i.seen, i.most, i.mode = {},0,None
 
@@ -83,6 +65,9 @@ class SYM(obj):
       if tmp > i.most:
         i.most, i.mode = tmp, x
 
+  def dist(i, a, b):
+    return 0 if a==b else 1
+
   def div(i, decimals=None):
     return rnd(ent(i.seen), decimals)
 
@@ -91,7 +76,6 @@ class SYM(obj):
 # -----------------------------------------------------------------------------
 class NUM(obj):
   def __init__(i, n=0, s="") :
-    i.this = NUM
     i.at,i.txt,i.n = n,s,0
     i._kept, i.ok = [],True
     i.heaven = 0 if s and s[-1] == "-" else 1
@@ -106,8 +90,14 @@ class NUM(obj):
         i.ok = False
         i._kept[int(len(i._kept)*R())] = x
 
+  def dist(i,a,b):
+    a = a if a != "?" else (1 if b < .5 else 0)
+    b = b if b != "?" else (1 if a < .5 else 0)
+    return abs(a-b)
+
   def div(i, decimals=None):
-    return rnd(stdev(i.kept), decimals)
+    n=len(i.kept)
+    return rnd((i.kept[.9*n//1] - i.kept[.1*n//1])/2.56, decimals)
 
   @property
   def kept(i):
@@ -116,7 +106,8 @@ class NUM(obj):
     return i._kept
 
   def mid(i, decimals=None):
-    return rnd(median(i.kept), decimals)
+    n=len(i.kept)
+    return rnd(i.kept[.5*n//1], decimals)
 # -----------------------------------------------------------------------------
 class COLS(obj):
   def __init__(i, names):
@@ -146,6 +137,12 @@ class DATA(obj):
   def clone(data, rows=[]):
     return DATA([ROW(data.cols.names)]).add(rows)
 
+  def dist(i,row1,row2):
+    def _dist1(col):
+      a,b= row1.cooked[a], row2.cooked[2]
+      return 1 if a=="?" and b=="?" else col.dist(a,b)
+    return sum((_dist(col)**the.p for col in i.cols.x))**1/the.p /  len(i.cols.x)**1/the.p
+
   def sortedRows(i, rows=None, cols=None):
     def _distance2heaven(row):
       nom = sum(( (col.heaven - row.cooked[col.at])**2 for col in cols or i.cols.y ))
@@ -153,12 +150,9 @@ class DATA(obj):
     return sorted(rows or i.rows, key=_distance2heaven)
 
   def stats(i, cols=None, what="mid", decimals=3):
-    def fun(col): return col.mid(decimals) if what == "mid" else col.div(decimals)
+    def fun(col): return (col.mid if what == "mid" else col.div)(decimals)
     return obj(N=len(i.rows),**{col.txt: fun(col) for col in cols or i.cols.y})
 # -----------------------------------------------------------------------------
-# pass1: over all values
-# pass2ab: counts for best.rest
-# pass3: merge using entropy
 def num2Chops(num, bestRows, restRows, cohen, bins):
   def x(row)  : return row.cells[num.at]
   def x1(pair): return x(pair[1])
@@ -198,7 +192,7 @@ def num2Chops(num, bestRows, restRows, cohen, bins):
   tmp = [[x.lo, x.hi, x.n.b/B, x.n.r/R] for x in _merge( _divide( sorted(bests+rests, key=x1)))]
   tmp[ 0][0] = -big  # lowest lo is negative infinity
   tmp[-1][1] = big  # highest hi is positive infinity
-  return {rnd2(k/(len(out)-1)): tuple(lohi) for k, lohi in enumerate(tmp)}
+  return {rnd(k/(len(out)-1)): tuple(lohi) for k, lohi in enumerate(tmp)}
 
 def cols2Chops(data):
   def _sym(col):
@@ -236,34 +230,36 @@ def sortedChops(data, bestRows, restRows):
     return [x for x in out if x[0] > hi/10]
   return sorted( _score( _count()), reverse=True)[:the.Beam]
 # ----------------------------------------------------
-def rows2dist(data, row1, row2):
-  def _sym(col, a, b):
-    return 0 if a == b else 1
-
-  def _num(col, a, b):
-    if a == "?" :
-      a = 1 if b < .5 else 0
-    if b == "?" :
-      b = 1 if a < .5 else 0
-    return abs(a-b)
-
-  def _col(col):
-    a, b = row1.cooked[col.at], rows2.cooked[col.at]
-    return a == "?" and b == "?" and 1 or (_num if col.this is NUM else _sym)(col, a, b)
-  return sum(map(_col, data.cols.x)) / len(data.cols.x)
-# ----------------------------------------------------
 # XXX waht ranges and mtj etc/ return dict.
 # d[short] = lomho
 # -- this needs to be in a test
+the = None
+R = random.random
+isa = isinstance
+big = 1E30
 
-def cli(d):
-  for k, v in d.items():
-    s = str(v)
-    for j, x in enumerate(sys.argv):
-      if ("-"+k[0]) == x or ("--"+k) == x:
-        s = "True" if s == "False" else ("False" if s == "True" else sys.argv[j+1])
-    d[k] = str2thing(s)
-  if d["help"]: exitWithHelp()
+class SETTINGS(obj):
+  def __init__(i,s):
+    i.help = s
+    want = r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)"
+    super().__init__(**{m[1]: literal(m[2]) for m in re.finditer(want, s)})
+
+  def cli(i):
+    for k, v in i.it.items():
+      s = str(v)
+      for j, x in enumerate(sys.argv):
+        if ("-"+k[0]) == x or ("--"+k) == x:
+          s = "True" if s == "False" else ("False" if s == "True" else sys.argv[j+1])
+      i.it[k] = str2thing(s)
+    if i.it["help"]: i.exitWithHelp()
+    return i
+
+  def exitWithHelp(i):
+    def yell(s): return colored(s[1], "yellow",attrs=["bold"])
+    def bold(s): return colored(s[1], "white", attrs=["bold"])
+    egs= "ACTIONS:\n"+"\n".join([f"  -g  {s:8} {i.help}" for s,f in EG.DO().items()])
+    print(re.sub(r"(\n[A-Z]+:)", yell, re.sub(r"(-[-]?[\w]+)", bold, __doc__ + "\n" + egs)))
+    sys.exit(0)
 
 def csv2Rows(file):
   with file_or_stdin(None if file == "-" else file) as src:
@@ -273,27 +269,11 @@ def csv2Rows(file):
         yield ROW([str2thing(s.strip()) for s in line.split(",")])
 
 def ent(d):
-  N = sum((n for n in d.values()))
+  N = sum(d.values())
   return - sum(( n/N * math.log(n/N, 2) for n in d.values() if n > 0 ))
 
-def exitWithHelp():
-  def yell(s): return colored(s[1], "yellow",attrs=["bold"])
-  def bold(s): return colored(s[1], "white", attrs=["bold"])
-  egs= "ACTIONS:\n"+"\n".join([f"  -g  {s:8} {f.__doc__}" for s,f in EG.DO().items()])
-  print(re.sub(r"(\n[A-Z]+:)", yell, re.sub(r"(-[-]?[\w]+)", bold, __doc__ + "\n" + egs)))
-  sys.exit(0)
-
-def median(a): return per(a, .5)
-
-def per(a, p=.5): return a[int(p*len(a))]
-
-def prints(a): return print(*a, sep="\t")
-
-def rnd(x, decimals=None): return x if decimals is None else round(x, decimals)
-def rnd3(x): return rnd(x, 3)
-def rnd2(x): return rnd(x, 2)
-
-def stdev(a): return (per(a, .9) - per(a, .1)) / 2.56
+def rnd(x, decimals=3): 
+  return x if decimals is None else round(x, decimals)
 
 def str2thing(x: str):
   try:
@@ -309,6 +289,13 @@ def x2range(x, ranges):
       return k
   assert False, "should never get here"
 
+def pick(lst, n):
+  r = R()
+  for (m, x) in lst:
+    r -= m/n
+    if r <= 0:
+      return x
+  assert False, "should never get here"
 # --- oops! two scores
 # - hide bestRows,restORws inside a lambda
 def grow(lst, bestRows, restRows, peeks=32, beam=None):
@@ -325,17 +312,10 @@ def grow(lst, bestRows, restRows, peeks=32, beam=None):
     tmp += [(v, c)]
   return grow(lst+tmp, bestRows, restRows, peeks, beam/2)
 
-def pick(lst, n):
-  r = R()
-  for (m, x) in lst:
-    r -= m/n
-    if r <= 0:
-      return x
-  assert False, "should never get here"
 # ----------------------------------------------------
 class EG:
   def DO(a=locals()) : return {s:fun for s,fun in a.items() if s[0].islower()}
-  def RUN(a=sys.argv): cli(the.it); getattr(EG, the.go, exit)()
+  def RUN(a=sys.argv): the.cli(); getattr(EG, the.go, dir)()
   def RUN1(fun):
     saved = deepcopy(the)
     random.seed(the.seed)
@@ -355,23 +335,23 @@ class EG:
   def data() :
     "can we read data from disk and print its stats?"
     stats1 = DATA(csv2Rows(the.file)).stats()
-    prints(stats1.it.keys())
-    prints(stats1.it.values())
+    print(*stats1.it.keys(),sep="\t")
+    print(*stats1.it.values(),sep="\t")
 
   # its flopped
   def sorted():
     "can we sort the rows into best and rest?"
     data = DATA(csv2Rows(the.file))
     rows = data.sortedRows()
-    prints(data.cols.names)
-    [prints(row.cells) for row in rows[:10]]
+    print(*data.cols.names,sep="\t")
+    [print(*row.cells,sep="\t") for row in rows[:10]]
     print("")
-    [prints(row.cells) for row in rows[-10:]]
+    [print(*row.cells,sep="\t") for row in rows[-10:]]
     stats1 = clone(data, rows[:40]).stats()
     stats2 = clone(data, rows[40:]).stats()
-    prints(["\n"]+list(stats1.it.keys()))
-    prints(["best"]+list(stats1.it.values()))
-    prints(["rest"]+list(stats2.it.values()))
+    print(*["\n"]+list(stats1.it.keys()),sep="\t")
+    print(*["best"]+list(stats1.it.values()),sep="\t")
+    print(*["rest"]+list(stats2.it.values()),sep="\t")
 
   def ideas():
     "can we find good ranges?"
@@ -381,13 +361,14 @@ class EG:
     n = int(len(rows)**the.min)
     bestRows = rows[:n]
     restRows = random.sample( rows[n+1:], n*the.rest )
-    prints(data.cols.names)
-    [prints(row.cooked) for row in rows[:10]]
+    print(*data.cols.names,sep="\t")
+    [print(*row.cooked,sep="\t") for row in rows[:10]]
     print("")
-    [prints(row.cooked) for row in rows[-10:]]
-    prints(["\nv", "b", "r", "x"])
+    [print(*row.cooked,sep="\t") for row in rows[-10:]]
+    print(*["\nv", "b", "r", "x"],sep="\t")
     for x in goodChops(data, bestRows, restRows):
-      prints(x)
+      print(*x,sep="\t")
 # ----------------------------------------------------
 
+the = SETTINGS(__doc__)
 EG.RUN()
