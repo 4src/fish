@@ -464,28 +464,14 @@ EG.RUN()</code></pre>
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="ord.score"><code class="name flex">
-<span>def <span class="ident">score</span></span>(<span>b, r, B, R)</span>
+<dt id="ord.R"><code class="name flex">
+<span>def <span class="ident">R</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Given you've found <code>b</code> or <code>r</code> items of <code>B,<a title="ord.R" href="#ord.R">Random.random()</a></code>, how much do we like you?</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def score(b, r, B, R):
-  &#34;Given you&#39;ve found `b` or `r` items of `B,R`, how much do we like you?&#34;
-  b = b/(B+1/big)
-  r = r/(R+1/big)
-  match the.want:
-    case &#34;plan&#34;    : return b**2 / (   b + r)    # seeking best
-    case &#34;monitor&#34; : return r**2 / (   b + r)    # seeking rest
-    case &#34;doubt&#34;   : return (b+r) / abs(b - r)   # seeking border of best/rest 
-    case &#34;xplore&#34;  : return 1 / (   b + r)       # seeking other</code></pre>
-</details>
+<div class="desc"><p>random() -&gt; x in the interval [0, 1).</p></div>
 </dd>
-<dt id="ord.within"><code class="name flex">
-<span>def <span class="ident">within</span></span>(<span>x, lo, hi)</span>
+<dt id="ord.cols2Chops"><code class="name flex">
+<span>def <span class="ident">cols2Chops</span></span>(<span>data)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -493,7 +479,72 @@ EG.RUN()</code></pre>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def within(x, lo, hi): return lo &lt;= x &lt; hi</code></pre>
+<pre><code class="python">def cols2Chops(data):
+  def _sym(col):
+    col.chops = {k: (k, k) for k in col.seen.keys()}
+
+  def _num(col):
+    col.chops = num2Chops(col/2, col.kept, the.cohen, the.bins)
+    for row in data.rows:
+      row.cooked[col.at] = x2range(row.cells[col.at], col.chops)
+  for col in data.cols.x:
+    (_sym if col.this is SYM else _num)(col)
+  return data</code></pre>
+</details>
+</dd>
+<dt id="ord.csv2Rows"><code class="name flex">
+<span>def <span class="ident">csv2Rows</span></span>(<span>file)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def csv2Rows(file):
+  with file_or_stdin(None if file == &#34;-&#34; else file) as src:
+    for line in src:
+      line = re.sub(r&#39;([\n\t\r&#34;\&#39; ]|#.*)&#39;, &#39;&#39;, line)
+      if line:
+        yield ROW([str2thing(s.strip()) for s in line.split(&#34;,&#34;)])</code></pre>
+</details>
+</dd>
+<dt id="ord.ent"><code class="name flex">
+<span>def <span class="ident">ent</span></span>(<span>d)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ent(d):
+  N = sum(d.values())
+  return - sum(( n/N * math.log(n/N, 2) for n in d.values() if n &gt; 0 ))</code></pre>
+</details>
+</dd>
+<dt id="ord.grow"><code class="name flex">
+<span>def <span class="ident">grow</span></span>(<span>lst, bestRows, restRows, peeks=32, beam=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def grow(lst, bestRows, restRows, peeks=32, beam=None):
+  beam = beam or len(lst)
+  if beam &lt; 2 :
+    return lst
+  lst = sorted(lst, key=lambda y: -y[0])[:int(.5+beam)]
+  tmp = []
+  for a, b in pick2(lst, peeks):
+    c = TEST([test for ab in [a, b] for ors in ab.ors.values() for test in ors])
+    b = [row for row in bestRows if selects(c, row)]
+    r = [row for row in restRows if selects(c, row)]
+    v = score(*map(len, [b, r, bests, rests]))
+    tmp += [(v, c)]
+  return grow(lst+tmp, bestRows, restRows, peeks, beam/2)</code></pre>
 </details>
 </dd>
 <dt id="ord.num2Chops"><code class="name flex">
@@ -547,8 +598,8 @@ EG.RUN()</code></pre>
   return {rnd(k/(len(out)-1)): tuple(lohi) for k, lohi in enumerate(tmp)}</code></pre>
 </details>
 </dd>
-<dt id="ord.cols2Chops"><code class="name flex">
-<span>def <span class="ident">cols2Chops</span></span>(<span>data)</span>
+<dt id="ord.pick"><code class="name flex">
+<span>def <span class="ident">pick</span></span>(<span>lst, n)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -556,17 +607,46 @@ EG.RUN()</code></pre>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cols2Chops(data):
-  def _sym(col):
-    col.chops = {k: (k, k) for k in col.seen.keys()}
-
-  def _num(col):
-    col.chops = num2Chops(col/2, col.kept, the.cohen, the.bins)
-    for row in data.rows:
-      row.cooked[col.at] = x2range(row.cells[col.at], col.chops)
-  for col in data.cols.x:
-    (_sym if col.this is SYM else _num)(col)
-  return data</code></pre>
+<pre><code class="python">def pick(lst, n):
+  r = R()
+  for (m, x) in lst:
+    r -= m/n
+    if r &lt;= 0:
+      return x
+  assert False, &#34;should never get here&#34;</code></pre>
+</details>
+</dd>
+<dt id="ord.rnd"><code class="name flex">
+<span>def <span class="ident">rnd</span></span>(<span>x, decimals=3)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def rnd(x, decimals=3): 
+  return x if decimals is None else round(x, decimals)</code></pre>
+</details>
+</dd>
+<dt id="ord.score"><code class="name flex">
+<span>def <span class="ident">score</span></span>(<span>b, r, B, R)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Given you've found <code>b</code> or <code>r</code> items of <code>B,<a title="ord.R" href="#ord.R">Random.random()</a></code>, how much do we like you?</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def score(b, r, B, R):
+  &#34;Given you&#39;ve found `b` or `r` items of `B,R`, how much do we like you?&#34;
+  b = b/(B+1/big)
+  r = r/(R+1/big)
+  match the.want:
+    case &#34;plan&#34;    : return b**2 / (   b + r)    # seeking best
+    case &#34;monitor&#34; : return r**2 / (   b + r)    # seeking rest
+    case &#34;doubt&#34;   : return (b+r) / abs(b - r)   # seeking border of best/rest 
+    case &#34;xplore&#34;  : return 1 / (   b + r)       # seeking other</code></pre>
 </details>
 </dd>
 <dt id="ord.sortedChops"><code class="name flex">
@@ -603,56 +683,6 @@ EG.RUN()</code></pre>
   return sorted( _score( _count()), reverse=True)[:the.Beam]</code></pre>
 </details>
 </dd>
-<dt id="ord.R"><code class="name flex">
-<span>def <span class="ident">R</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>random() -&gt; x in the interval [0, 1).</p></div>
-</dd>
-<dt id="ord.csv2Rows"><code class="name flex">
-<span>def <span class="ident">csv2Rows</span></span>(<span>file)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def csv2Rows(file):
-  with file_or_stdin(None if file == &#34;-&#34; else file) as src:
-    for line in src:
-      line = re.sub(r&#39;([\n\t\r&#34;\&#39; ]|#.*)&#39;, &#39;&#39;, line)
-      if line:
-        yield ROW([str2thing(s.strip()) for s in line.split(&#34;,&#34;)])</code></pre>
-</details>
-</dd>
-<dt id="ord.ent"><code class="name flex">
-<span>def <span class="ident">ent</span></span>(<span>d)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def ent(d):
-  N = sum(d.values())
-  return - sum(( n/N * math.log(n/N, 2) for n in d.values() if n &gt; 0 ))</code></pre>
-</details>
-</dd>
-<dt id="ord.rnd"><code class="name flex">
-<span>def <span class="ident">rnd</span></span>(<span>x, decimals=3)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def rnd(x, decimals=3): 
-  return x if decimals is None else round(x, decimals)</code></pre>
-</details>
-</dd>
 <dt id="ord.str2thing"><code class="name flex">
 <span>def <span class="ident">str2thing</span></span>(<span>x: str)</span>
 </code></dt>
@@ -667,6 +697,18 @@ EG.RUN()</code></pre>
     return literal(x)
   except BaseException:
     return x</code></pre>
+</details>
+</dd>
+<dt id="ord.within"><code class="name flex">
+<span>def <span class="ident">within</span></span>(<span>x, lo, hi)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def within(x, lo, hi): return lo &lt;= x &lt; hi</code></pre>
 </details>
 </dd>
 <dt id="ord.x2range"><code class="name flex">
@@ -687,352 +729,11 @@ EG.RUN()</code></pre>
   assert False, &#34;should never get here&#34;</code></pre>
 </details>
 </dd>
-<dt id="ord.pick"><code class="name flex">
-<span>def <span class="ident">pick</span></span>(<span>lst, n)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def pick(lst, n):
-  r = R()
-  for (m, x) in lst:
-    r -= m/n
-    if r &lt;= 0:
-      return x
-  assert False, &#34;should never get here&#34;</code></pre>
-</details>
-</dd>
-<dt id="ord.grow"><code class="name flex">
-<span>def <span class="ident">grow</span></span>(<span>lst, bestRows, restRows, peeks=32, beam=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def grow(lst, bestRows, restRows, peeks=32, beam=None):
-  beam = beam or len(lst)
-  if beam &lt; 2 :
-    return lst
-  lst = sorted(lst, key=lambda y: -y[0])[:int(.5+beam)]
-  tmp = []
-  for a, b in pick2(lst, peeks):
-    c = TEST([test for ab in [a, b] for ors in ab.ors.values() for test in ors])
-    b = [row for row in bestRows if selects(c, row)]
-    r = [row for row in restRows if selects(c, row)]
-    v = score(*map(len, [b, r, bests, rests]))
-    tmp += [(v, c)]
-  return grow(lst+tmp, bestRows, restRows, peeks, beam/2)</code></pre>
-</details>
-</dd>
 </dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="ord.obj"><code class="flex name class">
-<span>class <span class="ident">obj</span></span>
-<span>(</span><span>**d)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>My base objects:
-pretty prints; can be initialized easily;
-all content available via self.it.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class obj(object):
-  &#34;&#34;&#34;My base objects:  pretty prints; can be initialized easily;
-  all content available via self.it.&#34;&#34;&#34; 
-  def __init__(i, **d): i.it.update(**d)
-  @property
-  def it(i): return i.__dict__
-  def __repr__(i):
-    def pretty(x): return x.__name__ if callable(x) else (f&#34;{x:3g}&#34; if isa(x, float) else x)
-    return &#34;{&#34;+&#34; &#34;.join([f&#34;:{k} {pretty(i.it[k])}&#34; for k in i.it if k[0] != &#34;_&#34;])+&#34;}&#34;</code></pre>
-</details>
-<h3>Subclasses</h3>
-<ul class="hlist">
-<li><a title="ord.COLS" href="#ord.COLS">COLS</a></li>
-<li><a title="ord.DATA" href="#ord.DATA">DATA</a></li>
-<li><a title="ord.NUM" href="#ord.NUM">NUM</a></li>
-<li><a title="ord.ROW" href="#ord.ROW">ROW</a></li>
-<li><a title="ord.SETTINGS" href="#ord.SETTINGS">SETTINGS</a></li>
-<li><a title="ord.SYM" href="#ord.SYM">SYM</a></li>
-</ul>
-<h3>Instance variables</h3>
-<dl>
-<dt id="ord.obj.it"><code class="name">var <span class="ident">it</span></code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def it(i): return i.__dict__</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
-<dt id="ord.ROW"><code class="flex name class">
-<span>class <span class="ident">ROW</span></span>
-<span>(</span><span>a)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>My base objects:
-pretty prints; can be initialized easily;
-all content available via self.it.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class ROW(obj):
-  def __init__(i, a):
-    i.cells, i.cooked = a, a[:]</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li><a title="ord.obj" href="#ord.obj">obj</a></li>
-</ul>
-</dd>
-<dt id="ord.SYM"><code class="flex name class">
-<span>class <span class="ident">SYM</span></span>
-<span>(</span><span>n=0, s='')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>My base objects:
-pretty prints; can be initialized easily;
-all content available via self.it.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class SYM(obj):
-  def __init__(i, n=0, s=&#34;&#34;) :
-    i.at,i.txt,i.n = n,s,0
-    i.seen, i.most, i.mode = {},0,None
-
-  def add(i, x):
-    if x != &#34;?&#34;:
-      i.n += 1
-      tmp = i.seen[x] = 1 + i.seen.get(x, 0)
-      if tmp &gt; i.most:
-        i.most, i.mode = tmp, x
-
-  def dist(i, a, b):
-    return 0 if a==b else 1
-
-  def div(i, decimals=None):
-    return rnd(ent(i.seen), decimals)
-
-  def mid(i, decimals=None):
-    return i.mode</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li><a title="ord.obj" href="#ord.obj">obj</a></li>
-</ul>
-<h3>Methods</h3>
-<dl>
-<dt id="ord.SYM.add"><code class="name flex">
-<span>def <span class="ident">add</span></span>(<span>i, x)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def add(i, x):
-  if x != &#34;?&#34;:
-    i.n += 1
-    tmp = i.seen[x] = 1 + i.seen.get(x, 0)
-    if tmp &gt; i.most:
-      i.most, i.mode = tmp, x</code></pre>
-</details>
-</dd>
-<dt id="ord.SYM.dist"><code class="name flex">
-<span>def <span class="ident">dist</span></span>(<span>i, a, b)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def dist(i, a, b):
-  return 0 if a==b else 1</code></pre>
-</details>
-</dd>
-<dt id="ord.SYM.div"><code class="name flex">
-<span>def <span class="ident">div</span></span>(<span>i, decimals=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def div(i, decimals=None):
-  return rnd(ent(i.seen), decimals)</code></pre>
-</details>
-</dd>
-<dt id="ord.SYM.mid"><code class="name flex">
-<span>def <span class="ident">mid</span></span>(<span>i, decimals=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def mid(i, decimals=None):
-  return i.mode</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
-<dt id="ord.NUM"><code class="flex name class">
-<span>class <span class="ident">NUM</span></span>
-<span>(</span><span>n=0, s='')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>My base objects:
-pretty prints; can be initialized easily;
-all content available via self.it.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class NUM(obj):
-  def __init__(i, n=0, s=&#34;&#34;) :
-    i.at,i.txt,i.n = n,s,0
-    i._kept, i.ok = [],True
-    i.heaven = 0 if s and s[-1] == &#34;-&#34; else 1
-
-  def add(i, x):
-    if x != &#34;?&#34;:
-      i.n += 1
-      if len(i._kept) &lt; the.Some :
-        i.ok = False
-        i._kept += [x]
-      elif R() &lt; the.Some / i.n    :
-        i.ok = False
-        i._kept[int(len(i._kept)*R())] = x
-
-  def dist(i,a,b):
-    a = a if a != &#34;?&#34; else (1 if b &lt; .5 else 0)
-    b = b if b != &#34;?&#34; else (1 if a &lt; .5 else 0)
-    return abs(a-b)
-
-  def div(i, decimals=None):
-    n=len(i.kept)
-    return rnd((i.kept[.9*n//1] - i.kept[.1*n//1])/2.56, decimals)
-
-  @property
-  def kept(i):
-    if not i.ok:
-      i._kept, i.ok = sorted(i._kept), True
-    return i._kept
-
-  def mid(i, decimals=None):
-    n=len(i.kept)
-    return rnd(i.kept[.5*n//1], decimals)</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li><a title="ord.obj" href="#ord.obj">obj</a></li>
-</ul>
-<h3>Instance variables</h3>
-<dl>
-<dt id="ord.NUM.kept"><code class="name">var <span class="ident">kept</span></code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def kept(i):
-  if not i.ok:
-    i._kept, i.ok = sorted(i._kept), True
-  return i._kept</code></pre>
-</details>
-</dd>
-</dl>
-<h3>Methods</h3>
-<dl>
-<dt id="ord.NUM.add"><code class="name flex">
-<span>def <span class="ident">add</span></span>(<span>i, x)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def add(i, x):
-  if x != &#34;?&#34;:
-    i.n += 1
-    if len(i._kept) &lt; the.Some :
-      i.ok = False
-      i._kept += [x]
-    elif R() &lt; the.Some / i.n    :
-      i.ok = False
-      i._kept[int(len(i._kept)*R())] = x</code></pre>
-</details>
-</dd>
-<dt id="ord.NUM.dist"><code class="name flex">
-<span>def <span class="ident">dist</span></span>(<span>i, a, b)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def dist(i,a,b):
-  a = a if a != &#34;?&#34; else (1 if b &lt; .5 else 0)
-  b = b if b != &#34;?&#34; else (1 if a &lt; .5 else 0)
-  return abs(a-b)</code></pre>
-</details>
-</dd>
-<dt id="ord.NUM.div"><code class="name flex">
-<span>def <span class="ident">div</span></span>(<span>i, decimals=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def div(i, decimals=None):
-  n=len(i.kept)
-  return rnd((i.kept[.9*n//1] - i.kept[.1*n//1])/2.56, decimals)</code></pre>
-</details>
-</dd>
-<dt id="ord.NUM.mid"><code class="name flex">
-<span>def <span class="ident">mid</span></span>(<span>i, decimals=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def mid(i, decimals=None):
-  n=len(i.kept)
-  return rnd(i.kept[.5*n//1], decimals)</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
 <dt id="ord.COLS"><code class="flex name class">
 <span>class <span class="ident">COLS</span></span>
 <span>(</span><span>names)</span>
@@ -1217,86 +918,6 @@ all content available via self.it.</p></div>
 </dd>
 </dl>
 </dd>
-<dt id="ord.SETTINGS"><code class="flex name class">
-<span>class <span class="ident">SETTINGS</span></span>
-<span>(</span><span>s)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>My base objects:
-pretty prints; can be initialized easily;
-all content available via self.it.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class SETTINGS(obj):
-  def __init__(i,s):
-    i.help = s
-    want = r&#34;\n\s*-\w+\s*--(\w+).*=\s*(\S+)&#34;
-    super().__init__(**{m[1]: literal(m[2]) for m in re.finditer(want, s)})
-
-  def cli(i):
-    for k, v in i.it.items():
-      s = str(v)
-      for j, x in enumerate(sys.argv):
-        if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
-          s = &#34;True&#34; if s == &#34;False&#34; else (&#34;False&#34; if s == &#34;True&#34; else sys.argv[j+1])
-      i.it[k] = str2thing(s)
-    if i.it[&#34;help&#34;]: i.exitWithHelp()
-    return i
-
-  def exitWithHelp(i):
-    def yell(s): return colored(s[1], &#34;yellow&#34;,attrs=[&#34;bold&#34;])
-    def bold(s): return colored(s[1], &#34;white&#34;, attrs=[&#34;bold&#34;])
-    egs= &#34;ACTIONS:\n&#34;+&#34;\n&#34;.join([f&#34;  -g  {s:8} {i.help}&#34; for s,f in EG.DO().items()])
-    print(re.sub(r&#34;(\n[A-Z]+:)&#34;, yell, re.sub(r&#34;(-[-]?[\w]+)&#34;, bold, __doc__ + &#34;\n&#34; + egs)))
-    sys.exit(0)</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li><a title="ord.obj" href="#ord.obj">obj</a></li>
-</ul>
-<h3>Methods</h3>
-<dl>
-<dt id="ord.SETTINGS.cli"><code class="name flex">
-<span>def <span class="ident">cli</span></span>(<span>i)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cli(i):
-  for k, v in i.it.items():
-    s = str(v)
-    for j, x in enumerate(sys.argv):
-      if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
-        s = &#34;True&#34; if s == &#34;False&#34; else (&#34;False&#34; if s == &#34;True&#34; else sys.argv[j+1])
-    i.it[k] = str2thing(s)
-  if i.it[&#34;help&#34;]: i.exitWithHelp()
-  return i</code></pre>
-</details>
-</dd>
-<dt id="ord.SETTINGS.exitWithHelp"><code class="name flex">
-<span>def <span class="ident">exitWithHelp</span></span>(<span>i)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def exitWithHelp(i):
-  def yell(s): return colored(s[1], &#34;yellow&#34;,attrs=[&#34;bold&#34;])
-  def bold(s): return colored(s[1], &#34;white&#34;, attrs=[&#34;bold&#34;])
-  egs= &#34;ACTIONS:\n&#34;+&#34;\n&#34;.join([f&#34;  -g  {s:8} {i.help}&#34; for s,f in EG.DO().items()])
-  print(re.sub(r&#34;(\n[A-Z]+:)&#34;, yell, re.sub(r&#34;(-[-]?[\w]+)&#34;, bold, __doc__ + &#34;\n&#34; + egs)))
-  sys.exit(0)</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
 <dt id="ord.EG"><code class="flex name class">
 <span>class <span class="ident">EG</span></span>
 </code></dt>
@@ -1377,7 +998,7 @@ all content available via self.it.</p></div>
 </details>
 </dd>
 <dt id="ord.EG.RUN"><code class="name flex">
-<span>def <span class="ident">RUN</span></span>(<span>a=['/opt/homebrew/lib/python3.11/site-packages/pdoc/__main__.py', '-c', 'sort_identifiers=False', '-c', 'show_inherited_members=False', '--template-dir', 'docs', '--force', '--html', '-o', 'docs', 'ord.py'])</span>
+<span>def <span class="ident">RUN</span></span>(<span>a=['/opt/homebrew/bin/pdoc', '--force', '--html', 'ord.py'])</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1420,20 +1041,6 @@ all content available via self.it.</p></div>
   sys.exit(sum(map(EG.RUN1,EG.DO())))</code></pre>
 </details>
 </dd>
-<dt id="ord.EG.the"><code class="name flex">
-<span>def <span class="ident">the</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>show config options</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def the() :
-  &#34;show config options&#34;
-  print(the)</code></pre>
-</details>
-</dd>
 <dt id="ord.EG.data"><code class="name flex">
 <span>def <span class="ident">data</span></span>(<span>)</span>
 </code></dt>
@@ -1448,30 +1055,6 @@ all content available via self.it.</p></div>
   stats1 = DATA(csv2Rows(the.file)).stats()
   print(*stats1.it.keys(),sep=&#34;\t&#34;)
   print(*stats1.it.values(),sep=&#34;\t&#34;)</code></pre>
-</details>
-</dd>
-<dt id="ord.EG.sorted"><code class="name flex">
-<span>def <span class="ident">sorted</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>can we sort the rows into best and rest?</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sorted():
-  &#34;can we sort the rows into best and rest?&#34;
-  data = DATA(csv2Rows(the.file))
-  rows = data.sortedRows()
-  print(*data.cols.names,sep=&#34;\t&#34;)
-  [print(*row.cells,sep=&#34;\t&#34;) for row in rows[:10]]
-  print(&#34;&#34;)
-  [print(*row.cells,sep=&#34;\t&#34;) for row in rows[-10:]]
-  stats1 = clone(data, rows[:40]).stats()
-  stats2 = clone(data, rows[40:]).stats()
-  print(*[&#34;\n&#34;]+list(stats1.it.keys()),sep=&#34;\t&#34;)
-  print(*[&#34;best&#34;]+list(stats1.it.values()),sep=&#34;\t&#34;)
-  print(*[&#34;rest&#34;]+list(stats2.it.values()),sep=&#34;\t&#34;)</code></pre>
 </details>
 </dd>
 <dt id="ord.EG.ideas"><code class="name flex">
@@ -1500,28 +1083,429 @@ all content available via self.it.</p></div>
     print(*x,sep=&#34;\t&#34;)</code></pre>
 </details>
 </dd>
+<dt id="ord.EG.sorted"><code class="name flex">
+<span>def <span class="ident">sorted</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>can we sort the rows into best and rest?</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sorted():
+  &#34;can we sort the rows into best and rest?&#34;
+  data = DATA(csv2Rows(the.file))
+  rows = data.sortedRows()
+  print(*data.cols.names,sep=&#34;\t&#34;)
+  [print(*row.cells,sep=&#34;\t&#34;) for row in rows[:10]]
+  print(&#34;&#34;)
+  [print(*row.cells,sep=&#34;\t&#34;) for row in rows[-10:]]
+  stats1 = clone(data, rows[:40]).stats()
+  stats2 = clone(data, rows[40:]).stats()
+  print(*[&#34;\n&#34;]+list(stats1.it.keys()),sep=&#34;\t&#34;)
+  print(*[&#34;best&#34;]+list(stats1.it.values()),sep=&#34;\t&#34;)
+  print(*[&#34;rest&#34;]+list(stats2.it.values()),sep=&#34;\t&#34;)</code></pre>
+</details>
+</dd>
+<dt id="ord.EG.the"><code class="name flex">
+<span>def <span class="ident">the</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>show config options</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def the() :
+  &#34;show config options&#34;
+  print(the)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="ord.NUM"><code class="flex name class">
+<span>class <span class="ident">NUM</span></span>
+<span>(</span><span>n=0, s='')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>My base objects:
+pretty prints; can be initialized easily;
+all content available via self.it.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class NUM(obj):
+  def __init__(i, n=0, s=&#34;&#34;) :
+    i.at,i.txt,i.n = n,s,0
+    i._kept, i.ok = [],True
+    i.heaven = 0 if s and s[-1] == &#34;-&#34; else 1
+
+  def add(i, x):
+    if x != &#34;?&#34;:
+      i.n += 1
+      if len(i._kept) &lt; the.Some :
+        i.ok = False
+        i._kept += [x]
+      elif R() &lt; the.Some / i.n    :
+        i.ok = False
+        i._kept[int(len(i._kept)*R())] = x
+
+  def dist(i,a,b):
+    a = a if a != &#34;?&#34; else (1 if b &lt; .5 else 0)
+    b = b if b != &#34;?&#34; else (1 if a &lt; .5 else 0)
+    return abs(a-b)
+
+  def div(i, decimals=None):
+    n=len(i.kept)
+    return rnd((i.kept[.9*n//1] - i.kept[.1*n//1])/2.56, decimals)
+
+  @property
+  def kept(i):
+    if not i.ok:
+      i._kept, i.ok = sorted(i._kept), True
+    return i._kept
+
+  def mid(i, decimals=None):
+    n=len(i.kept)
+    return rnd(i.kept[.5*n//1], decimals)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="ord.obj" href="#ord.obj">obj</a></li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="ord.NUM.kept"><code class="name">var <span class="ident">kept</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def kept(i):
+  if not i.ok:
+    i._kept, i.ok = sorted(i._kept), True
+  return i._kept</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="ord.NUM.add"><code class="name flex">
+<span>def <span class="ident">add</span></span>(<span>i, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add(i, x):
+  if x != &#34;?&#34;:
+    i.n += 1
+    if len(i._kept) &lt; the.Some :
+      i.ok = False
+      i._kept += [x]
+    elif R() &lt; the.Some / i.n    :
+      i.ok = False
+      i._kept[int(len(i._kept)*R())] = x</code></pre>
+</details>
+</dd>
+<dt id="ord.NUM.dist"><code class="name flex">
+<span>def <span class="ident">dist</span></span>(<span>i, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def dist(i,a,b):
+  a = a if a != &#34;?&#34; else (1 if b &lt; .5 else 0)
+  b = b if b != &#34;?&#34; else (1 if a &lt; .5 else 0)
+  return abs(a-b)</code></pre>
+</details>
+</dd>
+<dt id="ord.NUM.div"><code class="name flex">
+<span>def <span class="ident">div</span></span>(<span>i, decimals=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def div(i, decimals=None):
+  n=len(i.kept)
+  return rnd((i.kept[.9*n//1] - i.kept[.1*n//1])/2.56, decimals)</code></pre>
+</details>
+</dd>
+<dt id="ord.NUM.mid"><code class="name flex">
+<span>def <span class="ident">mid</span></span>(<span>i, decimals=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def mid(i, decimals=None):
+  n=len(i.kept)
+  return rnd(i.kept[.5*n//1], decimals)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="ord.ROW"><code class="flex name class">
+<span>class <span class="ident">ROW</span></span>
+<span>(</span><span>a)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>My base objects:
+pretty prints; can be initialized easily;
+all content available via self.it.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ROW(obj):
+  def __init__(i, a):
+    i.cells, i.cooked = a, a[:]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="ord.obj" href="#ord.obj">obj</a></li>
+</ul>
+</dd>
+<dt id="ord.SETTINGS"><code class="flex name class">
+<span>class <span class="ident">SETTINGS</span></span>
+<span>(</span><span>s)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>My base objects:
+pretty prints; can be initialized easily;
+all content available via self.it.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SETTINGS(obj):
+  def __init__(i,s):
+    i.help = s
+    want = r&#34;\n\s*-\w+\s*--(\w+).*=\s*(\S+)&#34;
+    super().__init__(**{m[1]: literal(m[2]) for m in re.finditer(want, s)})
+
+  def cli(i):
+    for k, v in i.it.items():
+      s = str(v)
+      for j, x in enumerate(sys.argv):
+        if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
+          s = &#34;True&#34; if s == &#34;False&#34; else (&#34;False&#34; if s == &#34;True&#34; else sys.argv[j+1])
+      i.it[k] = str2thing(s)
+    if i.it[&#34;help&#34;]: i.exitWithHelp()
+    return i
+
+  def exitWithHelp(i):
+    def yell(s): return colored(s[1], &#34;yellow&#34;,attrs=[&#34;bold&#34;])
+    def bold(s): return colored(s[1], &#34;white&#34;, attrs=[&#34;bold&#34;])
+    egs= &#34;ACTIONS:\n&#34;+&#34;\n&#34;.join([f&#34;  -g  {s:8} {i.help}&#34; for s,f in EG.DO().items()])
+    print(re.sub(r&#34;(\n[A-Z]+:)&#34;, yell, re.sub(r&#34;(-[-]?[\w]+)&#34;, bold, __doc__ + &#34;\n&#34; + egs)))
+    sys.exit(0)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="ord.obj" href="#ord.obj">obj</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="ord.SETTINGS.cli"><code class="name flex">
+<span>def <span class="ident">cli</span></span>(<span>i)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cli(i):
+  for k, v in i.it.items():
+    s = str(v)
+    for j, x in enumerate(sys.argv):
+      if (&#34;-&#34;+k[0]) == x or (&#34;--&#34;+k) == x:
+        s = &#34;True&#34; if s == &#34;False&#34; else (&#34;False&#34; if s == &#34;True&#34; else sys.argv[j+1])
+    i.it[k] = str2thing(s)
+  if i.it[&#34;help&#34;]: i.exitWithHelp()
+  return i</code></pre>
+</details>
+</dd>
+<dt id="ord.SETTINGS.exitWithHelp"><code class="name flex">
+<span>def <span class="ident">exitWithHelp</span></span>(<span>i)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def exitWithHelp(i):
+  def yell(s): return colored(s[1], &#34;yellow&#34;,attrs=[&#34;bold&#34;])
+  def bold(s): return colored(s[1], &#34;white&#34;, attrs=[&#34;bold&#34;])
+  egs= &#34;ACTIONS:\n&#34;+&#34;\n&#34;.join([f&#34;  -g  {s:8} {i.help}&#34; for s,f in EG.DO().items()])
+  print(re.sub(r&#34;(\n[A-Z]+:)&#34;, yell, re.sub(r&#34;(-[-]?[\w]+)&#34;, bold, __doc__ + &#34;\n&#34; + egs)))
+  sys.exit(0)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="ord.SYM"><code class="flex name class">
+<span>class <span class="ident">SYM</span></span>
+<span>(</span><span>n=0, s='')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>My base objects:
+pretty prints; can be initialized easily;
+all content available via self.it.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SYM(obj):
+  def __init__(i, n=0, s=&#34;&#34;) :
+    i.at,i.txt,i.n = n,s,0
+    i.seen, i.most, i.mode = {},0,None
+
+  def add(i, x):
+    if x != &#34;?&#34;:
+      i.n += 1
+      tmp = i.seen[x] = 1 + i.seen.get(x, 0)
+      if tmp &gt; i.most:
+        i.most, i.mode = tmp, x
+
+  def dist(i, a, b):
+    return 0 if a==b else 1
+
+  def div(i, decimals=None):
+    return rnd(ent(i.seen), decimals)
+
+  def mid(i, decimals=None):
+    return i.mode</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="ord.obj" href="#ord.obj">obj</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="ord.SYM.add"><code class="name flex">
+<span>def <span class="ident">add</span></span>(<span>i, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add(i, x):
+  if x != &#34;?&#34;:
+    i.n += 1
+    tmp = i.seen[x] = 1 + i.seen.get(x, 0)
+    if tmp &gt; i.most:
+      i.most, i.mode = tmp, x</code></pre>
+</details>
+</dd>
+<dt id="ord.SYM.dist"><code class="name flex">
+<span>def <span class="ident">dist</span></span>(<span>i, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def dist(i, a, b):
+  return 0 if a==b else 1</code></pre>
+</details>
+</dd>
+<dt id="ord.SYM.div"><code class="name flex">
+<span>def <span class="ident">div</span></span>(<span>i, decimals=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def div(i, decimals=None):
+  return rnd(ent(i.seen), decimals)</code></pre>
+</details>
+</dd>
+<dt id="ord.SYM.mid"><code class="name flex">
+<span>def <span class="ident">mid</span></span>(<span>i, decimals=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def mid(i, decimals=None):
+  return i.mode</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="ord.obj"><code class="flex name class">
+<span>class <span class="ident">obj</span></span>
+<span>(</span><span>**d)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>My base objects:
+pretty prints; can be initialized easily;
+all content available via self.it.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class obj(object):
+  &#34;&#34;&#34;My base objects:  pretty prints; can be initialized easily;
+  all content available via self.it.&#34;&#34;&#34; 
+  def __init__(i, **d): i.it.update(**d)
+  @property
+  def it(i): return i.__dict__
+  def __repr__(i):
+    def pretty(x): return x.__name__ if callable(x) else (f&#34;{x:3g}&#34; if isa(x, float) else x)
+    return &#34;{&#34;+&#34; &#34;.join([f&#34;:{k} {pretty(i.it[k])}&#34; for k in i.it if k[0] != &#34;_&#34;])+&#34;}&#34;</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="ord.COLS" href="#ord.COLS">COLS</a></li>
+<li><a title="ord.DATA" href="#ord.DATA">DATA</a></li>
+<li><a title="ord.NUM" href="#ord.NUM">NUM</a></li>
+<li><a title="ord.ROW" href="#ord.ROW">ROW</a></li>
+<li><a title="ord.SETTINGS" href="#ord.SETTINGS">SETTINGS</a></li>
+<li><a title="ord.SYM" href="#ord.SYM">SYM</a></li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="ord.obj.it"><code class="name">var <span class="ident">it</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def it(i): return i.__dict__</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 </dl>
 </section>
 </article>
 <nav id="sidebar">
-<center>
-<img src="Fly-Fishing_art.png" width=300>
-<p>
-<a href="https://github.com/4src/fish"><img width=30 src="github-mark.png"></a>
-<br>
-<img
-src="https://img.shields.io/badge/language-python3.11-yellow"> <img
-src="results.png"> <img
-src="https://img.shields.io/badge/license-BSD2-ff69b4"> <a
-href="https://zenodo.org/badge/latestdoi/631627449"><img
-src="https://img.shields.io/badge/purpose-se--ai-blueviolet"> <img
-src="https://img.shields.io/badge/platform-osx,linux-pink"> <a
-href="https://zenodo.org/badge/latestdoi/631627449"><img
-src="https://zenodo.org/badge/631627449.svg"></a>
-<br> <hr>
-<br></center>
 <h1>Index</h1>
 <div class="toc">
 <ul></ul>
@@ -1529,51 +1513,23 @@ src="https://zenodo.org/badge/631627449.svg"></a>
 <ul id="index">
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
-<li><code><a title="ord.score" href="#ord.score">score</a></code></li>
-<li><code><a title="ord.within" href="#ord.within">within</a></code></li>
-<li><code><a title="ord.num2Chops" href="#ord.num2Chops">num2Chops</a></code></li>
-<li><code><a title="ord.cols2Chops" href="#ord.cols2Chops">cols2Chops</a></code></li>
-<li><code><a title="ord.sortedChops" href="#ord.sortedChops">sortedChops</a></code></li>
 <li><code><a title="ord.R" href="#ord.R">R</a></code></li>
+<li><code><a title="ord.cols2Chops" href="#ord.cols2Chops">cols2Chops</a></code></li>
 <li><code><a title="ord.csv2Rows" href="#ord.csv2Rows">csv2Rows</a></code></li>
 <li><code><a title="ord.ent" href="#ord.ent">ent</a></code></li>
-<li><code><a title="ord.rnd" href="#ord.rnd">rnd</a></code></li>
-<li><code><a title="ord.str2thing" href="#ord.str2thing">str2thing</a></code></li>
-<li><code><a title="ord.x2range" href="#ord.x2range">x2range</a></code></li>
-<li><code><a title="ord.pick" href="#ord.pick">pick</a></code></li>
 <li><code><a title="ord.grow" href="#ord.grow">grow</a></code></li>
+<li><code><a title="ord.num2Chops" href="#ord.num2Chops">num2Chops</a></code></li>
+<li><code><a title="ord.pick" href="#ord.pick">pick</a></code></li>
+<li><code><a title="ord.rnd" href="#ord.rnd">rnd</a></code></li>
+<li><code><a title="ord.score" href="#ord.score">score</a></code></li>
+<li><code><a title="ord.sortedChops" href="#ord.sortedChops">sortedChops</a></code></li>
+<li><code><a title="ord.str2thing" href="#ord.str2thing">str2thing</a></code></li>
+<li><code><a title="ord.within" href="#ord.within">within</a></code></li>
+<li><code><a title="ord.x2range" href="#ord.x2range">x2range</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
-<li>
-<h4><code><a title="ord.obj" href="#ord.obj">obj</a></code></h4>
-<ul class="">
-<li><code><a title="ord.obj.it" href="#ord.obj.it">it</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="ord.ROW" href="#ord.ROW">ROW</a></code></h4>
-</li>
-<li>
-<h4><code><a title="ord.SYM" href="#ord.SYM">SYM</a></code></h4>
-<ul class="">
-<li><code><a title="ord.SYM.add" href="#ord.SYM.add">add</a></code></li>
-<li><code><a title="ord.SYM.dist" href="#ord.SYM.dist">dist</a></code></li>
-<li><code><a title="ord.SYM.div" href="#ord.SYM.div">div</a></code></li>
-<li><code><a title="ord.SYM.mid" href="#ord.SYM.mid">mid</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="ord.NUM" href="#ord.NUM">NUM</a></code></h4>
-<ul class="">
-<li><code><a title="ord.NUM.add" href="#ord.NUM.add">add</a></code></li>
-<li><code><a title="ord.NUM.dist" href="#ord.NUM.dist">dist</a></code></li>
-<li><code><a title="ord.NUM.div" href="#ord.NUM.div">div</a></code></li>
-<li><code><a title="ord.NUM.mid" href="#ord.NUM.mid">mid</a></code></li>
-<li><code><a title="ord.NUM.kept" href="#ord.NUM.kept">kept</a></code></li>
-</ul>
-</li>
 <li>
 <h4><code><a title="ord.COLS" href="#ord.COLS">COLS</a></code></h4>
 <ul class="">
@@ -1592,6 +1548,32 @@ src="https://zenodo.org/badge/631627449.svg"></a>
 </ul>
 </li>
 <li>
+<h4><code><a title="ord.EG" href="#ord.EG">EG</a></code></h4>
+<ul class="two-column">
+<li><code><a title="ord.EG.DO" href="#ord.EG.DO">DO</a></code></li>
+<li><code><a title="ord.EG.RUN" href="#ord.EG.RUN">RUN</a></code></li>
+<li><code><a title="ord.EG.RUN1" href="#ord.EG.RUN1">RUN1</a></code></li>
+<li><code><a title="ord.EG.all" href="#ord.EG.all">all</a></code></li>
+<li><code><a title="ord.EG.data" href="#ord.EG.data">data</a></code></li>
+<li><code><a title="ord.EG.ideas" href="#ord.EG.ideas">ideas</a></code></li>
+<li><code><a title="ord.EG.sorted" href="#ord.EG.sorted">sorted</a></code></li>
+<li><code><a title="ord.EG.the" href="#ord.EG.the">the</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="ord.NUM" href="#ord.NUM">NUM</a></code></h4>
+<ul class="">
+<li><code><a title="ord.NUM.add" href="#ord.NUM.add">add</a></code></li>
+<li><code><a title="ord.NUM.dist" href="#ord.NUM.dist">dist</a></code></li>
+<li><code><a title="ord.NUM.div" href="#ord.NUM.div">div</a></code></li>
+<li><code><a title="ord.NUM.kept" href="#ord.NUM.kept">kept</a></code></li>
+<li><code><a title="ord.NUM.mid" href="#ord.NUM.mid">mid</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="ord.ROW" href="#ord.ROW">ROW</a></code></h4>
+</li>
+<li>
 <h4><code><a title="ord.SETTINGS" href="#ord.SETTINGS">SETTINGS</a></code></h4>
 <ul class="">
 <li><code><a title="ord.SETTINGS.cli" href="#ord.SETTINGS.cli">cli</a></code></li>
@@ -1599,16 +1581,18 @@ src="https://zenodo.org/badge/631627449.svg"></a>
 </ul>
 </li>
 <li>
-<h4><code><a title="ord.EG" href="#ord.EG">EG</a></code></h4>
-<ul class="two-column">
-<li><code><a title="ord.EG.DO" href="#ord.EG.DO">DO</a></code></li>
-<li><code><a title="ord.EG.RUN" href="#ord.EG.RUN">RUN</a></code></li>
-<li><code><a title="ord.EG.RUN1" href="#ord.EG.RUN1">RUN1</a></code></li>
-<li><code><a title="ord.EG.all" href="#ord.EG.all">all</a></code></li>
-<li><code><a title="ord.EG.the" href="#ord.EG.the">the</a></code></li>
-<li><code><a title="ord.EG.data" href="#ord.EG.data">data</a></code></li>
-<li><code><a title="ord.EG.sorted" href="#ord.EG.sorted">sorted</a></code></li>
-<li><code><a title="ord.EG.ideas" href="#ord.EG.ideas">ideas</a></code></li>
+<h4><code><a title="ord.SYM" href="#ord.SYM">SYM</a></code></h4>
+<ul class="">
+<li><code><a title="ord.SYM.add" href="#ord.SYM.add">add</a></code></li>
+<li><code><a title="ord.SYM.dist" href="#ord.SYM.dist">dist</a></code></li>
+<li><code><a title="ord.SYM.div" href="#ord.SYM.div">div</a></code></li>
+<li><code><a title="ord.SYM.mid" href="#ord.SYM.mid">mid</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="ord.obj" href="#ord.obj">obj</a></code></h4>
+<ul class="">
+<li><code><a title="ord.obj.it" href="#ord.obj.it">it</a></code></li>
 </ul>
 </li>
 </ul>

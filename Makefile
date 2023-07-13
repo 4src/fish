@@ -23,7 +23,7 @@ tests: ## run test suite
   fi
 
 docs/%.html: %.py
-	python3 -Bm pdoc -c sort_identifiers=False  \
+	python3 -Bm pdoc -c sort_identifiers=False  -c  show_inherited_members=False \
 		       --template-dir docs --force --html -o docs   $^
 
 # 'Makefile'

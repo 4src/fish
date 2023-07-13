@@ -1,24 +1,24 @@
 #!/usr/bin/env python3 -B
 # <!--- vim: set et sts=2 sw=2 ts=2 : --->
-"""
-ORD: simple multi objective explanation (using unsupervised discretion)
-(c) 2023 Tim Menzies <timm@ieee.org> BSD.2
-
-USAGE:
-  ./ord.py [OPTIONS] [-g ACTIONS]
-
-OPTIONS:
-  -b  --bins   max number of bins         = 7
-  -B  --Beam   search width               = 10
-  -c  --cohen  measure of same            = .35
-  -f  --file   data file                  = "../data/auto93.csv"
-  -g  --go     startup action             = "nothing"
-  -h  --help   show help                  = False
-  -m  --min    min size                   = .5
-  -r  --rest   best times rest            = 4
-  -s  --seed   random number seed         = 937162211
-  -S  --Some   how may nums to keep       = 256
-  -w  --want   plan|monitor|xplore|doubt  = "plan"
+""" 
+ORD: simple multi objective explanation (using unsupervised discretion)   
+(c) 2023 Tim Menzies <timm@ieee.org> BSD.2   
+   
+USAGE:   
+  ./ord.py [OPTIONS] [-g ACTIONS]   
+   
+OPTIONS:   
+  -b  --bins   max number of bins         = 7   
+  -B  --Beam   search width               = 10   
+  -c  --cohen  measure of same            = .35   
+  -f  --file   data file                  = "../data/auto93.csv"   
+  -g  --go     startup action             = "nothing"   
+  -h  --help   show help                  = False   
+  -m  --min    min size                   = .5   
+  -r  --rest   best times rest            = 4   
+  -s  --seed   random number seed         = 937162211   
+  -S  --Some   how may nums to keep       = 256   
+  -w  --want   plan|monitor|xplore|doubt  = "plan"   
 """
 # ----------------------------------------------------
 import random, sys, re
@@ -34,8 +34,8 @@ class obj(object):
   @property
   def it(i): return i.__dict__
   def __repr__(i):
-    def pretty(x): return x.__name__ if callable(x) else (f"{x:3g}" if isa(x, float) else x)
-    return "{"+" ".join([f":{k} {pretty(i.it[k])}" for k in i.it if k[0] != "_"])+"}"
+    def f(x): return x.__name__ if callable(x) else (f"{x:3g}" if isa(x, float) else x)
+    return "{"+" ".join([f":{k} {f(i.it[k])}" for k in i.it if k[0] != "_"])+"}"
 # --------------------------------------------------------
 def score(b, r, B, R):
   "Given you've found `b` or `r` items of `B,R`, how much do we like you?"
@@ -71,6 +71,16 @@ class SYM(obj):
   def div(i, decimals=None):
     return rnd(ent(i.seen), decimals)
 
+  def getChops(i, bestRows, restRows):
+    tmp = {}
+    for klass,rows in dict(best=bestRows, rest=restRows).items():
+      for row in rows:
+        x = row.cells[i.at]
+        if x != "?":
+          if x not in tmp: tmp[x] = obj(lo=x, hi= x, n=it(best=0, rest=0))
+          tmp[x][klass] += 1
+    return [[x.lo, x.hi, x.n.b, x.n.r] for x in tmp.values]
+
   def mid(i, decimals=None):
     return i.mode
 # -----------------------------------------------------------------------------
@@ -83,10 +93,10 @@ class NUM(obj):
   def add(i, x):
     if x != "?":
       i.n += 1
-      if len(i._kept) < the.Some :
+      if len(i._kept) < the.Some:
         i.ok = False
         i._kept += [x]
-      elif R() < the.Some / i.n    :
+      elif R() < the.Some / i.n:
         i.ok = False
         i._kept[int(len(i._kept)*R())] = x
 
@@ -98,6 +108,47 @@ class NUM(obj):
   def div(i, decimals=None):
     n=len(i.kept)
     return rnd((i.kept[.9*n//1] - i.kept[.1*n//1])/2.56, decimals)
+
+  def getChops(i, bestRows, restRows):
+    def x(row)  : return row.cells[i.at]
+    def x1(pair): return x(pair[1])
+    def _divide(pairs):
+      few = int(len(pairs)/the.bins) - 1
+      tiny = the.cohen*i.div()
+      now = obj(lo=x1(pairs[0]), hi=x1(pairs[0]), n=it(best=0, rest=0))
+      tmp = [now]
+      for i, (klass, row) in enumerate(pairs):
+        here = x(row)
+        if len(pairs) - i > few * .67 and here != x1(pairs[i-1]):
+          if here - now.lo > tiny and now.n.best + now.n.rest > few:
+            now = obj(lo=now.hi, hi=here, n=it(best=0, rest=0))
+            tmp += [now]
+        now.hi = here
+        now.n[klass] += 1
+      return tmp
+
+    def _merge(ins):
+      outs, i = [], 0
+      while i < len(ins):
+        a = ins[i]
+        if i < len(ins)-1:
+          b = ins[i+1]
+          merged = obj(lo=a.lo, hi=b.hi, n=it(best=a.n.best+b.n.best, rest=a.n.rest+b.n.rest))
+          A, B = a.n.best+a.n.rest, b.n.best+b.n.rest
+          if ent(merged.n) <= (ent(a.n)*A + ent(b.n)*B) / (A+B): # merged's is clearer than a or b
+            a = merged
+            i += 1  # skip over b since we have just merged it with a
+        outs += [a]
+        i += 1
+      return ins if len(ins) == len(outs) else _merge(outs)
+    bests = [("best", row) for row in bestRows if x(row) != "?"]
+    rests = [("rest", row) for row in restRows if x(row) != "?"]
+    B, R = len(bestRows) + 1/big, len(restRows)+1/big
+    tmp = [[x.lo, x.hi, x.n.b, x.n.r] for x in _merge( _divide( sorted(bests+rests, key=x1)))]
+    tmp[ 0][0] = -big  # lowest lo is negative infinity
+    tmp[-1][1] = big  # highest hi is positive infinity
+    return {rnd(k/(len(out)-1)): tuple(lohi) for k, lohi in enumerate(tmp)}
+
 
   @property
   def kept(i):
@@ -153,47 +204,6 @@ class DATA(obj):
     def fun(col): return (col.mid if what == "mid" else col.div)(decimals)
     return obj(N=len(i.rows),**{col.txt: fun(col) for col in cols or i.cols.y})
 # -----------------------------------------------------------------------------
-def num2Chops(num, bestRows, restRows, cohen, bins):
-  def x(row)  : return row.cells[num.at]
-  def x1(pair): return x(pair[1])
-
-  def _divide(pairs):
-    few = int(len(pairs)/bins) - 1
-    tiny = cohen*col2div(num)
-    now = obj(lo=x1(pairs[0]), hi=x1(pairs[0]), n=it(best=0, rest=0))
-    tmp = [now]
-    for i, (klass, row) in enumerate(pairs):
-      here = x(row)
-      if len(pairs) - i > few * .67 and here != x1(pairs[i-1]):
-        if here - now.lo > tiny and now.n.best + now.n.rest > few:
-          now = obj(lo=now.hi, hi=here, n=it(best=0, rest=0))
-          tmp += [now]
-      now.hi = here
-      now.n[klass] += 1
-    return tmp
-
-  def _merge(ins):
-    outs, i = [], 0
-    while i < len(ins):
-      a = ins[i]
-      if i < len(ins)-1:
-        b = ins[i+1]
-        merged = obj(lo=a.lo, hi=b.hi, n=it(best=a.n.best+b.n.best, rest=a.n.rest+b.n.rest))
-        na, nb = a.n.best+a.n.rest, b.n.best+b.n.rest
-        if ent(merged.n) <= (ent(a.n)*na + ent(b.n)*nb) / (na+nb):  # merged's is clearer than a or b
-          a = merged
-          i += 1  # skip over b since we have just merged it with a
-      outs += [a]
-      i += 1
-    return ins if len(ins) == len(outs) else _merge(outs)
-  bests = [("best", row) for row in bestRows if x(row) != "?"]
-  rests = [("rest", row) for row in restRows if x(row) != "?"]
-  B, R = len(bestRows) + 1/big, len(restRows)+1/big
-  tmp = [[x.lo, x.hi, x.n.b/B, x.n.r/R] for x in _merge( _divide( sorted(bests+rests, key=x1)))]
-  tmp[ 0][0] = -big  # lowest lo is negative infinity
-  tmp[-1][1] = big  # highest hi is positive infinity
-  return {rnd(k/(len(out)-1)): tuple(lohi) for k, lohi in enumerate(tmp)}
-
 def cols2Chops(data):
   def _sym(col):
     col.chops = {k: (k, k) for k in col.seen.keys()}
