@@ -27,16 +27,6 @@ from termcolor import colored
 from ast import literal_eval as literal
 from fileinput import FileInput as file_or_stdin
 # --------------------------------------------------------
-class obj(object):
-  """My base objects:  pretty prints; can be initialized easily;
-  all content available via self.it.""" 
-  def __init__(i, **d): i.it.update(**d)
-  @property
-  def it(i): return i.__dict__
-  def __repr__(i):
-    def f(x): return x.__name__ if callable(x) else (f"{x:3g}" if isa(x, float) else x)
-    return "{"+" ".join([f":{k} {f(i.it[k])}" for k in i.it if k[0] != "_"])+"}"
-# --------------------------------------------------------
 def score(b, r, B, R):
   "Given you've found `b` or `r` items of `B,R`, how much do we like you?"
   b = b/(B+1/big)
@@ -46,8 +36,16 @@ def score(b, r, B, R):
     case "monitor" : return r**2 / (   b + r)    # seeking rest
     case "doubt"   : return (b+r) / abs(b - r)   # seeking border of best/rest 
     case "xplore"  : return 1 / (   b + r)       # seeking other
-
-def within(x, lo, hi): return lo <= x < hi
+# --------------------------------------------------------
+class obj(object):
+  """My base objects:  pretty prints; can be initialized easily;
+  all content available via self.it.""" 
+  def __init__(i, **d): i.it.update(**d)
+  @property
+  def it(i): return i.__dict__
+  def __repr__(i):
+    def f(x): return x.__name__ if callable(x) else (f"{x:3g}" if isa(x, float) else x)
+    return "{"+" ".join([f":{k} {f(i.it[k])}" for k in i.it if k[0] != "_"])+"}"
 # --------------------------------------------------------
 class ROW(obj):
   def __init__(i, a):
@@ -71,15 +69,15 @@ class SYM(obj):
   def div(i, decimals=None):
     return rnd(ent(i.seen), decimals)
 
-  def getChops(i, bestRows, restRows):
+  def setChops(i, bestRows, restRows):
     tmp = {}
-    for klass,rows in dict(best=bestRows, rest=restRows).items():
+    for y,rows in dict(best=bestRows, rest=restRows).items():
       for row in rows:
         x = row.cells[i.at]
         if x != "?":
           if x not in tmp: tmp[x] = obj(lo=x, hi= x, n=it(best=0, rest=0))
-          tmp[x][klass] += 1
-    return [[x.lo, x.hi, x.n.b, x.n.r] for x in tmp.values]
+          tmp[x][y] += 1
+    i.chops = [[x.lo, x.hi, x.n.b, x.n.r] for x in tmp.values]
 
   def mid(i, decimals=None):
     return i.mode
@@ -109,25 +107,24 @@ class NUM(obj):
     n=len(i.kept)
     return rnd((i.kept[.9*n//1] - i.kept[.1*n//1])/2.56, decimals)
 
-  def getChops(i, bestRows, restRows):
-    def x(row)  : return row.cells[i.at]
-    def x1(pair): return x(pair[1])
-    def _divide(pairs):
-      few = int(len(pairs)/the.bins) - 1
+  def setChops(i, bestRows, restRows):
+    def _cuts(xys):
+      few = int(len(xys)/the.bins) - 1
       tiny = the.cohen*i.div()
-      now = obj(lo=x1(pairs[0]), hi=x1(pairs[0]), n=it(best=0, rest=0))
+      now = obj(lo=xys[0][0], hi=xys[0][0], n=it(best=0, rest=0))
       tmp = [now]
-      for i, (klass, row) in enumerate(pairs):
-        here = x(row)
-        if len(pairs) - i > few * .67 and here != x1(pairs[i-1]):
-          if here - now.lo > tiny and now.n.best + now.n.rest > few:
-            now = obj(lo=now.hi, hi=here, n=it(best=0, rest=0))
+      for i, (x,y) in enumerate(xys):
+        if len(xys) - i > few * .67 and x != xys[i-1][0]:
+          if x - now.lo > tiny and now.n.best + now.n.rest > few:
+            now = obj(lo=now.hi, hi=now.hi, n=it(best=0, rest=0))
             tmp += [now]
-        now.hi = here
-        now.n[klass] += 1
+        now.hi = x
+        now.n[y] += 1
+      tmp[ 0][0] = -big  # lowest lo is negative infinity
+      tmp[-1][1] = big  # highest hi is positive infinity
       return tmp
 
-    def _merge(ins):
+    def _merges(ins):
       outs, i = [], 0
       while i < len(ins):
         a = ins[i]
@@ -140,14 +137,11 @@ class NUM(obj):
             i += 1  # skip over b since we have just merged it with a
         outs += [a]
         i += 1
-      return ins if len(ins) == len(outs) else _merge(outs)
-    bests = [("best", row) for row in bestRows if x(row) != "?"]
-    rests = [("rest", row) for row in restRows if x(row) != "?"]
-    B, R = len(bestRows) + 1/big, len(restRows)+1/big
-    tmp = [[x.lo, x.hi, x.n.b, x.n.r] for x in _merge( _divide( sorted(bests+rests, key=x1)))]
-    tmp[ 0][0] = -big  # lowest lo is negative infinity
-    tmp[-1][1] = big  # highest hi is positive infinity
-    return {rnd(k/(len(out)-1)): tuple(lohi) for k, lohi in enumerate(tmp)}
+      return ins if len(ins) == len(outs) else _merges(outs)
+    bests = [(row.cells[i.at],"best") for row in bestRows if row.cells[i.at] != "?"]
+    rests = [(row.cells[i.at],"rest") for row in restRows if row.cells[i.at] != "?"]
+    tmp   = [[x.lo, x.hi, x.n.b, x.n.r] for x in _merges( _cuts( sorted(bests+rests)))]
+    i.chops = {rnd(k/(len(tmp)-1)): tuple(lohi) for k, lohi in enumerate(tmp)}
 
 
   @property
@@ -247,6 +241,8 @@ the = None
 R = random.random
 isa = isinstance
 big = 1E30
+
+def within(x, lo, hi): return lo <= x < hi
 
 class SETTINGS(obj):
   def __init__(i,s):
