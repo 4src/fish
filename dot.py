@@ -1,26 +1,28 @@
 #!/usr/bin/env python3 -B
 # <!--- vim: set et sts=2 sw=2 ts=2 : --->
 import fileinput, ast, re
+from collections import Counter
 
 big = 1E30
 class obj(dict): __getattr__ = dict.get
 
 the=obj(bins=5, cohen=.35, min=.5, rest=3)
-
+#-------------------------------------------------------------------------------
 def ROW(a): return obj(cells=a, cooked=a[:])
 
-def DATA(file="-"):
-  rows,names,cols = [],[],{}
-  for r,row in enumerate(csv(file)):
-    if r==0 : 
-      names=row.cells
-    else:
+def DATA(src):
+  rows,cols = [],None
+  for row in src:
+    if cols:
+      [cols[c].append(x) for c,x in enumerate(row.cells) if x != "?"]
       rows += [row]
-      for c,x in enumerate(row.cells):
-        a = cols[c] = cols.get(c,[])
-        if x != "?": a += [x]
-  return obj(names=names, rows=rows, cuts={}, 
-             cols={c:sorted(cols[c]) for c in cols})
+    else:
+      names= row.cells
+      cols = {c:[] for c,_ in enumerate(names)}
+  return obj(names=names, rows=rows, cuts={}, cols={c:sorted(cols[c]) for c in cols})
+
+def clone(data,rows=[]):
+  return DATA( [ROW(data.names)] + rows)
 
 def isNum(s): return s[0].isupper()
 def isGoal(s): return s[-1] in "+-"
@@ -28,11 +30,21 @@ def isGoal(s): return s[-1] in "+-"
 def norm(a,x):
   return x if x=="?"  else (x-a[0])/(a[-1] - a[0] + 1/big)
 
-def stdev(a,x):
+def mid(name,a,decimals=None):
+  return rnd(median(a),decimals) if isNum(name) else  mode(Counter(a))
+
+def div(name,a,decimals=None):
+  return rnd(stdev(a) if isNum(name) else ent(Counter(a)), decimals)
+
+def median(a):  return a[len(a)//2]
+
+def stdev(a):
   per = lambda p: a[p*len(a)//100]
   return (per(90) - per(10))/ 2.56
 
-def ent(a)
+def mode(d):  return sorted(a.items(),key=lambda z:z[1])[-1][1]
+
+def ent(d)
   N = sum(d.values())
   return - sum(( n/N * math.log(n/N, 2) for n in d.values() if n > 0 ))
 
@@ -42,6 +54,10 @@ def sortedRows(data):
     return sum(( (w[c] - norm(data.cols[c], row.cells[c]))**2 for c in w ))**.5
   return sorted(data.rows, key=_distance2heaven)
 
+def stats(data, cols=None,decimals=None,fun=mid):
+  cols = cols or [c for c in data.cols if isGoal(data.names[c])]
+  return obj(N=len(data.rows),**{data.names[c]: fun(data.names[c],a,decimals) for c,a in cols})
+#-------------------------------------------------------------------------------
 def discretize(data, bests,rests):
   def _update(lohi,x,y):
      lohi.lo = min(lohi.lo,x)
@@ -103,6 +119,9 @@ def merges(ins):
  return merges(out) if len(outs) < len(ins) else [z.lo for z in ins]+[big]
 
 #---------------------------------------------
+def rnd(x,decimals=None)
+  return round(x,decimals) if decimals else x
+
 def coerce(x):
   try : return ast.literal_eval(x)
   except : return x.strip()
