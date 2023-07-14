@@ -41,7 +41,7 @@ def chops(a):
   out += [big]
   return out
 
-def discretize(data):
+def unsuperd(data):
   for c,name in enumerate(data.names):
     if not isGoal(name):
       if isNum(name):
@@ -58,8 +58,8 @@ def sortedRows(data):
     return sum((  (w[c] - row.cells[c])**2 for c in w )) 
   return sorted(data.rows, key=_distance2heaven)
 
-# can i get the chops in first here? 
-def discretize(data):
+# can i get the chops in first here?  so data.chops[c] only gets set once?
+def superd(data):
   rows = sortedRows(data)
   n = int(len(rows)**the.min)
   bests = rows[:n]
