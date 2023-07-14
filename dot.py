@@ -19,21 +19,57 @@ def DATA(file="-"):
       for c,x in enumerate(row.cells):
         a = cols[c] = cols.get(c,[])
         if x != "?": a += [x]
-  return obj(names=names, rows=rows, chops={}, 
+  return obj(names=names, rows=rows, cuts={}, 
              cols={c:sorted(cols[c]) for c in cols})
 
 def isNum(s): return s[0].isupper()
 def isGoal(s): return s[-1] in "+-"
 
-def chop(x,chops):
-  if x=="?": return x
-  for n,v in enumerate(chops):
-    if x < v: return n/(len(chops)-1)
+def norm(a,x):
+  return x if x=="?"  else (x-a[0])/(a[-1] - a[0] + 1/big)
 
-def chops(a):
+def stdev(a,x):
+  per = lambda p: a[p*len(a)//100]
+  return (per(90) - per(10))/ 2.56
+
+def ent(a)
+  N = sum(d.values())
+  return - sum(( n/N * math.log(n/N, 2) for n in d.values() if n > 0 ))
+
+def sortedRows(data):
+  w = {c:(0 if s[0]=="-" else 1) for c,s in enumerate(data.names) if isGoal(s)}
+  def _distance2heaven(row):
+    return sum(( (w[c] - norm(data.cols[c], row.cells[c]))**2 for c in w ))**.5
+  return sorted(data.rows, key=_distance2heaven)
+
+def discretize(data, bests,rests):
+  def _update(lohi,x,y):
+     lohi.lo = min(lohi.lo,x)
+     lohi.hi = max(lohi.hi,x)
+     lohi.n[y] += 1
+  #-----------------
+  def _num(c):
+    out, chops = {}, cuts(data.cols[c])
+    for y,rows in dict(best=bests, rest=rests).items():
+      for row in rows:
+        x=row.cells[c]
+        if x != "?"
+          k = cut(x,chops)
+          if k not in out: out[k] = obj(lo=x,hi=x,n=obj(best=0, rest=0))
+          _update(out[k],x,y)
+    return merges(sorted(out.values(), key=lambda z:z.lo))
+  #-----------------------------------
+  for c,name in enumerate(data.names):
+    if not isGoal(name):
+      data.cuts[c] = tuple(_num(c) if isNum(name) else sorted(set(data.cols[c])))
+      for row in data.rows:
+        row.cooked[c] = cut(row.cooked[c], data.cuts[c])
+  return data
+
+def cuts(a):
   n = inc = int(len(a)/the.bins)
-  stdev = (a[int(.9*len(a))] - a[int(.1*len(a))])/2.56
-  b4, out, small = a[0], [], the.cohen*stdev
+  b4, small = a[0],  the.cohen*stdev(a)
+  out = []
   while n < len(a) -1 :
     x = a[n]
     if x==a[n+1] or x - b4 < small: n += 1
@@ -41,64 +77,30 @@ def chops(a):
   out += [big]
   return out
 
-def unsuperd(data):
-  for c,name in enumerate(data.names):
-    if not isGoal(name):
-      if isNum(name):
-        cuts = data.chops[c] = chops(data.cols[c])
-        for row in data.rows:
-          row.cooked[c] =  chop(row.cooked[c], cuts)
-      else:
-        data.chops[c] = sorted(set(data.cols[c]))
-  return data
-
-def sortedRows(data):
-  w = {c:(0 if s[0]=="-" else 1) for c,s in enumerate(data.names) if isGoal(s)}
-  def _distance2heaven(row):
-    return sum((  (w[c] - row.cells[c])**2 for c in w )) 
-  return sorted(data.rows, key=_distance2heaven)
-
-# can i get the chops in first here?  so data.chops[c] only gets set once?
-def superd(data):
-  rows = sortedRows(data)
-  n = int(len(rows)**the.min)
-  bests = rows[:n]
-  rests = random.sample(rows[n:], n*the.rest)
-  for c in data.chops:
-    if isNum(data.names[c]):
-      tmp = {cut: obj(lo=cut, hi=cut,best=0,rest=0) for cut in data.chops[c]}
-      for y,row in dict(best=bests, rest=rests).items():
-        x = row.cooked[c]
-        tmp[x][y] += (0 if x == "?" else 1)
-      data.chops[c] = merges(sorted(tmp.values()), key=lambda z:z.lo)
-      for row in data.rows:
-        row.cooked[c] = chop(row.cells[c], data.chopx[c])
-  return data
+def cut(x,cuts):
+  if x=="?": return x
+  for n,v in enumerate(cuts):
+    if x < v: return n/(len(cuts)-1)
 
 def merges(ins):
-  outs, i = [], 0
-  while i < len(ins):
-    a = ins[i]
-    if i < len(ins)-1:
-      if ab := merged(a,ins[i+1])
-        outs += [ab]
-        i += 2
+  def _merged(z1,z2)
+    z3 = obj(lo=z1.lo, hi=z2.hi, n=obj(best= z1.n.best + z2.n.best,
+                                       rest= z1.n.rest + z2.n.rest))
+    n1,n2 = z1.n.best + z1.n.rest, z2.n.best + z2.n.rest
+    if ent(z3.n) <= (ent(z1.n)*n1 + ent(z2.n)*n2) / (n1+n2): 
+      return z3
+  #--------------
+  outs, n = [], 0
+  while n < len(ins):
+    one = ins[n]
+    if n < len(ins)-1:
+      if merged := _merged(one, ins[n+1])
+        outs += [merged]
+        n += 2
         continue
-    outs += [a]
-    i += 1
-  return tuple([z.lo for z in ins]+[big]) if len(ins) == len(outs) else merges(outs)
-
-def merge(z1,z2)
-  def _ent(d):
-    N = sum(d.values())
-    return - sum(( n/N * math.log(n/N, 2) for n in d.values() if n > 0 ))
-  z3 = obj(lo=z1.lo, hi=2.hi, n=obj(best=0,rest=0))
-  n1,n2 = z1.n.best + z1.n.rest, z2.n.best + z2.n.rest
-  z3.n.best = z1.n.best+z2.n.best
-  z3.n.rest = z1.n.rest+z2.n.rest
-  if _ent(z3.n) <= (_ent(z1.n)*n1 + _ent(z2.n)*n2) / (n1+n2): 
-    return z3
-
+    outs += [one]
+    n += 1
+ return merges(out) if len(outs) < len(ins) else [z.lo for z in ins]+[big]
 
 #---------------------------------------------
 def coerce(x):
