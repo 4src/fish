@@ -28,7 +28,7 @@ def isNum(s): return s[0].isupper()
 def isGoal(s): return s[-1] in "+-"
 
 def norm(a,x):
-  return x if x=="?"  else (x-a[0])/(a[-1] - a[0] + 1/big)
+  return x if x=="?" else (x- a[0])/(a[-1] - a[0] + 1/big)
 
 def mid(name,a,decimals=None):
   return rnd(median(a),decimals) if isNum(name) else mode(Counter(a))
