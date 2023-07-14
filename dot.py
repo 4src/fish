@@ -80,8 +80,8 @@ def merges(ins):
   while i < len(ins):
     a = ins[i]
     if i < len(ins)-1:
-      if c := merged(a,ins[i+1])
-        outs += [c]
+      if ab := merged(a,ins[i+1])
+        outs += [ab]
         i += 2
         continue
     outs += [a]
