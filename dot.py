@@ -1,7 +1,7 @@
 #!/usr/bin/env python3 -B
 # <!--- vim: set et sts=2 sw=2 ts=2 : --->
 import fileinput, ast, re
-from collections import Counter
+from collections import Counter, defaultdict
 
 big = 1E30
 class obj(dict): __getattr__ = dict.get
@@ -36,13 +36,14 @@ def mid(name,a,decimals=None):
 def div(name,a,decimals=None):
   return rnd(stdev(a) if isNum(name) else ent(Counter(a)), decimals)
 
-def median(a):  return a[len(a)//2]
+def median(a):
+  return a[len(a)//2]
 
 def stdev(a):
-  per = lambda p: a[p*len(a)//100]
-  return (per(90) - per(10))/ 2.56
+  return (a[int(.9*len(a))] - a[int(.1*len(a))])/ 2.56
 
-def mode(d):  return sorted(a.items(),key=lambda z:z[1])[-1][1]
+def mode(d):
+  return sorted(a.items(),key=lambda z:z[1])[-1][1]
 
 def ent(d)
   N = sum(d.values())
@@ -73,11 +74,11 @@ def discretize(data, bests,rests):
           k = cut(x,chops)
           if k not in out: out[k] = obj(lo=x,hi=x,n=obj(best=0, rest=0))
           _update(out[k],x,y)
-    return merges(sorted(out.values(), key=lambda z:z.lo))
+    return [z.lo for z in merges(sorted(out.values(), key=lambda z:z.lo))]
   #-----------------------------------
   for c,name in enumerate(data.names):
     if not isGoal(name):
-      data.cuts[c] = tuple(_num(c) if isNum(name) else sorted(set(data.cols[c])))
+      data.cuts[c] = _num(c) if isNum(name) else sorted(set(data.cols[c]))
       for row in data.rows:
         row.cooked[c] = cut(row.cooked[c], data.cuts[c])
   return data
@@ -103,7 +104,7 @@ def merges(ins):
     z3 = obj(lo=z1.lo, hi=z2.hi, n=obj(best= z1.n.best + z2.n.best,
                                        rest= z1.n.rest + z2.n.rest))
     n1,n2 = z1.n.best + z1.n.rest, z2.n.best + z2.n.rest
-    if ent(z3.n) <= (ent(z1.n)*n1 + ent(z2.n)*n2) / (n1+n2): 
+    if ent(z3.n) <= (ent(z1.n)*n1 + ent(z2.n)*n2) / (n1+n2):
       return z3
   #--------------
   outs, n = [], 0
@@ -111,12 +112,11 @@ def merges(ins):
     one = ins[n]
     if n < len(ins)-1:
       if merged := _merged(one, ins[n+1])
-        outs += [merged]
-        n += 2
-        continue
+        one = merged
+        n += 1
     outs += [one]
     n += 1
- return merges(out) if len(outs) < len(ins) else [z.lo for z in ins]+[big]
+ return ins if len(ins)==len(outs) else merges(outs)
 
 #---------------------------------------------
 def rnd(x,decimals=None)
