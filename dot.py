@@ -31,23 +31,23 @@ def norm(a,x):
   return x if x=="?"  else (x-a[0])/(a[-1] - a[0] + 1/big)
 
 def mid(name,a,decimals=None):
-  return rnd(median(a),decimals) if isNum(name) else  mode(Counter(a))
+  return rnd(median(a),decimals) if isNum(name) else mode(Counter(a))
 
 def div(name,a,decimals=None):
   return rnd(stdev(a) if isNum(name) else ent(Counter(a)), decimals)
 
 def median(a):
-  return a[len(a)//2]
+  return a[int(.5*len(a))]
 
 def stdev(a):
   return (a[int(.9*len(a))] - a[int(.1*len(a))])/ 2.56
 
 def mode(d):
-  return sorted(a.items(),key=lambda z:z[1])[-1][1]
+  return max(d, key=d.get)
 
 def ent(d)
-  N = sum(d.values())
-  return - sum(( n/N * math.log(n/N, 2) for n in d.values() if n > 0 ))
+  n = sum(d.values())
+  return - sum(( m/n * math.log(m/n, 2) for m in d.values() ))
 
 def sortedRows(data):
   w = {c:(0 if s[0]=="-" else 1) for c,s in enumerate(data.names) if isGoal(s)}
@@ -55,25 +55,22 @@ def sortedRows(data):
     return sum(( (w[c] - norm(data.cols[c], row.cells[c]))**2 for c in w ))**.5
   return sorted(data.rows, key=_distance2heaven)
 
-def stats(data, cols=None,decimals=None,fun=mid):
+def stats(data, cols=None, decimals=None, fun=mid):
   cols = cols or [c for c in data.cols if isGoal(data.names[c])]
   return obj(N=len(data.rows),**{data.names[c]: fun(data.names[c],a,decimals) for c,a in cols})
 #-------------------------------------------------------------------------------
 def discretize(data, bests,rests):
-  def _update(lohi,x,y):
-     lohi.lo = min(lohi.lo,x)
-     lohi.hi = max(lohi.hi,x)
-     lohi.n[y] += 1
-  #-----------------
   def _num(c):
-    out, chops = {}, cuts(data.cols[c])
-    for y,rows in dict(best=bests, rest=rests).items():
+    out, tmp = {}, cuts(data.cols[c])
+    for y,rows in [("best",bests), ("rest", rests)]:
       for row in rows:
         x=row.cells[c]
         if x != "?"
-          k = cut(x,chops)
-          if k not in out: out[k] = obj(lo=x,hi=x,n=obj(best=0, rest=0))
-          _update(out[k],x,y)
+          k = cut(x, tmp)
+          z = out[k] = out.get(k,None) or obj(lo=x,hi=x,n=obj(best=0, rest=0))
+          z.lo = min(z.lo, x)
+          z.hi = max(z.hi, x)
+          z.n[y] += 1
     return [z.lo for z in merges(sorted(out.values(), key=lambda z:z.lo))]
   #-----------------------------------
   for c,name in enumerate(data.names):
@@ -120,21 +117,21 @@ def merges(ins):
 
 #---------------------------------------------
 def rnd(x,decimals=None)
-  return round(x,decimals) if decimals else x
+  return round(x,decimals) if decimals != None  else x
 
 def coerce(x):
   try : return ast.literal_eval(x)
   except : return x.strip()
 
-def csv(file):
+def csv(file="-", filter=ROW)
   with fileinput.FileInput(None if file == "-" else file) as src:
     for line in src:
       line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
       if line:
-        yield ROW([coerce(x) for x in line.split(",")])
+        yield filter([coerce(x) for x in line.split(",")])
 #---------------------------------------------
 
-data = DATA()
+data = DATA(csv())
 data = discretize(data)
 tmp = sortedRows(data)
 print(*data.names,sep="\t")
