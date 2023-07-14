@@ -81,8 +81,9 @@ def merges(ins):
     a = ins[i]
     if i < len(ins)-1:
       if c := merged(a,ins[i+1])
-        a = merged
-        i += 1
+        outs += [c]
+        i += 2
+        continue
     outs += [a]
     i += 1
   return tuple([z.lo for z in ins]+[big]) if len(ins) == len(outs) else merges(outs)
