@@ -8,12 +8,12 @@ OPTIONS:
   -b --bins   initial number of bins     = 16
   -c --cohen  small delta = cohen*stdev = .35
   -f --file   whre to read data          = "../data/auto93.csv"
-  -h --help   show help                  = False
   -s --seed   random number seed         = 1234567890
   -m --min    minuimum size              = .5
   -r --rest   |rest| = |best|*rest       = 3
 """
 from ast import literal_eval as lit
+from copy import deepcopy
 import fileinput, random, ast, sys, re
 from collections import Counter, defaultdict
 from fileinput import FileInput as file_or_stdin
@@ -29,8 +29,9 @@ def stdev(a) : return (a[int(.9*len(a))] - a[int(.1*len(a))])/ 2.56
 def mode(d)  : return max(d, key=d.get)
 def ent(d)   : n=sum(d.values()); return -sum((m/n * log(m/n, 2) for m in d.values() if m>0))
 
-def isGoal(s): return s[-1] in "+-"
-def isNum(s) : return s[0].isupper()
+def isIgnored(s): return s[-1] == "X"
+def isGoal(s)   : return s[-1] in "+-"
+def isNum(s)    : return s[0].isupper()
 
 def mid(s,a,n=None): return rnd(median(a),n) if isNum(s) else mode(Counter(a))
 def div(s,a,n=None): return rnd(stdev(a)     if isNum(s) else ent(Counter(a)),n)
@@ -65,31 +66,31 @@ def discretize(data, bestRows,restRows):
    def _cut(x,cuts):
       "return the cut that contains `x`"
       if x=="?": return x
-      for n,v in enumerate(cuts):
-         if x < v: return n/(len(cuts)-1)
+      for lo,hi in cuts:
+         if x < lo: return lo,hi
 
-   def _cuts(a):
-      n = inc = int(len(a)/the.bins)
+   def _cuts(c,a):
+      n = inc = int(len(a)/(the.bins - 1))
       b4, small = a[0],  the.cohen*stdev(a)
       out = []
+      print("=",n,a[0], a[n],small)
       while n < len(a) -1 :
          x = a[n]
          if x==a[n+1] or x - b4 < small: n += 1
-         else: n += inc; out += [x]; b4=x
-      out += [inf]
+         else: n += inc; out += [(c,b4,x)]; b4=x # < , <=
+      out[-1]  = (out[-1][0], out[-1][1], inf)
+      print("::",out)
       return out
 
    def _num(c):
-      out, tmp = {}, _cuts(data.cols[c])
+      tmp = _cuts(c,data.cols[c])
+      out = {x:obj(xlo=lo xhi=hi, y= obj(best=0, rest=0)) for lo,hi in  tmp}
       for y,rows in [("best",bestRows), ("rest", restRows)]:
          for row in rows:
-            x=row.cells[c]
+            x = row.cells[c]
             if x != "?":
                k = _cut(x, tmp)
-               z = out[k] = out.get(k,None) or obj(lo=x,hi=x,n=obj(best=0, rest=0))
-               z.lo = min(z.lo, x)
-               z.hi = max(z.hi, x)
-               z.n[y] += 1
+               out[k],y[y] += 1
       return [z.lo for z in _merges(sorted(out.values(), key=lambda z:z.lo))] + [inf]
 
    def _merged(z1,z2):
@@ -112,13 +113,17 @@ def discretize(data, bestRows,restRows):
       return ins if len(ins)==len(outs) else _merges(outs)
 
    def _expand(c,a):
-      b4,tmp = -inf,[]
-      for x in a: tmp += [(c, b4,x)]; b4 = x
-      return tuple(tmp)
+      if isNum(data.names[c]):
+         b4,tmp = -inf,[]
+         for x in a: tmp += [(c, b4,x)]; b4 = x
+         return tmp
+      else:
+          return [(c,x,x) for x in a]
 
    for c,name in enumerate(data.names):
-      if not isGoal(name):
-         data.cuts[c] = _expand(c, _num(c) if isNum(name) else sorted(set(data.cols[c])))
+      if not isGoal(name) and not isIgnored(name):
+         print(c,name)
+         data.cuts[c] = tuple(_expand(c, _num(c) if isNum(name) else sorted(set(data.cols[c]))))
    return data
 
 #---------------------------------------------
@@ -145,10 +150,18 @@ class EG:
    """asdas asd asdas da sddas d adasasd
      asdasadsdsa"""
    ALL = locals()
-   def RUN(a=sys.argv): a[1:] and EG.ALL.get(a[1][2:],EG.HELP)()
-   def HELP():
-       print(__doc__); print("./s.py")
-       [print(f"  --{x:10} : {f.__doc__}")
+   def RUN(a=sys.argv): a[1:] and sys.exit(EG.RUN1( EG.ALL.get(a[1][2:], EG.help)))
+   def RUN1(fun):
+      global the
+      saved = deepcopy(the)
+      random.seed(the.seed)
+      failed = fun()==False
+      the = deepcopy(saved)
+      return failed
+   def help():
+       "show help"
+       print(__doc__); print("ACTIONS:")
+       [print(f"  --{x:9} {f.__doc__}")
        for x,f in EG.ALL.items() if x[0].islower()]
    def the():
       "show config"
@@ -182,7 +195,7 @@ class EG:
       discretize(data1, bests,rests)
       for c,a in data1.cuts.items():
          lst = data1.cols[c]
-         print(c,a)
+         print(f"{c:2} {lst[0]:8} {lst[-1]:8}",a)
 
 EG.RUN()
 
