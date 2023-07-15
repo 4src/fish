@@ -47,7 +47,8 @@ def DATA(src):
       else:
          names= row.cells
          cols = {c:[] for c,_ in enumerate(names)}
-   return obj(names=names, rows=rows, cuts={}, cols={c:sorted(cols[c]) for c in cols})
+   [cols[c].sort() for c in cols]
+   return obj(names=names, rows=rows, cuts={}, cols=cols)
 
 def clone(data,rows=[]): return DATA( [ROW(data.names)] + rows)
 
@@ -62,45 +63,47 @@ def stats(data, cols=None, decimals=None, fun=mid):
    def show(c): return fun(data.names[c], data.cols[c], decimals)
    return obj(N=len(data.rows), **{data.names[c]:show(c) for c in cols or data.cols})
 #-------------------------------------------------------------------------------
+def within(x, cut):
+   return x > cut[1] and x <= cut[2]
+
 def discretize(data, bestRows,restRows):
    def _cut(x,cuts):
       "return the cut that contains `x`"
       if x=="?": return x
-      for lo,hi in cuts:
-         if x < lo: return lo,hi
+      for cut in cuts:
+         if within(x,cut): return cut
 
-   def _cuts(c,a):
+   def _sym(c,a):
+      "return one cut for each symbol"
+      return [(c, x, x) for x in  sorted(set(a))]
+
+   def _nums(c,a):
+      "Return the.bins cuts, merging any with similar class distribution"
       n = inc = int(len(a)/(the.bins - 1))
       b4, small = a[0],  the.cohen*stdev(a)
       out = []
-      print("=",n,a[0], a[n],small)
       while n < len(a) -1 :
          x = a[n]
          if x==a[n+1] or x - b4 < small: n += 1
          else: n += inc; out += [(c,b4,x)]; b4=x # < , <=
+      out[ 0]  = (out[ 0][0], -inf,       out[0][2])
       out[-1]  = (out[-1][0], out[-1][1], inf)
-      print("::",out)
       return out
 
-   def _num(c):
-      tmp = _cuts(c,data.cols[c])
-      out = {x:obj(xlo=lo xhi=hi, y= obj(best=0, rest=0)) for lo,hi in  tmp}
+   def _counts(c,cuts):
+      "count how often a cut appears in best or rest"
+      xys = {cut : obj(x=cut, y=obj(best=0, rest=0)) for cut in cuts}
       for y,rows in [("best",bestRows), ("rest", restRows)]:
          for row in rows:
             x = row.cells[c]
             if x != "?":
-               k = _cut(x, tmp)
-               out[k],y[y] += 1
-      return [z.lo for z in _merges(sorted(out.values(), key=lambda z:z.lo))] + [inf]
-
-   def _merged(z1,z2):
-      z3 = obj(lo=z1.lo, hi=z2.hi, n=obj(best= z1.n.best + z2.n.best,
-                                         rest= z1.n.rest + z2.n.rest))
-      n1,n2 = z1.n.best + z1.n.rest, z2.n.best + z2.n.rest
-      if ent(z3.n) <= (ent(z1.n)*n1 + ent(z2.n)*n2) / (n1+n2):
-         return z3
+               k = _cut(x, cuts)
+               xys[k].y[y] += 1
+      tmp = sorted(xys.values(), key=lambda xy:xy.x[0])
+      return _merges(tmp) is isNum(data.names[c]) else tmp
 
    def _merges(ins):
+      "Stop merge when we can no longer merge one thing to its neighbor"
       outs, n = [], 0
       while n < len(ins):
          one = ins[n]
@@ -112,18 +115,18 @@ def discretize(data, bestRows,restRows):
          n += 1
       return ins if len(ins)==len(outs) else _merges(outs)
 
-   def _expand(c,a):
-      if isNum(data.names[c]):
-         b4,tmp = -inf,[]
-         for x in a: tmp += [(c, b4,x)]; b4 = x
-         return tmp
-      else:
-          return [(c,x,x) for x in a]
+   def _merged(xy1,xy2):
+      "return a combined xy, but only if the combo is not more complex than that parts'
+      xy3 = obj(x=(xy1.x[0], xy1.x[1], xy2 x[3])
+                y=obj(best= xy1.y.best + xy2.y.best,
+                      rest= xy1.y.rest + xy2.y.rest))
+      n1,n2 = xy1.y.best + xy1.y.rest, xy2.y.best + xy2.y.rest
+      if ent(xy3.y) <= (ent(xy1.y)*n1 + ent(xy2.y)*n2) / (n1+n2):
+         return xy3
 
    for c,name in enumerate(data.names):
       if not isGoal(name) and not isIgnored(name):
-         print(c,name)
-         data.cuts[c] = tuple(_expand(c, _num(c) if isNum(name) else sorted(set(data.cols[c]))))
+         data.cuts[c] = _counts(c, _num(c) if isNum(name) else _sym(c))
    return data
 
 #---------------------------------------------
