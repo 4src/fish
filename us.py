@@ -1,5 +1,5 @@
 #!/usr/bin/env python3 -B
-# <!--- vim: set et sts=3 sw=3 ts=3 : --->
+#<!--- vim: set et sts=3 sw=3 ts=3 : --->
 """
 uspy: a little AI tool
 (c) Tim Menzies <timm@ieee.org>, BSD-2 license
