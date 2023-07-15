@@ -92,13 +92,12 @@ def discretize(data, bestRows,restRows):
 
    def _counts(c,cuts):
       "count how often a cut appears in best or rest"
-      xys = {cut : obj(x=cut, y=obj(best=0, rest=0)) for cut in cuts}
+      xys = {cut : obj(x=cut, y=obj(best=0, rest=0)) for cut in _cugs(x,c({}
       for y,rows in [("best",bestRows), ("rest", restRows)]:
          for row in rows:
             x = row.cells[c]
             if x != "?":
-               k = _cut(x, cuts)
-               xys[k].y[y] += 1
+               xys[_cuts(x,cuts)].y[y] += 1
       tmp = sorted(xys.values(), key=lambda xy:xy.x[0])
       return _merges(tmp) is isNum(data.names[c]) else tmp
 
@@ -116,7 +115,7 @@ def discretize(data, bestRows,restRows):
       return ins if len(ins)==len(outs) else _merges(outs)
 
    def _merged(xy1,xy2):
-      "return a combined xy, but only if the combo is not more complex than that parts'
+      "return a combined xy, but only if the combo is not more complex than that parts"
       xy3 = obj(x=(xy1.x[0], xy1.x[1], xy2 x[3])
                 y=obj(best= xy1.y.best + xy2.y.best,
                       rest= xy1.y.rest + xy2.y.rest))
