@@ -3,7 +3,17 @@
 """
 S.PY: a little AI
 (c) Tim Menzies <timm@ieee.org>, BSD-2 license
+
+OPTIONS:
+  -b --bins   initial number of bins     = 16
+  -c --cohen  small delta = cohen*stdev = .35
+  -f --file   whre to read data          = "../data/auto93.csv"
+  -h --help   show help                  = False
+  -s --seed   random number seed         = 1234567890
+  -m --min    minuimum size              = .5
+  -r --rest   |rest| = |best|*rest       = 3
 """
+from ast import literal_eval as lit
 import fileinput, random, ast, sys, re
 from collections import Counter, defaultdict
 from fileinput import FileInput as file_or_stdin
@@ -11,8 +21,7 @@ from math import pi,log,cos,sin,inf,sqrt
 
 R = random.random
 class obj(dict): __getattr__ = dict.get
-
-the=obj(file="../data/auto93.csv", bins=5, cohen=.35, min=.5, rest=3)
+the = obj(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #-------------------------------------------------------------------------------
 def norm(a,x): return x if x=="?" else (x- a[0])/(a[-1] - a[0] + 1/inf)
 def median(a): return a[int(.5*len(a))]
@@ -23,8 +32,8 @@ def ent(d)   : n=sum(d.values()); return -sum((m/n * log(m/n, 2) for m in d.valu
 def isGoal(s): return s[-1] in "+-"
 def isNum(s) : return s[0].isupper()
 
-def mid(s,a,ndecimals=None): return rnd(median(a),ndecimals) if isNum(s) else mode(Counter(a))
-def div(s,a,ndecimals=None): return rnd(stdev(a) if isNum(s) else ent(Counter(a)), ndecimals)
+def mid(s,a,n=None): return rnd(median(a),n) if isNum(s) else mode(Counter(a))
+def div(s,a,n=None): return rnd(stdev(a)     if isNum(s) else ent(Counter(a)),n)
 #-------------------------------------------------------------------------------
 def ROW(a): return obj(cells=a, cooked=a[:])
 
@@ -117,7 +126,7 @@ def rnd(x,decimals=None):
    return round(x,decimals) if decimals != None  else x
 
 def coerce(x):
-   try : return ast.literal_eval(x)
+   try : return lit(x)
    except : return x.strip()
 
 def csv(file="-", filter=ROW):
