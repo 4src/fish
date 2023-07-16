@@ -1,7 +1,7 @@
 #!/usr/bin/env python3 -B
 #<!--- vim: set et sts=3 sw=3 ts=3 : --->
 """
-uspy: a little AI tool
+uspy: a (very) little AI tool
 (c) Tim Menzies <timm@ieee.org>, BSD-2 license
 
 OPTIONS:
@@ -14,32 +14,44 @@ OPTIONS:
   -m --min    minuimum size              = .5
   -r --rest   |rest| = |best|*rest       = 3
 """
+#-------------------------------------------------------------------------------
+# ## Set-up
 from ast import literal_eval as lit
 from copy import deepcopy
 import fileinput, random, ast, sys, re
 from collections import Counter, defaultdict
 from fileinput import FileInput as file_or_stdin
-from math import pi,log,cos,sin,inf,sqrt
+from math import pi,log,cos,sin,sqrt
 
+inf = 1E30
 R = random.random
 class obj(dict): __getattr__ = dict.get
 the = obj(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #-------------------------------------------------------------------------------
+# ## Statistics
+# Given a sorted list `a` or a dictionary `d`, what can we report?
 def norm(a,x): return x if x=="?" else (x- a[0])/(a[-1] - a[0] + 1/inf)
 def median(a): return a[int(.5*len(a))]
 def stdev(a) : return (a[int(.9*len(a))] - a[int(.1*len(a))])/ 2.56
 def mode(d)  : return max(d, key=d.get)
 def ent(d)   : n=sum(d.values()); return -sum((m/n * log(m/n, 2) for m in d.values() if m>0))
 
+# Given names of columns, what can we infer?
 def isIgnored(s): return s[-1] == "X"
 def isGoal(s)   : return s[-1] in "+-"
 def isNum(s)    : return s[0].isupper()
 
+# How to compute `mid` (central tendency) or `div` (divergence from central tendency)?
 def mid(s,a,n=None): return rnd(median(a),n) if isNum(s) else mode(Counter(a))
 def div(s,a,n=None): return rnd(stdev(a)     if isNum(s) else ent(Counter(a)),n)
 #-------------------------------------------------------------------------------
+# ## Store Data
+
+# Store one row
 def ROW(a): return obj(cells=a, cooked=a[:])
 
+# Store many `rows` and  the no "?" values in each column (in `cols`).
+# Also, small detail, first `row` is a list of column `names`.
 def DATA(src):
    rows,cols = [],None
    for row in src:
@@ -52,21 +64,26 @@ def DATA(src):
    [cols[c].sort() for c in cols]
    return obj(names=names, rows=rows, cuts={}, cols=cols)
 
-def clone(data,rows=[]): return DATA( [ROW(data.names)] + rows)
+# How to report stats on each column.
+def stats(data, cols=None, decimals=None, fun=mid):
+   cols = cols or [c for c in data.cols if isGoal(data.names[c])]
+   def show(c): return fun(data.names[c], data.cols[c], decimals)
+   return obj(N=len(data.rows), **{data.names[c]:show(c) for c in cols or data.cols})
 
+# How to sort the rows closest to furthest from most desired.
 def sortedRows(data):
    w = {c:(0 if s[-1]=="-" else 1) for c,s in enumerate(data.names) if isGoal(s)}
    def _distance2heaven(row):
       return sum(( (w[c] - norm(data.cols[c], row.cells[c]))**2 for c in w ))**.5
    return sorted(data.rows, key=_distance2heaven)
 
-def stats(data, cols=None, decimals=None, fun=mid):
-   cols = cols or [c for c in data.cols if isGoal(data.names[c])]
-   def show(c): return fun(data.names[c], data.cols[c], decimals)
-   return obj(N=len(data.rows), **{data.names[c]:show(c) for c in cols or data.cols})
+# How to make a new DATA that copies the structure of an old data (and fill in with `rows`).
+def clone(data,rows=[]): return DATA( [ROW(data.names)] + rows)
+
 #-------------------------------------------------------------------------------
 def within(x, cut):
-   return x > cut[1] and x <= cut[2]
+   _,lo,hi = cut
+   return  x=="?" and True or lo==hi==x or  x > lo and x <= hi
 
 def discretize(data, bestRows,restRows):
    def _cut(x,cuts):
@@ -88,18 +105,22 @@ def discretize(data, bestRows,restRows):
          x = a[n]
          if x==a[n+1] or x - b4 < small: n += 1
          else: n += inc; out += [(c,b4,x)]; b4=x # < , <=
-      out[ 0]  = (out[ 0][0], -inf,       out[0][2])
-      out[-1]  = (out[-1][0], out[-1][1], inf)
+      if len(out) < 2:
+         print(inc,small)
+         out= [(c, -inf, inf)]
+      else:
+        out[ 0]  = (c, -inf,       out[0][2])
+        out[-1]  = (c, out[-1][1], inf)
       return out
 
    def _counts(c,cuts):
       "count how often a cut appears in best or rest"
-      xys = {cut[0] : obj(x=cut, y=obj(best=0, rest=0)) for cut in cuts}
+      xys = {cut : obj(x=cut, y=obj(best=0, rest=0)) for cut in cuts}
       for y,rows in [("best",bestRows), ("rest", restRows)]:
          for row in rows:
             x = row.cells[c]
             if x != "?":
-               xys[_cuts(x,cuts)].y[y] += 1
+               xys[_cut(x,cuts)].y[y] += 1
       tmp = sorted(xys.values(), key=lambda xy:xy.x[0])
       return _merges(tmp) if isNum(data.names[c]) else tmp
 
@@ -119,16 +140,16 @@ def discretize(data, bestRows,restRows):
 
    def _merged(xy1,xy2):
       "return a combined xy, but only if the combo is not more complex than that parts"
-      xy3 = obj(x=(xy1.x[0], xy1.x[1], xy2, xy[3]),
+      xy3 = obj(x=(xy1.x[0], xy1.x[1], xy2.x[2]),
                 y=obj(best= xy1.y.best + xy2.y.best,
                       rest= xy1.y.rest + xy2.y.rest))
-      n1,n2 = xy1.y.best + xy1.y.rest, xy2.y.best + xy2.y.rest
+      n1,n2 = xy1.y.best + xy1.y.rest + 1/inf, xy2.y.best + xy2.y.rest + 1/inf
       if ent(xy3.y) <= (ent(xy1.y)*n1 + ent(xy2.y)*n2) / (n1+n2):
          return xy3
 
    for c,name in enumerate(data.names):
       if not isGoal(name) and not isIgnored(name):
-         data.cuts[c] = _counts(c, (_nums if isNum(name) else _syms)(c,data,cols[c]))
+         data.cuts[c] = _counts(c, (_nums if isNum(name) else _syms)(c,data.cols[c]))
    return data
 
 #---------------------------------------------
@@ -150,7 +171,7 @@ def prints(*dists):
    print(*dists[0].keys(), sep="\t")
    [print(*d.values(), sep="\t") for d in dists]
 
-def updateFromCLI(d):
+def cli2dict(d):
    for k, v in d.items():
       s = str(v)
       for j, x in enumerate(sys.argv):
@@ -161,7 +182,7 @@ def updateFromCLI(d):
 class GO:
    All = locals()
    def Now(a=sys.argv): 
-      updateFromCLI(the)
+      cli2dict(the)
       if the.help: sys.exit(GO.help())
       GO.Run( GO.All.get(the.go, GO.help))
 
@@ -221,9 +242,9 @@ class GO:
       discretize(data1, bests,rests)
       for c,a in data1.cuts.items():
          lst = data1.cols[c]
-         print(f"{c:2} {lst[0]:8} {lst[-1]:8}",a)
+         print(f"{c:2} {lst[0]:8} {lst[-1]:8}",[xy.x[1] for xy in a])
 
-GO.Now()
+if __name__ == "__main__": GO.Now()
 
 # data = discretize(data)
 # tmp = sortedRows(data)
