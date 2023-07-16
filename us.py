@@ -21,7 +21,7 @@ from copy import deepcopy
 import fileinput, random, ast, sys, re
 from collections import Counter, defaultdict
 from fileinput import FileInput as file_or_stdin
-from math import pi,log,cos,sin,sqrt
+from math import pi,log,cos,sin,sqrt,inf
 
 # Some standard short cuts
 big = 1e100
@@ -52,21 +52,18 @@ def mid(s,a,n=None): return rnd(median(a),n) if isNum(s) else mode(Counter(a))
 def div(s,a,n=None): return rnd(stdev(a)     if isNum(s) else ent(Counter(a)),n)
 #-------------------------------------------------------------------------------
 # ## Store Data
-def ROW(a): return obj(cells=a, cooked=a[:])
-
 # Store many `rows` and  the no "?" values in each column (in `cols`).
-# Also, small detail, first `row` is a list of column `names`.
+# Also, small detail, the first `row` is a list of column `names`.
 def DATA(src):
-   rows,cols = [],None
-   for row in src:
-      if cols:
-         [cols[c].append(x) for c,x in enumerate(row.cells) if x != "?"]
-         rows += [row]
+   rows,cols = [],{}
+   for n,row in enumerate(src):
+      if n==0:
+         names = row
+         for c,_ in enumerate(names): cols[c] = []
       else:
-         names= row.cells
-         cols = {c:[] for c,_ in enumerate(names)}
-   [cols[c].sort() for c in cols]
-   return obj(names=names, rows=rows, cuts={}, cols=cols)
+         rows += [row]
+         [cols[c].append(x) for c,x in enumerate(row) if x != "?"]
+   return obj(names=names, rows=rows, cols= {c:sorted(a) for c,a in cols.items()})
 
 # How to report stats on each column.
 def stats(data, cols=None, decimals=None, fun=mid):
@@ -78,11 +75,11 @@ def stats(data, cols=None, decimals=None, fun=mid):
 def sortedRows(data):
    w = {c:(0 if s[-1]=="-" else 1) for c,s in enumerate(data.names) if isGoal(s)}
    def _distance2heaven(row):
-      return sum(( (w[c] - norm(data.cols[c], row.cells[c]))**2 for c in w ))**.5
+      return sum(( (w[c] - norm(data.cols[c], row[c]))**2 for c in w ))**.5
    return sorted(data.rows, key=_distance2heaven)
 
 # How to make a new DATA that copies the structure of an old data (and fill in with `rows`).
-def clone(data,rows=[]): return DATA( [ROW(data.names)] + rows)
+def clone(data,rows=[]): return DATA( [data.names] + rows)
 
 #-------------------------------------------------------------------------------
 def within(x, cut):
@@ -90,6 +87,7 @@ def within(x, cut):
    return  x=="?" and True or lo==hi==x or  x > lo and x <= hi
 
 def discretize(data, bestRows,restRows):
+   "Yields cuts `((colNumber, lo1, hi1) (colNumber lo2 hi2)...)`"
    def _cut(x,cuts):
       "return the cut that contains `x`"
       if x=="?": return x
@@ -101,30 +99,31 @@ def discretize(data, bestRows,restRows):
       return [(c, x, x) for x in  sorted(set(a))]
 
    def _nums(c,a):
-      "Return the.bins cuts, merging any with similar class distribution"
+      "simplistic (equal frequency) unsupervised learning "
       n = inc = int(len(a)/(the.bins - 1))
-      b4, small = a[0],  the.cohen*stdev(a)
-      out = []
+      cuts, b4, small = [], a[0],  the.cohen*stdev(a)
       while n < len(a) -1 :
          x = a[n]
          if x==a[n+1] or x - b4 < small: n += 1
-         else: n += inc; out += [(c,b4,x)]; b4=x # < , <=
-      if len(out) < 2:
-         out= [(c, -big, big)]
-      else:
-        out[ 0]  = (c, -big,       out[0][2])
-        out[-1]  = (c, out[-1][1], big)
-      return out
+         else: n += inc; cuts += [(c,b4,x)]; b4=x # < , <=
+      return _infinite(c,cuts)
+
+   def _infinite(c,cuts):
+      "extend `cuts` to minus/plus infinity"
+      if len(cuts) < 2: return [(c, -inf, inf)] # very rare case
+      cuts[ 0] = (c, -inf,       out[0][2])
+      cuts[-1] = (c, out[-1][1], inf)
+      return cuts
 
    def _counts(c,cuts):
       "count how often a cut appears in best or rest"
       xys = {cut : obj(x=cut, y=obj(best=0, rest=0)) for cut in cuts}
       for y,rows in [("best",bestRows), ("rest", restRows)]:
          for row in rows:
-            x = row.cells[c]
+            x = row[c]
             if x != "?":
                xys[_cut(x,cuts)].y[y] += 1/len(rows)
-      tmp = sorted(xys.values(), key=lambda xy:xy.x[0])
+      tmp = sorted(xys.values(), key=lambda xy:xy.x)
       return _merges(tmp) if isNum(data.names[c]) else tmp
 
    def _merges(ins):
@@ -153,8 +152,18 @@ def discretize(data, bestRows,restRows):
 
    for c,name in enumerate(data.names):
       if not isGoal(name) and not isIgnored(name):
-         data.cuts[c] = _counts(c, (_nums if isNum(name) else _syms)(c,data.cols[c]))
-   return data
+         cuts = (_nums if isNum(name) else _syms)(c,data.cols[c])
+         for cut in _counts(c, cuts):
+            yield cut
+#---------------------------------------------
+def score(b, r):
+  "Given you've found `b` or `r` items of `B,R`, how much do we like you?"
+  r += 1/big # stop divide by zero errors
+  match the.want:
+    case "plan"    : return b**2 / (   b + r)    # seeking best
+    case "monitor" : return r**2 / (   b + r)    # seeking rest
+    case "doubt"   : return (b+r) / abs(b - r)   # seeking border of best/rest 
+    case "xplore"  : return 1 / (   b + r)       # seeking other
 
 #---------------------------------------------
 def rnd(x,decimals=None):
@@ -162,14 +171,14 @@ def rnd(x,decimals=None):
 
 def coerce(x):
    try : return lit(x)
-   except : return x.strip()
+   except Exception: return x.strip()
 
-def csv(file="-", filter=ROW):
+def csv(file="-"):
    with file_or_stdin(file) as src:
       for line in src:
          line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
          if line:
-            yield filter([coerce(x) for x in line.split(",")])
+            yield [coerce(x) for x in line.split(",")]
 
 def prints(*dists):
    print(*dists[0].keys(), sep="\t")
@@ -224,7 +233,7 @@ class GO:
 
    def read():
       "can we print rows from a disk-based csv file?"
-      [print(*row.cells,sep=",\t") for r,row in enumerate(csv(the.file)) if r < 10]
+      [print(*row,sep=",\t") for r,row in enumerate(csv(the.file)) if r < 10]
 
    def data():
       "can we load disk rows into a DATA?"
@@ -257,5 +266,3 @@ if __name__ == "__main__": GO.Now()
 # data = discretize(data)
 # tmp = sortedRows(data)
 # print(*data.names,sep="\t")
-# [print(*row.cells,sep="\t") for row in tmp[:10]]; print("")
-# [print(*row.cells,sep="\t") for row in tmp[-10:]]
