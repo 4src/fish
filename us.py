@@ -13,6 +13,7 @@ OPTIONS:
   -s --seed   random number seed         = 1234567890
   -m --min    minuimum size              = .5
   -r --rest   |rest| = |best|*rest       = 3
+  -w --want   plan|xplore|monitor|doubt  = "plan"
 """
 #-------------------------------------------------------------------------------
 # ## Set-up
@@ -111,8 +112,8 @@ def discretize(data, bestRows,restRows):
    def _infinite(c,cuts):
       "extend `cuts` to minus/plus infinity"
       if len(cuts) < 2: return [(c, -inf, inf)] # very rare case
-      cuts[ 0] = (c, -inf,       out[0][2])
-      cuts[-1] = (c, out[-1][1], inf)
+      cuts[ 0] = (c, -inf,        cuts[0][2])
+      cuts[-1] = (c, cuts[-1][1], inf)
       return cuts
 
    def _counts(c,cuts):
@@ -153,8 +154,9 @@ def discretize(data, bestRows,restRows):
    for c,name in enumerate(data.names):
       if not isGoal(name) and not isIgnored(name):
          cuts = (_nums if isNum(name) else _syms)(c,data.cols[c])
-         for cut in _counts(c, cuts):
-            yield cut
+         if len(cuts) > 1:
+           for cut in _counts(c, cuts):
+              yield cut
 #---------------------------------------------
 def score(b, r):
   "Given you've found `b` or `r` items of `B,R`, how much do we like you?"
@@ -165,6 +167,19 @@ def score(b, r):
     case "doubt"   : return (b+r) / abs(b - r)   # seeking border of best/rest 
     case "xplore"  : return 1 / (   b + r)       # seeking other
 
+def scores(data):
+   rows  = sortedRows(data)
+   n     = int(len(rows)**the.min)
+   bests,rests = rows[:n], rows[-n*the.rest:]
+   for (s,x) in sorted([(score(cut.y.best, cut.y.rest),cut) for cut in
+                        discretize(data,bests,rests)], reverse=True,
+                        key=lambda z:z[0]):
+      yield s,x.x
+
+   # return sorted([(score(cut.y.best, cut.y.rest),cut) 
+   #                for cut in discretize(data,bests,rests)], 
+   #               key=lambda z: z[0], reverse=True)
+   #
 #---------------------------------------------
 def rnd(x,decimals=None):
    return round(x,decimals) if decimals != None  else x
@@ -251,15 +266,8 @@ class GO:
 
    def discret():
       "can i do supervised discretization?"
-      data1 = DATA(csv(the.file))
-      rows  = sortedRows(data1)
-      n     = int(len(rows)**the.min)
-      bests,rests = rows[:n], rows[-n*the.rest:]
-      discretize(data1, bests,rests)
-      for c,a in data1.cuts.items():
-         lst = data1.cols[c]
-         print(f"{c:2} {lst[0]:8} {lst[-1]:8}",
-               [xy.x[1] for xy in a]+([big] if isNum(data1.names[c]) else []))
+      for s,x in scores(DATA(csv(the.file))):
+         print(f"{s:.3f}\t{x}")
 
 if __name__ == "__main__": GO.Now()
 
