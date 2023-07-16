@@ -108,7 +108,6 @@ def discretize(data, bestRows,restRows):
          if x==a[n+1] or x - b4 < small: n += 1
          else: n += inc; out += [(c,b4,x)]; b4=x # < , <=
       if len(out) < 2:
-         print(inc,small)
          out= [(c, -inf, inf)]
       else:
         out[ 0]  = (c, -inf,       out[0][2])
@@ -140,14 +139,15 @@ def discretize(data, bestRows,restRows):
          n += 1
       return ins if len(ins)==len(outs) else _merges(outs)
 
-   def _merged(xy1,xy2):
+   def _merged(a,b):
       "return a combined xy, but only if the combo is not more complex than that parts"
-      xy3 = obj(x=(xy1.x[0], xy1.x[1], xy2.x[2]),
-                y=obj(best= xy1.y.best + xy2.y.best,
-                      rest= xy1.y.rest + xy2.y.rest))
-      n1,n2 = xy1.y.best + xy1.y.rest + 1/inf, xy2.y.best + xy2.y.rest + 1/inf
-      if ent(xy3.y) <= (ent(xy1.y)*n1 + ent(xy2.y)*n2) / (n1+n2):
-         return xy3
+      c = obj(x= (a.x[0], a.x[1], b.x[2]),
+              y= obj(best= a.y.best + b.y.best,
+                     rest= a.y.rest + b.y.rest))
+      n1 = a.y.best + a.y.rest + 1/inf
+      n2 = b.y.best + b.y.rest + 1/inf
+      if ent(c.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
+         return c
 
    for c,name in enumerate(data.names):
       if not isGoal(name) and not isIgnored(name):
