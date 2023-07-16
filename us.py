@@ -22,6 +22,7 @@ from copy import deepcopy
 import fileinput, random, ast, sys, re
 from collections import Counter, defaultdict
 from fileinput import FileInput as file_or_stdin
+from termcolor import colored
 from math import pi,log,cos,sin,sqrt,inf
 
 # Some standard short cuts
@@ -34,18 +35,24 @@ class obj(dict): __getattr__ = dict.get
 the = obj(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #-------------------------------------------------------------------------------
 # ## Statistics
-# Given a sorted list `a` or a dictionary `d`, what can we report?
-def norm(a,x): return x if x=="?" else (x- a[0])/(a[-1] - a[0] + 1/big)
-def median(a): return a[int(.5*len(a))]
-def stdev(a) : return (a[int(.9*len(a))] - a[int(.1*len(a))])/ 2.56
-def mode(d)  : return max(d, key=d.get)
-def ent(d)   : n=sum(d.values()); return -sum((m/n * log(m/n, 2) for m in d.values() if m>0))
+# Given a sorted list `a` or a dictionary `d`, what can we report?  
 
-# Ignore columns whose names end in "X".   
-# Goal columns end in some maximize/minimize symbol.    
-# Numeric columns have names starting in upper case.
+# Normalize numbers 0..1 for min..max.<br>
+def norm(a,x): return x if x=="?" else (x- a[0])/(a[-1] - a[0] + 1/big)
+# Return the middle (median) number.
+def median(a): return a[int(.5*len(a))]
+# Report the diversity (standard deviation) of a list of numbers.
+def stdev(a): return (a[int(.9*len(a))] - a[int(.1*len(a))])/ 2.56
+# Report the most frequent symbol.
+def mode(d): return max(d, key=d.get)
+# Report the entropy of the a set of frequencies.
+def ent(d): n=sum(d.values()); return -sum((m/n * log(m/n, 2) for m in d.values() if m>0))
+
+# Ignore columns whose names end in "X".
 def isIgnored(s): return s[-1] == "X"  # ig
+# Goal columns end in some maximize/minimize symbol.
 def isGoal(s)   : return s[-1] in "+-"
+# Numeric columns have names starting in upper case.
 def isNum(s)    : return s[0].isupper()
 
 # How to compute `mid` (central tendency) or `div` (divergence from central tendency)?
@@ -82,80 +89,69 @@ def sortedRows(data):
 # How to make a new DATA that copies the structure of an old data (and fill in with `rows`).
 def clone(data,rows=[]): return DATA( [data.names] + rows)
 
-#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 def within(x, cut):
    _,lo,hi = cut
    return  x=="?" and True or lo==hi==x or  x > lo and x <= hi
 
 def discretize(data, bestRows,restRows):
-   "Yields cuts `((colNumber, lo1, hi1) (colNumber lo2 hi2)...)`"
-   def _cut(x,cuts):
-      "return the cut that contains `x`"
-      if x=="?": return x
-      for cut in cuts:
-         if within(x,cut): return cut
-
-   def _syms(c,a):
-      "return one cut for each symbol"
-      return [(c, x, x) for x in  sorted(set(a))]
-
-   def _nums(c,a):
+   "Yields cuts `(colNumber, lo1, hi1)`"
+   def _unsuper(c):
       "simplistic (equal frequency) unsupervised learning "
+      a = data.cols[c]
       n = inc = int(len(a)/(the.bins - 1))
       cuts, b4, small = [], a[0],  the.cohen*stdev(a)
       while n < len(a) -1 :
          x = a[n]
          if x==a[n+1] or x - b4 < small: n += 1
          else: n += inc; cuts += [(c,b4,x)]; b4=x # < , <=
-      return _infinite(c,cuts)
-
-   def _infinite(c,cuts):
-      "extend `cuts` to minus/plus infinity"
       if len(cuts) < 2: return [(c, -inf, inf)] # very rare case
       cuts[ 0] = (c, -inf,        cuts[0][2])
       cuts[-1] = (c, cuts[-1][1], inf)
       return cuts
 
-   def _counts(c,cuts):
-      "count how often a cut appears in best or rest"
+   def _super(c,cuts):
+      "For nums and syms, count frequency of cut in best/rest. For nums, cuts with similar counts."
+      def _merged(a,b):
+         "return a combined xy, but only if the combo is not more complex than that parts"
+         c = obj(x= (a.x[0], a.x[1], b.x[2]),
+         y= obj(best= a.y.best + b.y.best,
+                      rest= a.y.rest + b.y.rest))
+         n1 = a.y.best + a.y.rest + 1/big
+         n2 = b.y.best + b.y.rest + 1/big
+         if ent(c.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
+            return c
+
+      def _merges(ins):
+         "Try merging any thing with its neighbor. Stop when no more merges found."
+         outs, n = [], 0
+         while n < len(ins):
+            thing = ins[n]
+            if n < len(ins)-1:
+               neighbor = ins[n+1]
+               if merged := _merged(thing, neighbor):
+                  thing = merged
+                  n += 1
+            outs += [thing]
+            n += 1
+         return ins if len(ins)==len(outs) else _merges(outs)
+
       xys = {cut : obj(x=cut, y=obj(best=0, rest=0)) for cut in cuts}
       for y,rows in [("best",bestRows), ("rest", restRows)]:
          for row in rows:
             x = row[c]
             if x != "?":
-               xys[_cut(x,cuts)].y[y] += 1/len(rows)
+               for cut in cuts:
+                 if within(x,cut): break
+               xys[cut].y[y] += 1/len(rows)
       tmp = sorted(xys.values(), key=lambda xy:xy.x)
       return _merges(tmp) if isNum(data.names[c]) else tmp
 
-   def _merges(ins):
-      "Try merging any thing with its neighbor. Stop when no more merges found."
-      outs, n = [], 0
-      while n < len(ins):
-         thing = ins[n]
-         if n < len(ins)-1:
-            neighbor = ins[n+1]
-            if merged := _merged(thing, neighbor):
-               thing = merged
-               n += 1
-         outs += [thing]
-         n += 1
-      return ins if len(ins)==len(outs) else _merges(outs)
-
-   def _merged(a,b):
-      "return a combined xy, but only if the combo is not more complex than that parts"
-      c = obj(x= (a.x[0], a.x[1], b.x[2]),
-              y= obj(best= a.y.best + b.y.best,
-                     rest= a.y.rest + b.y.rest))
-      n1 = a.y.best + a.y.rest + 1/big
-      n2 = b.y.best + b.y.rest + 1/big
-      if ent(c.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
-         return c
-
    for c,name in enumerate(data.names):
       if not isGoal(name) and not isIgnored(name):
-         cuts = (_nums if isNum(name) else _syms)(c,data.cols[c])
+         cuts = _unsuper(c) if isNum(name) else [(c,x,x) for x in sorted(set(data.cols[c]))]
          if len(cuts) > 1:
-           for cut in _counts(c, cuts):
+           for cut in _super(c, cuts):
               yield cut
 #---------------------------------------------
 def score(b, r):
@@ -210,31 +206,33 @@ def cli2dict(d):
 # ## Start-up Actions
 
 # Before eacha ction, reset the random num 
-class GO:
-   Saved = deepcopy(the)
-   All = locals()
-   def Now(a=sys.argv): 
+class go:
+   _saved = deepcopy(the)
+   _all = locals()
+   def _on(a=sys.argv): 
       cli2dict(the)
-      if the.help: sys.exit(GO.help())
-      GO.Run( GO.All.get(the.go, GO.help))
+      if the.help: sys.exit(go.help())
+      go._run( go._all.get(the.go, go.help))
 
-   def Run(fun):
+   def _run(fun):
       global the
       random.seed(the.seed)
-      failed = fun()==False
+      failed = fun() is False
       print("❌ FAIL" if failed else "✅ OK", fun.__name__)
-      the = deepcopy(GO.Saved)
+      the = deepcopy(go._saved)
       return failed
 
    def all():
       "run all actions, return to operating system a count of the number of failures"
-      sys.exit(sum(map(GO.Run,[fun for s,fun in GO.All.items() if s != "all" and s[0].islower()])))
+      sys.exit(sum(map(go._run,[fun for s,fun in go._all.items() if s != "all" and s[0].islower()])))
 
    def help():
        "show help"
-       print(__doc__); print("ACTIONS:")
-       [print(f"  -g {x:8} {f.__doc__}")
-       for x,f in GO.All.items() if x[0].islower()]
+       def yell(s) : return colored(s[1], "yellow",attrs=["bold"])
+       def bold(s) : return colored(s[1], "white", attrs=["bold"])
+       def show(s) : return re.sub(r"(\n[A-Z]+:)", yell, re.sub(r"(-[-]?[\w]+)", bold, s))
+       print(show(__doc__ + "\nACTIONS:"))
+       [print(show(f"  -g {x:8} {f.__doc__}")) for x,f in go._all.items() if x[0].islower()]
 
    def the():
       "show config"
@@ -269,7 +267,7 @@ class GO:
       for s,x in scores(DATA(csv(the.file))):
          print(f"{s:.3f}\t{x}")
 
-if __name__ == "__main__": GO.Now()
+if __name__ == "__main__": go._on()
 
 # data = discretize(data)
 # tmp = sortedRows(data)
