@@ -23,9 +23,13 @@ from collections import Counter, defaultdict
 from fileinput import FileInput as file_or_stdin
 from math import pi,log,cos,sin,sqrt
 
-inf = 1E30
+# Some standard short cuts
+inf = 1e100
 R = random.random
+
+# `obj` are `dicts` where you can access a slot using either `d["fred"]` or `d.fred`
 class obj(dict): __getattr__ = dict.get
+# `the` is an `obj` of settings and defaults pulled from `__doc__` string.
 the = obj(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #-------------------------------------------------------------------------------
 # ## Statistics
@@ -46,8 +50,6 @@ def mid(s,a,n=None): return rnd(median(a),n) if isNum(s) else mode(Counter(a))
 def div(s,a,n=None): return rnd(stdev(a)     if isNum(s) else ent(Counter(a)),n)
 #-------------------------------------------------------------------------------
 # ## Store Data
-
-# Store one row
 def ROW(a): return obj(cells=a, cooked=a[:])
 
 # Store many `rows` and  the no "?" values in each column (in `cols`).
@@ -120,7 +122,7 @@ def discretize(data, bestRows,restRows):
          for row in rows:
             x = row.cells[c]
             if x != "?":
-               xys[_cut(x,cuts)].y[y] += 1
+               xys[_cut(x,cuts)].y[y] += 1/len(rows)
       tmp = sorted(xys.values(), key=lambda xy:xy.x[0])
       return _merges(tmp) if isNum(data.names[c]) else tmp
 
@@ -179,7 +181,11 @@ def cli2dict(d):
             d[k] = coerce("True" if s == "False" else ("False" if s == "True" else sys.argv[j+1]))
 
 #---------------------------------------------
+# ## Start-up Actions
+
+# Before eacha ction, reset the random num 
 class GO:
+   Saved = deepcopy(the)
    All = locals()
    def Now(a=sys.argv): 
       cli2dict(the)
@@ -188,11 +194,10 @@ class GO:
 
    def Run(fun):
       global the
-      saved = deepcopy(the)
       random.seed(the.seed)
       failed = fun()==False
       print("❌ FAIL" if failed else "✅ OK", fun.__name__)
-      the = deepcopy(saved)
+      the = deepcopy(GO.Saved)
       return failed
 
    def all():
@@ -217,7 +222,7 @@ class GO:
 
    def read():
       "can we print rows from a disk-based csv file?"
-      [print(row.cells) for row in csv(the.file)]
+      [print(*row.cells,sep=",\t") for r,row in enumerate(csv(the.file)) if r < 10]
 
    def data():
       "can we load disk rows into a DATA?"
@@ -242,7 +247,8 @@ class GO:
       discretize(data1, bests,rests)
       for c,a in data1.cuts.items():
          lst = data1.cols[c]
-         print(f"{c:2} {lst[0]:8} {lst[-1]:8}",[xy.x[1] for xy in a])
+         print(f"{c:2} {lst[0]:8} {lst[-1]:8}",
+               [xy.x[1] for xy in a]+([inf] if isNum(data1.names[c]) else []))
 
 if __name__ == "__main__": GO.Now()
 
