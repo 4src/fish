@@ -135,7 +135,7 @@ def discretize(data, bestRows,restRows):
                 for cut in cuts:
                    if within(x,cut): break
                 counts[cut].y[y] += 1/len(rows)
-      return counts
+      return sorted(counts.values(), key=x)
 
    def _merges(ins):
       "Try merging any thing with its neighbor. Stop when no more merges found."
@@ -164,7 +164,7 @@ def discretize(data, bestRows,restRows):
    for c,name in enumerate(data.names):
       if not isGoal(name) and not isIgnored(name):
          if isNum(name):
-            for cut in  _merges(sorted(_counts( _unsuper(c)), reverse=True, key=lambda z:z.lo)):
+            for cut in  _merges( _counts( _unsuper(c))):
                if not (cut[1] == -inf and cut[2] == inf):
                   yield cut
          else:
