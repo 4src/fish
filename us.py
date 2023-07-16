@@ -24,7 +24,7 @@ from fileinput import FileInput as file_or_stdin
 from math import pi,log,cos,sin,sqrt
 
 # Some standard short cuts
-inf = 1e100
+big = 1e100
 R = random.random
 
 # `obj` are `dicts` where you can access a slot using either `d["fred"]` or `d.fred`
@@ -34,14 +34,16 @@ the = obj(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\
 #-------------------------------------------------------------------------------
 # ## Statistics
 # Given a sorted list `a` or a dictionary `d`, what can we report?
-def norm(a,x): return x if x=="?" else (x- a[0])/(a[-1] - a[0] + 1/inf)
+def norm(a,x): return x if x=="?" else (x- a[0])/(a[-1] - a[0] + 1/big)
 def median(a): return a[int(.5*len(a))]
 def stdev(a) : return (a[int(.9*len(a))] - a[int(.1*len(a))])/ 2.56
 def mode(d)  : return max(d, key=d.get)
 def ent(d)   : n=sum(d.values()); return -sum((m/n * log(m/n, 2) for m in d.values() if m>0))
 
-# Given names of columns, what can we infer?
-def isIgnored(s): return s[-1] == "X"
+# Ignore columns whose names end in "X".   
+# Goal columns end in some maximize/minimize symbol.    
+# Numeric columns have names starting in upper case.
+def isIgnored(s): return s[-1] == "X"  # ig
 def isGoal(s)   : return s[-1] in "+-"
 def isNum(s)    : return s[0].isupper()
 
@@ -108,10 +110,10 @@ def discretize(data, bestRows,restRows):
          if x==a[n+1] or x - b4 < small: n += 1
          else: n += inc; out += [(c,b4,x)]; b4=x # < , <=
       if len(out) < 2:
-         out= [(c, -inf, inf)]
+         out= [(c, -big, big)]
       else:
-        out[ 0]  = (c, -inf,       out[0][2])
-        out[-1]  = (c, out[-1][1], inf)
+        out[ 0]  = (c, -big,       out[0][2])
+        out[-1]  = (c, out[-1][1], big)
       return out
 
    def _counts(c,cuts):
@@ -144,8 +146,8 @@ def discretize(data, bestRows,restRows):
       c = obj(x= (a.x[0], a.x[1], b.x[2]),
               y= obj(best= a.y.best + b.y.best,
                      rest= a.y.rest + b.y.rest))
-      n1 = a.y.best + a.y.rest + 1/inf
-      n2 = b.y.best + b.y.rest + 1/inf
+      n1 = a.y.best + a.y.rest + 1/big
+      n2 = b.y.best + b.y.rest + 1/big
       if ent(c.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
          return c
 
@@ -248,7 +250,7 @@ class GO:
       for c,a in data1.cuts.items():
          lst = data1.cols[c]
          print(f"{c:2} {lst[0]:8} {lst[-1]:8}",
-               [xy.x[1] for xy in a]+([inf] if isNum(data1.names[c]) else []))
+               [xy.x[1] for xy in a]+([big] if isNum(data1.names[c]) else []))
 
 if __name__ == "__main__": GO.Now()
 
