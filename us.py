@@ -180,11 +180,12 @@ def discretize(data, bestRows,restRows):
 def score(b, r):
   "Given you've found `b` or `r`, how much do we like you?"
   r += 1/big # stop divide by zero errors
+  print(the.want)
   match the.want:
     case "plan"    : return b**2  /    (b + r)  # seeking best
-    case "monitor" : return r**2  /    (b + r)  # seeking rest
+    case "monitor" : print(1); return r**2  /    (b + r)  # seeking rest
     case "doubt"   : return (b+r) / abs(b - r)  # seeking border of best/rest 
-    case "xplore"  : return 1     /    (b + r)  # seeking other
+    case "xplore"  : print(2); return 1     /    (b + r)  # seeking other
 
 def scores(data):
    rows  = sortedRows(data)
@@ -195,7 +196,7 @@ def scores(data):
                         key=lambda z:z[0]):
       yield s,x.x
 #---------------------------------------------
-def pick(pairs,n)
+def pick(pairs,n):
    r = R()
    for s,x in pairs:
       r -= s/n
