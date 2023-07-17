@@ -1,7 +1,7 @@
 #!/usr/bin/env python3 -B
 #<!--- vim: set et sts=3 sw=3 ts=3 : --->
 """
-uspy: a (very) little AI tool
+simplr: a little AI goes a long way (multi-objective semi-supervised explanations)
 (c) Tim Menzies <timm@ieee.org>, BSD-2 license
 
 OPTIONS:
@@ -54,11 +54,15 @@ def ent(d): n=sum(d.values()); return -sum((m/n * log(m/n, 2) for m in d.values(
 # ### Conventions for column names
 
 # Numeric columns have names starting in upper case.
-def isNum(s): return s[0].isupper()
+def isNum(s): return  s[0].isupper()
 # Goal columns end in some maximize/minimize symbol.
 def isGoal(s): return s[-1] in "+-"
 # Ignore columns whose names end in "X".
 def isIgnored(s): return s[-1] == "X"  # ig
+
+# which has some useful combinations
+def isxNum(s): return not isGoal(s) and isNum(s)
+def isxSym(s): return not isGoal(s) and not isNum(s)
 
 # Given those conventions, how to compute `mid` (central tendency) 
 # or `div` (divergence from central tendency)? If `n` is non-nil,
@@ -71,18 +75,24 @@ def div(s,x,n=None): return rnd(stdev(x)     if isNum(s) else ent(Counter(x)),n)
 # Store many `rows` and  the no "?" values in each column (in `cols`).
 # Also, small detail, the first `row` is a list of column `names`.
 def DATA(src): # src is a list of list, or an iterator that returns froms from files
-   rows,cols,x,y = [],{},{},{}
+   rows,cols = [],{}
    for n,row in enumerate(src):
       if n==0:
          names = row
-         for c,name in enumerate(names):
-           cols[c]=[]
-           if not isIgnored(name):
-              (y if isGoal(name) else x)[c] =  0 if name[-1] == "-" else 1
+         all=obj(all=all(names), **{f.__name__:all(names,f) for f in {y,isxNum,isyNum})
       else:
          rows += [row]
          [cols[c].append(x) for c,x in enumerate(row) if x != "?"]
-   return obj(names=names, rows=rows, x=x, y=y, cols= {c:sorted(a) for c,a in cols.items()})
+   return obj(names=names, rows=rows, xnums=xnums, xsyms=xsyms, y=y,
+              cols= {c:sorted(a) for c,a in cols.items()})
+
+def all(names,fun=lambda z:True):
+   cols = [name for name in names if not isIgnored(name) and fun(name)]
+   def iterator(row):
+      for c in cols:
+         x=row[c]
+         if x != "?":  yield c,x
+   return iterator
 
 # How to report stats on each column.
 def stats(data, cols=None, n=None, fun=mid):
@@ -130,7 +140,7 @@ def discretize(data, bestRows,restRows):
       cuts[-1] = (c, cuts[-1][1], inf)
       return cuts
 
-   def _counts(cuts):
+   def _counts(c,cuts, finalFilter=lambda x:x):
       "count how often  `cut` (in `cuts`) appears in `bestRows` or `restRows`"
       counts = {cut : obj(x=cut, y=obj(best=0, rest=0)) for cut in cuts}
       for y,rows in [("best",bestRows), ("rest", restRows)]:
@@ -140,7 +150,7 @@ def discretize(data, bestRows,restRows):
                 for cut in cuts:
                    if within(x,cut): break  # at the break, "cut" is the one we want.
                 counts[cut].y[y] += 1/len(rows)
-      return sorted(counts.values(), key=lambda z:z.x)
+      return finalFilter(sorted(counts.values(), key=lambda z:z.x))
 
    def _merges(ins):
       "Try merging any thing with its neighbor. Stop when no more merges found."
@@ -158,23 +168,36 @@ def discretize(data, bestRows,restRows):
 
    def _merge(a,b):
       "combines a,b (and returns None if the whole is more complex than that parts)"
-      c  = obj(x= (a.x[0], a.x[1], b.x[2]),
-      y  = obj(best= a.y.best + b.y.best,
-               rest= a.y.rest + b.y.rest))
+      ab = obj(x= (a.x[0], a.x[1], b.x[2]),
+               y= obj(best= a.y.best + b.y.best,
+                      rest= a.y.rest + b.y.rest))
       n1 = a.y.best + a.y.rest + 1/big
       n2 = b.y.best + b.y.rest + 1/big
-      if ent(c.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
-         return c
+      if ent(ab.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
+         return ab
 
    for c,name in enumerate(data.names):
-      if not isGoal(name) and not isIgnored(name):
+      if not isGoal(name) and not isIgnore(name):
          if isNum(name): # nums use the results from _counts to do the _merges-ing
-            for cut in  _merges( _counts( _unsuper(c))):
+            cuts = _unsuper(c)
+            for cut in  _counts(c, cuts,  _merges):
+               if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
+                  yield cut
+         else: # syms just call _counts, then returns those results
+            cuts=  [(c,x,x) for x in sorted(set(data.cols[c])]
+            if len(cuts)  > 1:
+               for cut in _counts(c, cuts):
+                  yield cut
+
+ for c,name in enumerate(data.names):
+      if not isGoal(name) and not isIgnore(name):
+         if isNum(name): # nums use the results from _counts to do the _merges-ing
+            for cut in  _merges( _counts(c, _unsuper(c))):
                if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
                   yield cut
          else: # syms just call _counts, then returns those results
             cuts =  [(c,x,x) for x in sorted(set(data.cols[c]))]
-            for cut in _counts(cuts):  yield cut
+            for cut in _counts(c,cuts):  yield cut
 
 #---------------------------------------------
 def score(b, r):
