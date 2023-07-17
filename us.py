@@ -112,7 +112,9 @@ def within(x, cut):
 # For nums, an unsupervised descretizer sorts the nums then divides them into
 # `the.bins` cuts. A supervised algorithm then counts how often those cuts
 # appear in `bestRows` and `restRows` (and adjacent cuts with similar counts are merged).
-# sorts nums, then breaks them
+# sorts nums, then breaks them. <p>This function yields items of the form   
+# `obj(x=(columnIndex,lo, hi) y=obj(best=bests, rest=rests))`   
+# where `y` reports how often we see `x` in `best` and `rest`.
 def discretize(data, bestRows,restRows):
    def _unsuper(c):
       "simplistic (equal frequency) unsupervised discretization "
@@ -176,13 +178,13 @@ def discretize(data, bestRows,restRows):
 
 #---------------------------------------------
 def score(b, r):
-  "Given you've found `b` or `r` items of `B,R`, how much do we like you?"
+  "Given you've found `b` or `r`, how much do we like you?"
   r += 1/big # stop divide by zero errors
   match the.want:
-    case "plan"    : return b**2 / (   b + r)    # seeking best
-    case "monitor" : return r**2 / (   b + r)    # seeking rest
-    case "doubt"   : return (b+r) / abs(b - r)   # seeking border of best/rest 
-    case "xplore"  : return 1 / (   b + r)       # seeking other
+    case "plan"    : return b**2  /    (b + r)  # seeking best
+    case "monitor" : return r**2  /    (b + r)  # seeking rest
+    case "doubt"   : return (b+r) / abs(b - r)  # seeking border of best/rest 
+    case "xplore"  : return 1     /    (b + r)  # seeking other
 
 def scores(data):
    rows  = sortedRows(data)
@@ -192,12 +194,36 @@ def scores(data):
                         discretize(data,bests,rests)], reverse=True,
                         key=lambda z:z[0]):
       yield s,x.x
-
-   # return sorted([(score(cut.y.best, cut.y.rest),cut) 
-   #                for cut in discretize(data,bests,rests)], 
-   #               key=lambda z: z[0], reverse=True)
-   #
 #---------------------------------------------
+def pick(pairs,n)
+   r = R()
+   for s,x in pairs:
+      r -= s/n
+      if r <=0: yield x
+
+def grow(bestRows, restRows, a=[], scores={}, top=None):
+   top = top or the.rules*the.gens
+   a = set(a) # no repeats
+   for x in a:
+      if x not in scores: scores[x] = score(*selects(x,bestRows,restRows))
+   a.sort(reversed=True, key=lambda x:scores[x])
+   a = a[:top]
+   if len(a) < the.rules: return {x:scores[x] for x in a}
+   n = sum((x[0] for x in a))
+   picks = [combine(pick(a,n), pick(a,n)) for _ in range(the.grows)]
+   grow(bestRows, restRows, a+picks, scores,top//2)
+
+# def select(data,ranges,row):
+#   def _ors(chops,vals):
+#     for val in vals:
+#       if  within(row.cooked[col],*chops[val]): return True
+#   for col,vals in ranges:
+#     if not _ors(data.cols.all[col].chops, vals): return False
+#   return True
+#
+# def selects(data,ranges,rows):
+#   return [row for row in rows if select(data,ranges,row)]
+#
 def rnd(x,decimals=None):
    return round(x,decimals) if decimals != None  else x
 
