@@ -117,7 +117,7 @@ def within(x, cut):
 # where `y` reports how often we see `x` in `best` and `rest`.
 def discretize(data, bestRows,restRows):
    def _unsuper(c):
-      "simplistic (equal frequency) unsupervised discretization "
+      "simplistic (equal frequency) unsupervised discretization"
       a = data.cols[c]
       n = inc = int(len(a)/(the.bins - 1))
       cuts, b4, small = [], a[0],  the.cohen*stdev(a)
@@ -138,7 +138,7 @@ def discretize(data, bestRows,restRows):
              x = row[c]
              if x != "?":
                 for cut in cuts:
-                   if within(x,cut): break
+                   if within(x,cut): break  # at the break, "cut" is the one we want.
                 counts[cut].y[y] += 1/len(rows)
       return sorted(counts.values(), key=lambda z:z.x)
 
@@ -150,9 +150,9 @@ def discretize(data, bestRows,restRows):
          if n < len(ins)-1:
             neighbor = ins[n+1]
             if merged := _merge(thing, neighbor):
-               thing = merged
-               n += 1
-         outs += [thing]
+               thing = merged # switch to "merged" 
+               n += 1  # skip over the thing we "merged" with
+         outs += [thing] 
          n += 1
       return ins if len(ins)==len(outs) else _merges(outs)
 
@@ -168,11 +168,11 @@ def discretize(data, bestRows,restRows):
 
    for c,name in enumerate(data.names):
       if not isGoal(name) and not isIgnored(name):
-         if isNum(name):
+         if isNum(name): # nums use the results from _counts to do the _merges-ing
             for cut in  _merges( _counts( _unsuper(c))):
-               if not (cut.x[1] == -inf and cut.x[2] == inf):
+               if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
                   yield cut
-         else:
+         else: # syms just call _counts, then returns those results
             cuts =  [(c,x,x) for x in sorted(set(data.cols[c]))]
             for cut in _counts(cuts):  yield cut
 
