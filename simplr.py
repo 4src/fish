@@ -140,7 +140,7 @@ def discretize(data, bestRows,restRows):
       cuts[-1] = (c, cuts[-1][1], inf)
       return cuts
 
-   def _counts(c,cuts, finalFilter=lambda x:x):
+   def _counts(c,cuts, finalFun):
       "count how often  `cut` (in `cuts`) appears in `bestRows` or `restRows`"
       counts = {cut : obj(x=cut, y=obj(best=0, rest=0)) for cut in cuts}
       for y,rows in [("best",bestRows), ("rest", restRows)]:
@@ -150,7 +150,7 @@ def discretize(data, bestRows,restRows):
                 for cut in cuts:
                    if within(x,cut): break  # at the break, "cut" is the one we want.
                 counts[cut].y[y] += 1/len(rows)
-      return finalFilter(sorted(counts.values(), key=lambda z:z.x))
+      return finalFun( sorted(counts.values(), key=lambda z:z.x))
 
    def _merges(ins):
       "Try merging any thing with its neighbor. Stop when no more merges found."
@@ -186,7 +186,7 @@ def discretize(data, bestRows,restRows):
          else: # syms just call _counts, then returns those results
             cuts=  [(c,x,x) for x in sorted(set(data.cols[c])]
             if len(cuts)  > 1:
-               for cut in _counts(c, cuts):
+               for cut in _counts(c, cuts, lambda x:x):
                   yield cut
 
  for c,name in enumerate(data.names):
