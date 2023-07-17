@@ -71,15 +71,18 @@ def div(s,x,n=None): return rnd(stdev(x)     if isNum(s) else ent(Counter(x)),n)
 # Store many `rows` and  the no "?" values in each column (in `cols`).
 # Also, small detail, the first `row` is a list of column `names`.
 def DATA(src): # src is a list of list, or an iterator that returns froms from files
-   rows,cols = [],{}
+   rows,cols,x,y = [],{},{},{}
    for n,row in enumerate(src):
       if n==0:
          names = row
-         for c,_ in enumerate(names): cols[c] = []
+         for c,name in enumerate(names):
+           cols[c]=[]
+           if not isIgnored(name):
+              (y if isGoal(name) else x)[c] =  0 if name[-1] == "-" else 1
       else:
          rows += [row]
          [cols[c].append(x) for c,x in enumerate(row) if x != "?"]
-   return obj(names=names, rows=rows, cols= {c:sorted(a) for c,a in cols.items()})
+   return obj(names=names, rows=rows, x=x, y=y, cols= {c:sorted(a) for c,a in cols.items()})
 
 # How to report stats on each column.
 def stats(data, cols=None, n=None, fun=mid):
@@ -135,7 +138,7 @@ def discretize(data, bestRows,restRows):
                 for cut in cuts:
                    if within(x,cut): break
                 counts[cut].y[y] += 1/len(rows)
-      return sorted(counts.values(), key=x)
+      return sorted(counts.values(), key=lambda z:z.x)
 
    def _merges(ins):
       "Try merging any thing with its neighbor. Stop when no more merges found."
@@ -165,11 +168,11 @@ def discretize(data, bestRows,restRows):
       if not isGoal(name) and not isIgnored(name):
          if isNum(name):
             for cut in  _merges( _counts( _unsuper(c))):
-               if not (cut[1] == -inf and cut[2] == inf):
+               if not (cut.x[1] == -inf and cut.x[2] == inf):
                   yield cut
          else:
-            cuts =  sorted(set(data.cols[x]))
-            for cut in _counts(cut):  yield cut
+            cuts =  [(c,x,x) for x in sorted(set(data.cols[c]))]
+            for cut in _counts(cuts):  yield cut
 
 #---------------------------------------------
 def score(b, r):
@@ -241,7 +244,7 @@ class go:
       return failed
 
    def all():
-      "run all actions, return to operating system a count of the number of failures"
+      "run all actions, return number of failures"
       sys.exit(sum(map(go._run,[fun for s,fun in go._all.items() if s != "all" and s[0].islower()])))
 
    def help():
