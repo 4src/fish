@@ -54,22 +54,22 @@ def ent(d): n=sum(d.values()); return -sum((m/n * log(m/n, 2) for m in d.values(
 # ### Conventions for column names
 
 # Numeric columns have names starting in upper case.
-def isNum(s): return  s[0].isupper()
+def nump(s): return  not skipp(s) and s[0].isupper()
 # Goal columns end in some maximize/minimize symbol.
-def isGoal(s): return s[-1] in "+-"
+def goalp(s): return not skipp(s) and s[-1] in "+-"
 # Ignore columns whose names end in "X".
-def isIgnored(s): return s[-1] == "X"  # ig
+def skipp(s): return s[-1] == "X"  # ig
 
 # which has some useful combinations
-def isxNum(s): return not isGoal(s) and isNum(s)
-def isxSym(s): return not isGoal(s) and not isNum(s)
+def xnump(s): return not skipp(s) and not goalp(s) and nump(s)
+def xsymp(s): return not skipp(s) and not goalp(s) and not nump(s)
 
 # Given those conventions, how to compute `mid` (central tendency) 
 # or `div` (divergence from central tendency)? If `n` is non-nil,
 # round `median`s,`stdev`,`ent`  to `n` decimal places (and leave `mode` unrounded)
-def mid(s,x,n=None): return rnd(median(x),n) if isNum(s) else mode(Counter(x))
+def mid(s,x,n=None): return rnd(median(x),n) if nump(s) else mode(Counter(x))
 
-def div(s,x,n=None): return rnd(stdev(x)     if isNum(s) else ent(Counter(x)),n)
+def div(s,x,n=None): return rnd(stdev(x)     if nump(s) else ent(Counter(x)),n)
 #-------------------------------------------------------------------------------
 # ## Data
 # Store many `rows` and  the no "?" values in each column (in `cols`).
@@ -79,30 +79,29 @@ def DATA(src): # src is a list of list, or an iterator that returns froms from f
    for n,row in enumerate(src):
       if n==0:
          names = row
-         all=obj(all=all(names), **{f.__name__:all(names,f) for f in {y,isxNum,isyNum})
+         just=obj(all=just(names), **{f.__name__:just(names,f) for f in {y,xnump,ynump})
       else:
          rows += [row]
          [cols[c].append(x) for c,x in enumerate(row) if x != "?"]
    return obj(names=names, rows=rows, xnums=xnums, xsyms=xsyms, y=y,
               cols= {c:sorted(a) for c,a in cols.items()})
 
-def all(names,fun=lambda z:True):
-   cols = [name for name in names if not isIgnored(name) and fun(name)]
-   def iterator(row):
-      for c in cols:
-         x=row[c]
+def just(names,fun=lambda z:True):
+   some = [col for col,_ in enumerate(names) if not skipp(name) and fun(name)]
+   def iterator(row=names):
+      for c in some:
+         x = row[c]
          if x != "?":  yield c,x
    return iterator
 
 # How to report stats on each column.
-def stats(data, cols=None, n=None, fun=mid):
-   cols = cols or [c for c in data.cols if isGoal(data.names[c])]
-   def show(c): return fun(data.names[c], data.cols[c], n)
-   return obj(N=len(data.rows), **{data.names[c]:show(c) for c in cols or data.cols})
+def stats(data, cols="goalp", n=None, fun=mid):
+   def show(c,name): return fun(name, data.cols[c], n)
+   return obj(N=len(data.rows),**{s:show(c,s) for c,s in data.just[cols](data.names)})
 
 # How to sort the rows closest to furthest from most desired.
 def sortedRows(data):
-   heaven = {c:(0 if s[-1]=="-" else 1) for c,s in enumerate(data.names) if isGoal(s)}
+   heaven = {c:(0 if s[-1]=="-" else 1) for c,s in enumerate(data.names) if goalp(s)}
    def _distance2heaven(row):
       return sum(( (heaven[c] - norm(data.cols[c], row[c]))**2 for c in heaven ))**.5
    return sorted(data.rows, key=_distance2heaven)
@@ -140,7 +139,7 @@ def discretize(data, bestRows,restRows):
       cuts[-1] = (c, cuts[-1][1], inf)
       return cuts
 
-   def _counts(c,cuts, finalFun):
+   def _counts(c,cuts, finalFun= lambda x:x):
       "count how often  `cut` (in `cuts`) appears in `bestRows` or `restRows`"
       counts = {cut : obj(x=cut, y=obj(best=0, rest=0)) for cut in cuts}
       for y,rows in [("best",bestRows), ("rest", restRows)]:
@@ -176,22 +175,20 @@ def discretize(data, bestRows,restRows):
       if ent(ab.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
          return ab
 
-   for c,name in enumerate(data.names):
-      if not isGoal(name) and not isIgnore(name):
-         if isNum(name): # nums use the results from _counts to do the _merges-ing
+   for c,_ in data.just.xnump()
             cuts = _unsuper(c)
             for cut in  _counts(c, cuts,  _merges):
                if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
                   yield cut
-         else: # syms just call _counts, then returns those results
-            cuts=  [(c,x,x) for x in sorted(set(data.cols[c])]
-            if len(cuts)  > 1:
-               for cut in _counts(c, cuts, lambda x:x):
+   for c,_ in data.just.xsymp()
+            cuts = [(c,x,x) for x in sorted(set(data.cols[c])]
+            if len(cuts) > 1:
+               for cut in _counts(c, cuts)
                   yield cut
 
  for c,name in enumerate(data.names):
-      if not isGoal(name) and not isIgnore(name):
-         if isNum(name): # nums use the results from _counts to do the _merges-ing
+      if not goalp(name) and not skipp(name):
+         if nump(name): # nums use the results from _counts to do the _merges-ing
             for cut in  _merges( _counts(c, _unsuper(c))):
                if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
                   yield cut
