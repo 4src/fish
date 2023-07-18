@@ -31,7 +31,7 @@ MARKDOWN = pandoc --from gfm --to html --standalone
 all: $(patsubst %.md,%.html,$(wildcard *.md)) Makefile
 
 pretty:
-	autopep8 -i -a --max-line-length 101 --indent-size 2 ord.py
+	autopep8 -i -a --max-line-length 101 --indent-size 2 samplr.py
 
 xclean:
 	rm -f $(patsubst %.md,%.html,$(wildcard *.md))
@@ -41,12 +41,10 @@ xclean:
 	$(MARKDOWN) $< --output $@
 
 html: 
-	docco -o $(HOME)/tmp  us.py 
-	awk '/<h1>/{ print $$0; print "<p>"f"</p>";next} 1' f="`cat top.html`" ~/tmp/us.html > tmp1
-	mv tmp1 ~/tmp/use.html
+	docco -o $(HOME)/tmp samplr.py 
+	awk '/<h1>/{ print $$0; print "<p>"f"</p>";next} 1' f="`cat top.html`" ~/tmp/samplr.html > tmp1
+	mv tmp1 ~/tmp/samplr.html
 	cp ../config/docco.css $(HOME)/tmp
-	open $(HOME)/tmp/us.html
+	open $(HOME)/tmp/samplr.html
 
-#html: docs/fish.html
-
-pdf: $(HOME)/tmp/fish.pdf
+pdf: $(HOME)/tmp/samplr.pdf
