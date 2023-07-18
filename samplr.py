@@ -78,10 +78,10 @@ def DATA(src):
             if not(isinstance(x,str) and s== "?"):  yield c,x
       return iterator
 
-   def _unsuper(a, div):
+   def _unsuper(c,a):
       "simplistic (equal frequency) unsupervised discretization"
       n = inc = int(len(a)/(the.bins - 1))
-      cuts, b4, small = [], a[0],  the.cohen*div
+      cuts, b4, small = [], a[0], the.cohen*stdev(a)
       while n < len(a) -1 :
          x = a[n]
          if x==a[n+1] or x - b4 < small:
@@ -89,11 +89,11 @@ def DATA(src):
          else:
             n += inc
             cuts += [(c,b4,x)]
-            b4 = x # < , <=
+            b4 = x 
       return cuts
 
    def _stretch(cuts):
-      if len(cuts) < 2: return [(c, -inf, inf)] # happen when all nums are the same
+      if len(cuts) < 2: return [(c, -inf, inf)] # happen when e.g. all nums are the same
       cuts[ 0] = (c, -inf,        cuts[0][2])
       cuts[-1] = (c, cuts[-1][1], inf)
       return cuts
@@ -101,23 +101,23 @@ def DATA(src):
    def _summarize(name, c,a)
       if nump(name):
          a=sorted(a)
-         return obj(name=name, mid=median(a), div=stdev(a), cuts=_stretch(_unsuper(c, stdev(a))),
+         return obj(name=name, mid=median(a), div=stdev(a), cuts=_stretch(_unsuper(c, a)),
                     lo=a[0], hi=a[-1], heaven= 0 if name[-1]=="-" else 1)
       else:
-         d=Counter(a)
-         return obj(name=name, mid=mode(d), div=ent(d), cuts=[(c,x,x) for x in sorted(set(a))])
+         d = Counter(a)
+         return obj(name=name, mid=mode(d), div=ent(d), cuts=[(c,x,x) for x in sorted(set(d))])
 
-   rows,tmp = [],{}
    for n,row in enumerate(src):
       if n==0:
-         names = row
-         tmp   = {c:[] for c,_ in enumerate(names)}
+         names,rows = row,[]
+         cache = [[] for _ in names]
       else:
          rows += [row]
-         [tmp[c].append(x) for c,x in enumerate(row) if x != "?"]
-   return obj(rows=rows, just=justs, names=names,
+         [a.append(x) for a,x in zip(cache,row) if x != "?"]
+   return obj(rows=rows, 
+              names=names,
               justs = obj( **{f.__name__:just(names,f) for f in [goalp,xnump,xsymp]}),
-              cols  = {c:summarize(names[c],c,a) for c,a in tmp.items()})
+              cols  = [summarize(names[c],c,a) for c,a in enumerate(tmp)]
 
    # How to report stats on each column.
 def stats(data, just="goalp", n=None what="mid")
