@@ -45,21 +45,26 @@ def norm(nums,x): return x if x=="?" else (x- nums[0])/(nums[-1] - nums[0] + 1/b
 def median(nums): return nums[int(.5*len(nums))] # middle number
 def stdev(nums):  return (nums[int(.9*len(nums))] - nums[int(.1*len(nums))])/ 2.56 # div=diversity
 def mode(d):      return max(d, key=d.get) # most frequent number
-def ent(d):  n=sum(d.values()); return -sum((m/n * log(m/n,2) for m in d.values() if m>0)) # entropy
+def ent(d):       # entropy
+   n=sum(d.values())
+   return -sum((m/n * log(m/n,2) for m in d.values() if m>0)) 
 
 # ### Conventions for column names
 
-def nump(s):  return  not skipp(s) and s[0].isupper() # nums have upper case
-def goalp(s): return not skipp(s) and s[-1] in "+-" # goals in "+-"
+def nump(s):  return s[0].isupper() # nums have upper case
+def goalp(s): return s[-1] in "+-" # goals in "+-"
 def skipp(s): return s[-1] == "X"  #  skip anything ending with "X"
-def xnump(s): return not skipp(s) and not goalp(s) and nump(s)
-def xsymp(s): return not skipp(s) and not goalp(s) and not nump(s)
+def xnump(s): return not goalp(s) and nump(s)
+def xsymp(s): return not goalp(s) and not nump(s)
 
 # Given those conventions, how to compute `mid` (central tendency) 
 # or `div` (divergence from central tendency)? If `n` is non-nil,
 # round `median`s,`stdev`,`ent`  to `n` decimal places (and leave `mode` unrounded)
 def mid(s,x,n=None): return rnd(median(x),n) if nump(s) else mode(Counter(x))
 def div(s,x,n=None): return rnd(stdev(x)     if nump(s) else ent(Counter(x)),n)
+
+# If decimals offered, then round to that. else just return `x`
+def rnd(x,decimals=None): return round(x,decimals) if decimals != None  else x
 #-------------------------------------------------------------------------------
 # ## Data
 # Store many `rows` and  the no "?" values in each column (in `cols`).
@@ -70,13 +75,13 @@ def DATA(src): # src is a list of list, or an iterator that returns froms from f
       if n==0:
          names = row
          cols  = {c:[] for c,_ in enumerate(names)}
-         funs  = obj(all=just(names), **{f.__name__:just(names,f) for f in [goalp,xnump,xsymp]})
+         justs = obj(all=just(names), **{f.__name__:just(names,f) for f in [goalp,xnump,xsymp]})
       else:
          rows += [row]
          [cols[c].append(x) for c,x in enumerate(row) if x != "?"]
-   return obj(names=names, rows=rows, just=funs, cols={c:sorted(a) for c,a in cols.items()})
+   return obj(names=names, rows=rows, just=justs, cols={c:sorted(a) for c,a in cols.items()})
 
-def just(names,fun=lambda z:True):
+def just(names,fun=lambda _:True):
    some = [col for col,name in enumerate(names) if not skipp(name) and fun(name)]
    def iterator(row=names):
       for c in some:
@@ -91,7 +96,7 @@ def stats(data, cols="goalp", n=None, fun=mid):
 
 # How to sort the rows closest to furthest from most desired.
 def sortedRows(data):
-   heaven = {c:(0 if s[-1]=="-" else 1) for c,s in enumerate(data.names) if goalp(s)}
+   heaven = {c:(0 if name[-1]=="-" else 1) for c,name in data.just.goalp()}
    def _distance2heaven(row):
       return sum(( (heaven[c] - norm(data.cols[c], row[c]))**2 for c in heaven ))**.5
    return sorted(data.rows, key=_distance2heaven)
@@ -222,9 +227,6 @@ def grow(bestRows, restRows, a=[], scores={}, top=None):
 # def selects(data,ranges,rows):
 #   return [row for row in rows if select(data,ranges,row)]
 #
-def rnd(x,decimals=None):
-   return round(x,decimals) if decimals != None  else x
-
 def coerce(x):
    try : return lit(x)
    except Exception: return x.strip()

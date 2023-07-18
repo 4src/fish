@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>samplr.lua</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0; maximum-scale=1.0; user-scalable=0;">
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div id="container">
+    <div id="background"></div>
+    
+    <ul class="sections">
+        
+          <li id="title">
+              <div class="annotation">
+                  <h1>samplr.lua</h1>
+              </div>
+          </li>
+        
+        
+        
+        <li id="section-1">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-1">&#x00a7;</a>
+              </div>
+              
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>#!/usr/bin/env lua</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-2">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-2">&#x00a7;</a>
+              </div>
+              <!--- vim: set et sts=3 sw=3 ts=3 : --->
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> b4={}; <span class="hljs-keyword">for</span> k,_ <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(<span class="hljs-built_in">_ENV</span>) <span class="hljs-keyword">do</span> b4[k] = k <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">local</span> help=<span class="hljs-string">[[
+samplr: a little smart sampling goes a long way
+(multi- objective, semi- supervised, explanations)
+(c) Tim Menzies &lt;timm@ieee.org&gt;, BSD-2 license
+
+OPTIONS:
+  -b --bins   initial number of bins     = 16
+  -c --cohen  small delta = cohen*stdev  = .35
+  -f --file   where to read data         = ../data/auto93.csv
+  -g --go     start up action            = help
+  -h --help   show help                  = false
+  -s --seed   random number seed         = 1234567890
+  -m --min    minuimum size              = .5
+  -r --rest   |rest| = |best|*rest       = 3
+  -w --want   plan|xplore|monitor|doubt  = plan
+]]</span>
+<span class="hljs-keyword">local</span> lib,o,oo
+<span class="hljs-keyword">local</span> big=<span class="hljs-number">1E100</span>
+<span class="hljs-keyword">local</span> the={}
+s:<span class="hljs-built_in">gsub</span>(<span class="hljs-string">&quot;\n[%s]+[-][%S][%s]+[-][-]([%S]+)[^\n]+= ([%S]+)&quot;</span>,
+       <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(k,v)</span></span> the[k]=lib.coerce(v) <span class="hljs-keyword">end</span>)</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-3">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-3">&#x00a7;</a>
+              </div>
+              <hr>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-4">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-4">&#x00a7;</a>
+              </div>
+              
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>lib={}</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-5">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-5">&#x00a7;</a>
+              </div>
+              <p>Convert <code>s</code> into an integer, a float, a bool, or a string (as appropriate).</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">lib.coerce</span><span class="hljs-params">(s,    _fun)</span></span>
+  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_fun</span><span class="hljs-params">(s1)</span></span>
+    <span class="hljs-keyword">return</span> s1==<span class="hljs-string">&quot;true&quot;</span> <span class="hljs-keyword">and</span> <span class="hljs-literal">true</span> <span class="hljs-keyword">or</span> (s1 ~= <span class="hljs-string">&quot;false&quot;</span> <span class="hljs-keyword">and</span> s1) <span class="hljs-keyword">or</span> <span class="hljs-literal">false</span> <span class="hljs-keyword">end</span>
+  <span class="hljs-keyword">return</span> <span class="hljs-built_in">math</span>.tointeger(s) <span class="hljs-keyword">or</span> <span class="hljs-built_in">tonumber</span>(s) <span class="hljs-keyword">or</span> _fun(s:<span class="hljs-built_in">match</span><span class="hljs-string">&quot;^%s*(.-)%s*$&quot;</span>) <span class="hljs-keyword">end</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-6">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-6">&#x00a7;</a>
+              </div>
+              <h3 id="randoms">Randoms</h3>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>lib.Seed = <span class="hljs-number">937162211</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-7">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-7">&#x00a7;</a>
+              </div>
+              <p>Returns random integers <code>nlo</code> to <code>nhi</code>.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">lib.rint</span><span class="hljs-params">(nlo,nhi)</span></span>  <span class="hljs-keyword">return</span> <span class="hljs-built_in">math</span>.<span class="hljs-built_in">floor</span>(<span class="hljs-number">0.5</span> + lib.rand(nlo,nhi)) <span class="hljs-keyword">end</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-8">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-8">&#x00a7;</a>
+              </div>
+              <p>Returns random floats <code>nlo</code> to <code>nhi</code> (defaults 0 to 1)</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">lib.rand</span><span class="hljs-params">(nlo,nhi)</span></span> 
+  nlo, nhi = nlo <span class="hljs-keyword">or</span> <span class="hljs-number">0</span>, nhi <span class="hljs-keyword">or</span> <span class="hljs-number">1</span>
+  lib.Seed = (<span class="hljs-number">16807</span> * lib.Seed) % <span class="hljs-number">2147483647</span>
+  <span class="hljs-keyword">return</span> nlo + (nhi-nlo) * lib.Seed / <span class="hljs-number">2147483647</span> <span class="hljs-keyword">end</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-9">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-9">&#x00a7;</a>
+              </div>
+              <h3 id="lint">Lint</h3>
+<p>Warn about stray globals.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">lib.rogues</span><span class="hljs-params">()</span></span>
+  <span class="hljs-keyword">for</span> k,_ <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(<span class="hljs-built_in">_ENV</span>) <span class="hljs-keyword">do</span> <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> b4[k] <span class="hljs-keyword">then</span> 
+    <span class="hljs-built_in">io</span>.<span class="hljs-built_in">stderr</span>:<span class="hljs-built_in">write</span>(<span class="hljs-string">&quot;-- warning: rogue local [&quot;</span>,k,<span class="hljs-string">&quot;]\n&quot;</span>) <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
+
+<span class="hljs-keyword">local</span> o,oo = <span class="hljs-keyword">local</span> o,oo
+<span class="hljs-keyword">return</span> {lib=lib}</pre></div></div>
+            
+        </li>
+        
+    </ul>
+  </div>
+</body>
+</html>
