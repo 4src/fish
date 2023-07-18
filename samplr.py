@@ -1,7 +1,8 @@
 #!/usr/bin/env python3 -B
 #<!--- vim: set et sts=3 sw=3 ts=3 : --->
 """
-samplr: a little smart sampling goes a long way (multi-objective semi-supervised explanations)
+samplr: a little smart sampling goes a long way
+(multi- objective, semi- supervised, explanations)
 (c) Tim Menzies <timm@ieee.org>, BSD-2 license
 
 OPTIONS:
@@ -40,27 +41,17 @@ the = obj(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\
 # Given a sorted list of numbers `a` or a dictionary `d` containing frequency counts
 # for each key, what can we report?  
 
-# Normalize numbers 0..1 for min..max.<br>
-def norm(nums,x): return x if x=="?" else (x- nums[0])/(nums[-1] - nums[0] + 1/big)
-# Return the middle (median) number.
-def median(nums): return nums[int(.5*len(nums))]
-# Report the diversity (standard deviation) of a list of numbers.
-def stdev(nums): return (nums[int(.9*len(nums))] - nums[int(.1*len(nums))])/ 2.56
-# Report the most frequent symbol.
-def mode(d): return max(d, key=d.get)
-# Report the entropy of the a set of frequencies.
-def ent(d): n=sum(d.values()); return -sum((m/n * log(m/n, 2) for m in d.values() if m>0))
+def norm(nums,x): return x if x=="?" else (x- nums[0])/(nums[-1] - nums[0] + 1/big) # normalize
+def median(nums): return nums[int(.5*len(nums))] # middle number
+def stdev(nums):  return (nums[int(.9*len(nums))] - nums[int(.1*len(nums))])/ 2.56 # div=diversity
+def mode(d):      return max(d, key=d.get) # most frequent number
+def ent(d):  n=sum(d.values()); return -sum((m/n * log(m/n,2) for m in d.values() if m>0)) # entropy
 
 # ### Conventions for column names
 
-# Numeric columns have names starting in upper case.
-def nump(s): return  not skipp(s) and s[0].isupper()
-# Goal columns end in some maximize/minimize symbol.
-def goalp(s): return not skipp(s) and s[-1] in "+-"
-# Ignore columns whose names end in "X".
-def skipp(s): return s[-1] == "X"  # ig
-
-# which has some useful combinations
+def nump(s):  return  not skipp(s) and s[0].isupper() # nums have upper case
+def goalp(s): return not skipp(s) and s[-1] in "+-" # goals in "+-"
+def skipp(s): return s[-1] == "X"  #  skip anything ending with "X"
 def xnump(s): return not skipp(s) and not goalp(s) and nump(s)
 def xsymp(s): return not skipp(s) and not goalp(s) and not nump(s)
 
@@ -68,7 +59,6 @@ def xsymp(s): return not skipp(s) and not goalp(s) and not nump(s)
 # or `div` (divergence from central tendency)? If `n` is non-nil,
 # round `median`s,`stdev`,`ent`  to `n` decimal places (and leave `mode` unrounded)
 def mid(s,x,n=None): return rnd(median(x),n) if nump(s) else mode(Counter(x))
-
 def div(s,x,n=None): return rnd(stdev(x)     if nump(s) else ent(Counter(x)),n)
 #-------------------------------------------------------------------------------
 # ## Data
@@ -79,15 +69,15 @@ def DATA(src): # src is a list of list, or an iterator that returns froms from f
    for n,row in enumerate(src):
       if n==0:
          names = row
-         just=obj(all=just(names), **{f.__name__:just(names,f) for f in {y,xnump,ynump})
+         cols  = {c:[] for c,_ in enumerate(names)}
+         funs  = obj(all=just(names), **{f.__name__:just(names,f) for f in [goalp,xnump,xsymp]})
       else:
          rows += [row]
          [cols[c].append(x) for c,x in enumerate(row) if x != "?"]
-   return obj(names=names, rows=rows, xnums=xnums, xsyms=xsyms, y=y,
-              cols= {c:sorted(a) for c,a in cols.items()})
+   return obj(names=names, rows=rows, just=funs, cols={c:sorted(a) for c,a in cols.items()})
 
 def just(names,fun=lambda z:True):
-   some = [col for col,_ in enumerate(names) if not skipp(name) and fun(name)]
+   some = [col for col,name in enumerate(names) if not skipp(name) and fun(name)]
    def iterator(row=names):
       for c in some:
          x = row[c]
@@ -97,7 +87,7 @@ def just(names,fun=lambda z:True):
 # How to report stats on each column.
 def stats(data, cols="goalp", n=None, fun=mid):
    def show(c,name): return fun(name, data.cols[c], n)
-   return obj(N=len(data.rows),**{s:show(c,s) for c,s in data.just[cols](data.names)})
+   return obj(N=len(data.rows),**{s:show(c,s) for c,s in data.just[cols]()})
 
 # How to sort the rows closest to furthest from most desired.
 def sortedRows(data):
@@ -167,40 +157,27 @@ def discretize(data, bestRows,restRows):
 
    def _merge(a,b):
       "combines a,b (and returns None if the whole is more complex than that parts)"
-      ab = obj(x= (a.x[0], a.x[1], b.x[2]),
-               y= obj(best= a.y.best + b.y.best,
-                      rest= a.y.rest + b.y.rest))
+      ab = obj(x= (a.x[0], a.x[1], b.x[2]), y= obj(best= a.y.best + b.y.best,
+                                                   rest= a.y.rest + b.y.rest))
       n1 = a.y.best + a.y.rest + 1/big
       n2 = b.y.best + b.y.rest + 1/big
       if ent(ab.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
          return ab
 
-   for c,_ in data.just.xnump()
-            cuts = _unsuper(c)
-            for cut in  _counts(c, cuts,  _merges):
-               if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
-                  yield cut
-   for c,_ in data.just.xsymp()
-            cuts = [(c,x,x) for x in sorted(set(data.cols[c])]
-            if len(cuts) > 1:
-               for cut in _counts(c, cuts)
-                  yield cut
-
- for c,name in enumerate(data.names):
-      if not goalp(name) and not skipp(name):
-         if nump(name): # nums use the results from _counts to do the _merges-ing
-            for cut in  _merges( _counts(c, _unsuper(c))):
-               if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
-                  yield cut
-         else: # syms just call _counts, then returns those results
-            cuts =  [(c,x,x) for x in sorted(set(data.cols[c]))]
-            for cut in _counts(c,cuts):  yield cut
-
+   for c,_ in data.just.xnump():
+      cuts = _unsuper(c)
+      for cut in  _counts(c, cuts,  _merges):
+         if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
+            yield cut
+   for c,_ in data.just.xsymp():
+      cuts = [(c,x,x) for x in sorted(set(data.cols[c]))]
+      if len(cuts) > 1:
+         for cut in _counts(c, cuts):
+            yield cut
 #---------------------------------------------
 def score(b, r):
   "Given you've found `b` or `r`, how much do we like you?"
   r += 1/big # stop divide by zero errors
-  print(the.want)
   match the.want:
     case "plan"    : return b**2  /    (b + r)  # seeking best
     case "monitor" : print(1); return r**2  /    (b + r)  # seeking rest
