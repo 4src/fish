@@ -1,7 +1,7 @@
 #!/usr/bin/env python3 -B
 #<!--- vim: set et sts=3 sw=3 ts=3 : --->
 """
-simplr: a little AI goes a long way (multi-objective semi-supervised explanations)
+samplr: a little smart sampling goes a long way (multi-objective semi-supervised explanations)
 (c) Tim Menzies <timm@ieee.org>, BSD-2 license
 
 OPTIONS:
