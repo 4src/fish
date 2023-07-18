@@ -40,17 +40,15 @@ the = obj(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\
 # ### Dict,Lists to Stats
 # Given a sorted list of numbers `a` or a dictionary `d` containing frequency counts
 # for each key, what can we report?  
-
-def norm(nums,x): return x if x=="?" else (x- nums[0])/(nums[-1] - nums[0] + 1/big) # normalize
-def median(nums): return nums[int(.5*len(nums))] # middle number
-def stdev(nums):  return (nums[int(.9*len(nums))] - nums[int(.1*len(nums))])/ 2.56 # div=diversity
+def per(a,n):     return a[int(n*len(a))]
+def median(nums): return per(nums, .5) # middle number
+def stdev(nums):  return (per(nums,.9) - per(nums,.1))/ 2.56 # div=diversity
 def mode(d):      return max(d, key=d.get) # most frequent number
 def ent(d):       # entropy
    n=sum(d.values())
-   return -sum((m/n * log(m/n,2) for m in d.values() if m>0)) 
+   return -sum((m/n * log(m/n,2) for m in d.values() if m>0))
 
 # ### Conventions for column names
-
 def nump(s):  return s[0].isupper() # nums have upper case
 def goalp(s): return s[-1] in "+-" # goals in "+-"
 def skipp(s): return s[-1] == "X"  #  skip anything ending with "X"
@@ -69,37 +67,71 @@ def rnd(x,decimals=None): return round(x,decimals) if decimals != None  else x
 # ## Data
 # Store many `rows` and  the no "?" values in each column (in `cols`).
 # Also, small detail, the first `row` is a list of column `names`.
-def DATA(src): # src is a list of list, or an iterator that returns froms from files
-   rows,cols = [],{}
+def DATA(src): 
+   "rc is a list of list, or an iterator that returns froms from files"
+   def _just(names,fun=lambda _:True):
+      "returns a function that can interate over certain kinds of columns"
+      some = [col for col,name in enumerate(names) if not skipp(name) and fun(name)]
+      def iterator(row=names):
+         for c in some:
+            x = row[c]
+            if not(isinstance(x,str) and s== "?"):  yield c,x
+      return iterator
+
+   def _unsuper(a, div):
+      "simplistic (equal frequency) unsupervised discretization"
+      n = inc = int(len(a)/(the.bins - 1))
+      cuts, b4, small = [], a[0],  the.cohen*div
+      while n < len(a) -1 :
+         x = a[n]
+         if x==a[n+1] or x - b4 < small:
+            n += 1
+         else:
+            n += inc
+            cuts += [(c,b4,x)]
+            b4 = x # < , <=
+      return cuts
+
+   def _stretch(cuts):
+      if len(cuts) < 2: return [(c, -inf, inf)] # happen when all nums are the same
+      cuts[ 0] = (c, -inf,        cuts[0][2])
+      cuts[-1] = (c, cuts[-1][1], inf)
+      return cuts
+
+   def _summarize(name, c,a)
+      if nump(name):
+         a=sorted(a)
+         return obj(name=name, mid=median(a), div=stdev(a), cuts=_stretch(_unsuper(c, stdev(a))),
+                    lo=a[0], hi=a[-1], heaven= 0 if name[-1]=="-" else 1)
+      else:
+         d=Counter(a)
+         return obj(name=name, mid=mode(d), div=ent(d), cuts=[(c,x,x) for x in sorted(set(a))])
+
+   rows,tmp = [],{}
    for n,row in enumerate(src):
       if n==0:
          names = row
-         cols  = {c:[] for c,_ in enumerate(names)}
-         justs = obj(all=just(names), **{f.__name__:just(names,f) for f in [goalp,xnump,xsymp]})
+         tmp   = {c:[] for c,_ in enumerate(names)}
       else:
          rows += [row]
-         [cols[c].append(x) for c,x in enumerate(row) if x != "?"]
-   return obj(names=names, rows=rows, just=justs, cols={c:sorted(a) for c,a in cols.items()})
+         [tmp[c].append(x) for c,x in enumerate(row) if x != "?"]
+   return obj(rows=rows, just=justs, names=names,
+              justs = obj( **{f.__name__:just(names,f) for f in [goalp,xnump,xsymp]}),
+              cols  = {c:summarize(names[c],c,a) for c,a in tmp.items()})
 
-def just(names,fun=lambda _:True):
-   some = [col for col,name in enumerate(names) if not skipp(name) and fun(name)]
-   def iterator(row=names):
-      for c in some:
-         x = row[c]
-         if x != "?":  yield c,x
-   return iterator
-
-# How to report stats on each column.
-def stats(data, cols="goalp", n=None, fun=mid):
-   def show(c,name): return fun(name, data.cols[c], n)
-   return obj(N=len(data.rows),**{s:show(c,s) for c,s in data.just[cols]()})
+   # How to report stats on each column.
+def stats(data, just="goalp", n=None what="mid")
+   def show(col,x): rnd(x,n) if (nump(col.name) or what="div") else x
+   return obj(N=len(data.rows),
+              **{col.name:show(col,col[what]) for _,col in data.just[just](data.cols)})
 
 # How to sort the rows closest to furthest from most desired.
 def sortedRows(data):
-   heaven = {c:(0 if name[-1]=="-" else 1) for c,name in data.just.goalp()}
    def _distance2heaven(row):
-      return sum(( (heaven[c] - norm(data.cols[c], row[c]))**2 for c in heaven ))**.5
+      return sum(( (col.heaven - norm(col, row[c]))**2 for c,col in data.just.goalp(data.cols) ))**.5
    return sorted(data.rows, key=_distance2heaven)
+
+def norm(col,x): return x if x=="?" else (x- col.lo)/(col.hi - col.lo + 1/big) # normalize
 
 # How to make a new DATA that copies the structure of an old data (and fill in with `rows`).
 def clone(data,rows=[]): return DATA( [data.names] + rows)
@@ -119,21 +151,7 @@ def within(x, cut):
 # sorts nums, then breaks them. <p>This function yields items of the form   
 # `obj(x=(columnIndex,lo, hi) y=obj(best=bests, rest=rests))`   
 # where `y` reports how often we see `x` in `best` and `rest`.
-def discretize(data, bestRows,restRows):
-   def _unsuper(c):
-      "simplistic (equal frequency) unsupervised discretization"
-      a = data.cols[c]
-      n = inc = int(len(a)/(the.bins - 1))
-      cuts, b4, small = [], a[0],  the.cohen*stdev(a)
-      while n < len(a) -1 :
-         x = a[n]
-         if x==a[n+1] or x - b4 < small: n += 1
-         else: n += inc; cuts += [(c,b4,x)]; b4=x # < , <=
-      if len(cuts) < 2: return [(c, -inf, inf)] # happen when all nums are the same
-      cuts[ 0] = (c, -inf,        cuts[0][2])
-      cuts[-1] = (c, cuts[-1][1], inf)
-      return cuts
-
+def xys(data, bestRows,restRows):
    def _counts(c,cuts, finalFun= lambda x:x):
       "count how often  `cut` (in `cuts`) appears in `bestRows` or `restRows`"
       counts = {cut : obj(x=cut, y=obj(best=0, rest=0)) for cut in cuts}
@@ -169,15 +187,13 @@ def discretize(data, bestRows,restRows):
       if ent(ab.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
          return ab
 
-   for c,_ in data.just.xnump():
-      cuts = _unsuper(c)
-      for cut in  _counts(c, cuts,  _merges):
+   for c,col in data.just.xnump(data.cols):
+      for cut in  _counts(c, col.cuts,  _merges):
          if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
             yield cut
-   for c,_ in data.just.xsymp():
-      cuts = [(c,x,x) for x in sorted(set(data.cols[c]))]
+   for c,col in data.just.xsymp(data.cols):
       if len(cuts) > 1:
-         for cut in _counts(c, cuts):
+         for cut in _counts(c, col.cuts):
             yield cut
 #---------------------------------------------
 def score(b, r):
