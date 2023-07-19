@@ -26,12 +26,12 @@ from fileinput import FileInput as file_or_stdin
 from termcolor import colored
 from math import pi,log,cos,sin,sqrt,inf
 
-# Some standard short cuts
-big = 1e100
-R = random.random
+class pretty(object):
+   def __repr__(i):
+      slots=' '.join([f":{k} {v}" for k,v in i.__dict__.items()])
+      return f"{i.__class__.__name__}<{slots}>"
 
-# `obj` are `dicts` where you can access a slot using either `d["fred"]` or `d.fred`
-class obj(dict): __getattr__ = dict.get
+class obj(dict): __getattr__ = dict.get # allows easy slot access (`e.g. d.fred, not d["fred"])
 # `the` is an `obj` of settings and defaults pulled from `__doc__` string.
 the = obj(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #-------------------------------------------------------------------------------
@@ -40,7 +40,7 @@ the = obj(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\
 # ### Dict,Lists to Stats
 # Given a sorted list of numbers `a` or a dictionary `d` containing frequency counts
 # for each key, what can we report?  
-def per(a,n):     return a[int(n*len(a))]
+def per(a,n=.5):  return a[int(n*len(a))]
 def median(nums): return per(nums, .5) # middle number
 def stdev(nums):  return (per(nums,.9) - per(nums,.1))/ 2.56 # div=diversity
 def mode(d):      return max(d, key=d.get) # most frequent number
@@ -49,86 +49,85 @@ def ent(d):       # entropy
    return -sum((m/n * log(m/n,2) for m in d.values() if m>0))
 
 # ### Conventions for column names
-def nump(s):  return s[0].isupper() # nums have upper case
-def goalp(s): return s[-1] in "+-" # goals in "+-"
-def skipp(s): return s[-1] == "X"  #  skip anything ending with "X"
+def nump(s):  return s[ 0].isupper() # nums have upper case
+def goalp(s): return s[-1] in "+-"   # goals in "+-"
+def skipp(s): return s[-1] == "X"    #  skip anything ending with "X"
 def xnump(s): return not goalp(s) and nump(s)
 def xsymp(s): return not goalp(s) and not nump(s)
 
-# Given those conventions, how to compute `mid` (central tendency) 
-# or `div` (divergence from central tendency)? If `n` is non-nil,
-# round `median`s,`stdev`,`ent`  to `n` decimal places (and leave `mode` unrounded)
-def mid(s,x,n=None): return rnd(median(x),n) if nump(s) else mode(Counter(x))
-def div(s,x,n=None): return rnd(stdev(x)     if nump(s) else ent(Counter(x)),n)
+class SYM(object):
+   "summarize at column of symbols"
+   def __init__(i,a,at=0,name=" "):
+      d = Counter(a)
+      i.at, i.name = at, name
+      i.mid, i.div = mode(d), ent(d)
+      i.cuts = [(at,x,x) for x in sorted(set(d))]
 
-# If decimals offered, then round to that. else just return `x`
-def rnd(x,decimals=None): return round(x,decimals) if decimals != None  else x
-#-------------------------------------------------------------------------------
-# ## Data
-# Store many `rows` and  the no "?" values in each column (in `cols`).
-# Also, small detail, the first `row` is a list of column `names`.
-def DATA(src): 
-   "rc is a list of list, or an iterator that returns froms from files"
-   def _just(names,fun=lambda _:True):
-      "returns a function that can interate over certain kinds of columns"
-      some = [col for col,name in enumerate(names) if not skipp(name) and fun(name)]
-      def iterator(row=names):
-         for c in some:
-            x = row[c]
-            if not(isinstance(x,str) and s== "?"):  yield c,x
-      return iterator
+class NUM(object):
+   "summarize at column of numbers"
+   def __init__(i,a,at=0,name=" "):
+      a = sorted(a)
+      i.at, i.name = at, name
+      i.mid, i.div = median(a), stdev(a)
+      i.lo, i.hi, i.heaven = a[0], a[-1], 0 if name[-1] == "-" else 1
+      i.cuts = i._stretch(at, i._unsuper(at,a))
 
-   def _unsuper(c,a):
+   def _unsuper(i,at,a):
       "simplistic (equal frequency) unsupervised discretization"
       n = inc = int(len(a)/(the.bins - 1))
       cuts, b4, small = [], a[0], the.cohen*stdev(a)
       while n < len(a) -1 :
          x = a[n]
-         if x==a[n+1] or x - b4 < small:
-            n += 1
+         if x==a[n+1] or x - b4 < small: n += 1
          else:
             n += inc
-            cuts += [(c,b4,x)]
-            b4 = x 
+            cuts += [(at,b4,x)]
+            b4 = x
       return cuts
 
-   def _stretch(cuts):
-      if len(cuts) < 2: return [(c, -inf, inf)] # happen when e.g. all nums are the same
-      cuts[ 0] = (c, -inf,        cuts[0][2])
-      cuts[-1] = (c, cuts[-1][1], inf)
+   def _stretch(i,at,cuts):
+      "ensure `cut` runs from minus to plus infinity"
+      if len(cuts) < 2: return [(at, -inf, inf)] # happen when e.g. all nums are the same
+      cuts[ 0] = (at, -inf,        cuts[0][2])
+      cuts[-1] = (at, cuts[-1][1], inf)
       return cuts
+#-------------------------------------------------------------------------------
+# ## Data
+# Store many `rows` and  the no "?" values in each column (in `cols`).
+# Also, small detail, the first `row` is a list of column `names`.
+class DATA(pretty): 
+   "src is a list of list, or an iterator that returns froms from files"
+   def __init__(i,src):
+      for n,row in enumerate(src):
+         if n==0: i.rows, i.names, cache = [], row, [[] for _ in row]
+         else:
+            i.rows += [row]
+            [a.append(x) for a,x in zip(cache,row) if x != "?"]
+      i.just = obj( **{f.__name__:i._just(i.names,f)
+                       for f in [goalp,xnump,xsymp]})
+      i.cols = [(NUM if nump(name) else SYM)(a,at,name)
+                for at,(a,name) in enumerate(zip(cache,i.names))]
 
-   def _summarize(name, c,a)
-      if nump(name):
-         a=sorted(a)
-         return obj(name=name, mid=median(a), div=stdev(a), cuts=_stretch(_unsuper(c, a)),
-                    lo=a[0], hi=a[-1], heaven= 0 if name[-1]=="-" else 1)
-      else:
-         d = Counter(a)
-         return obj(name=name, mid=mode(d), div=ent(d), cuts=[(c,x,x) for x in sorted(set(d))])
+   def _just(i,names, fun=lambda _:True):
+      "returns a function that can iterate over certain kinds of columns"
+      some = [at for at,name in enumerate(names) if not skipp(name) and fun(name)]
+      def iterator(row=names):
+         for at in some:
+            x = row[at]
+            if not(isinstance(x,str) and s== "?"):  yield at,x
+      return iterator
 
-   for n,row in enumerate(src):
-      if n==0:
-         names,rows = row,[]
-         cache = [[] for _ in names]
-      else:
-         rows += [row]
-         [a.append(x) for a,x in zip(cache,row) if x != "?"]
-   return obj(rows=rows, 
-              names=names,
-              justs = obj( **{f.__name__:just(names,f) for f in [goalp,xnump,xsymp]}),
-              cols  = [summarize(names[c],c,a) for c,a in enumerate(tmp)]
-
-   # How to report stats on each column.
-def stats(data, just="goalp", n=None what="mid")
-   def show(col,x): rnd(x,n) if (nump(col.name) or what="div") else x
-   return obj(N=len(data.rows),
-              **{col.name:show(col,col[what]) for _,col in data.just[just](data.cols)})
+# How to report stats on each column.
+def stats(data, just="goalp", n=None, what="mid"):
+   def show(col,x): return rnd(x,n) if (nump(col.name) or what=="div") else x
+   return obj(N=len(data.rows), **{col.name:show(col,col.__dict__[what])
+                                   for _,col in data.just[just](data.cols)})
 
 # How to sort the rows closest to furthest from most desired.
-def sortedRows(data):
+def sortedRows(data, just="goalp"):
    def _distance2heaven(row):
-      return sum(( (col.heaven - norm(col, row[c]))**2 for c,col in data.just.goalp(data.cols) ))**.5
+      return sum(( (col.heaven - norm(col, row[col.at]))**2 
+                   for _,col in data.just[just](data.cols) ))**.5
    return sorted(data.rows, key=_distance2heaven)
 
 def norm(col,x): return x if x=="?" else (x- col.lo)/(col.hi - col.lo + 1/big) # normalize
@@ -151,17 +150,18 @@ def within(x, cut):
 # sorts nums, then breaks them. <p>This function yields items of the form   
 # `obj(x=(columnIndex,lo, hi) y=obj(best=bests, rest=rests))`   
 # where `y` reports how often we see `x` in `best` and `rest`.
-def xys(data, bestRows,restRows):
-   def _counts(c,cuts, finalFun= lambda x:x):
-      "count how often  `cut` (in `cuts`) appears in `bestRows` or `restRows`"
-      counts = {cut : obj(x=cut, y=obj(best=0, rest=0)) for cut in cuts}
-      for y,rows in [("best",bestRows), ("rest", restRows)]:
+#      bestRest = [("best",bestRows), ("rest",restRows)]
+def gen0(data, labelledRows):
+   def _counts(col,labelledRows, finalFun= lambda x:x):
+      "count how often  `cut` (in `cuts`) appears amongst the different labels?"
+      counts = {cut : obj(x=cut, y=Counter()) for cut in col.cuts}
+      for label,rows in labelledRows:
          for row in rows:
-             x = row[c]
-             if x != "?":
-                for cut in cuts:
-                   if within(x,cut): break  # at the break, "cut" is the one we want.
-                counts[cut].y[y] += 1/len(rows)
+            x = row[col.at]
+            if x != "?":
+               for cut in col.cuts:
+                  if within(x,cut): break  # at the break, "cut" is the one we want.
+               counts[cut].y[label] += 1/len(rows)
       return finalFun( sorted(counts.values(), key=lambda z:z.x))
 
    def _merges(ins):
@@ -174,26 +174,25 @@ def xys(data, bestRows,restRows):
             if merged := _merge(thing, neighbor):
                thing = merged # switch to "merged" 
                n += 1  # skip over the thing we "merged" with
-         outs += [thing] 
+         outs += [thing]
          n += 1
       return ins if len(ins)==len(outs) else _merges(outs)
 
    def _merge(a,b):
       "combines a,b (and returns None if the whole is more complex than that parts)"
-      ab = obj(x= (a.x[0], a.x[1], b.x[2]), y= obj(best= a.y.best + b.y.best,
-                                                   rest= a.y.rest + b.y.rest))
-      n1 = a.y.best + a.y.rest + 1/big
-      n2 = b.y.best + b.y.rest + 1/big
+      ab = obj(x= (a.x[0], a.x[1], b.x[2]), y= a.y + b.y)
+      n1 = a.y.total() + a.y.total() + 1/big
+      n2 = b.y.total() + b.y.total() + 1/big
       if ent(ab.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
          return ab
 
-   for c,col in data.just.xnump(data.cols):
-      for cut in  _counts(c, col.cuts,  _merges):
-         if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
+   for _,col in data.just.xsymp(data.cols):
+      if len(col.cuts) > 1:
+         for cut in _counts(col, labelledRows):
             yield cut
-   for c,col in data.just.xsymp(data.cols):
-      if len(cuts) > 1:
-         for cut in _counts(c, col.cuts):
+   for _,col in data.just.xnump(data.cols):
+      for cut in  _counts(col, labelledRows, _merges):
+         if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
             yield cut
 #---------------------------------------------
 def score(b, r):
@@ -209,11 +208,13 @@ def scores(data):
    rows  = sortedRows(data)
    n     = int(len(rows)**the.min)
    bests,rests = rows[:n], rows[-n*the.rest:]
-   for (s,x) in sorted([(score(cut.y.best, cut.y.rest),cut) for cut in
-                        discretize(data,bests,rests)], reverse=True,
+   labelledRows = [("best",bests), ("rests",rests)]
+   for (s,x) in sorted([(score(cut.y["best"], cut.y["rest"]),cut) for cut in
+                        gen0(data,labelledRows)], reverse=True,
                         key=lambda z:z[0]):
       yield s,x.x
 #---------------------------------------------
+
 def pick(pairs,n):
    r = R()
    for s,x in pairs:
@@ -242,7 +243,14 @@ def grow(bestRows, restRows, a=[], scores={}, top=None):
 #
 # def selects(data,ranges,rows):
 #   return [row for row in rows if select(data,ranges,row)]
-#
+
+# Some standard short cuts
+big = 1e100
+R = random.random
+
+# If decimals offered, then round to that. else just return `x`
+def rnd(x,decimals=None): return round(x,decimals) if decimals != None  else x
+
 def coerce(x):
    try : return lit(x)
    except Exception: return x.strip()
@@ -304,8 +312,8 @@ class go:
    def nums():
       "can we find mean and sd of N(10,1)?"
       g= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
-      a= sorted([g(10,1) for x in range(1000)])
-      print(median(a),stdev(a))
+      a= NUM([g(10,1) for x in range(1000)])
+      print(a.mid,a.div,a.cuts)
 
    def read():
       "can we print rows from a disk-based csv file?"
