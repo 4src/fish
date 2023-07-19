@@ -137,15 +137,15 @@ def within(x, cut):
 # showing frequency counts of these ranges amongst these `labelledRows`.
 # (and this  is a set of pairs `[(label1,rows1),(label2,rows2)...]`).
 def gen0(data, labelledRows):
-   def _counts(col,labelledRows, finalFun= lambda x:x):
+   def _counts(col,cuts,labelledRows):
       "count how often `cut` (in `cuts`) appears among the different labels?"
-      counts = {cut : obj(x=cut, y=Counter()) for cut in col.cuts}
+      counts = {cut : obj(x=cut, y=Counter()) for cut in cuts}
       for label,rows in labelledRows:
          for row in rows:
             x = row[col.at]
             if x != "?":
-               counts[withins(x,col.cuts)].y[label] += 1/len(rows)
-      return finalFun( sorted(counts.values(), key=lambda z:z.x))
+               counts[ withins(x,cuts) ].y[ label ] += 1/len(rows)
+      return sorted(counts.values(), key=lambda z:z.x)
 
    def _merges(ins):
       "Try merging any thing with its neighbor. Stop when no more merges found."
@@ -171,10 +171,10 @@ def gen0(data, labelledRows):
 
    for col in data.cols.isXsym:
       if len(col.cuts) > 1:
-         for cut in _counts(col, labelledRows):
+         for cut in _counts(col, col.cuts, labelledRows):
             yield cut
    for col in data.cols.isXnum:
-      for cut in  _counts(col, labelledRows, _merges):
+      for cut in  _merges( _counts(col, col.cuts, labelledRows)):
          if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
             yield cut
 #---------------------------------------------
