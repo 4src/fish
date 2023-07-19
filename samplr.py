@@ -28,8 +28,8 @@ from math import pi,log,cos,sin,sqrt,inf
 
 class pretty(object):
    def __repr__(i):
-      slots=' '.join([f":{k} {v}" for k,v in i.__dict__.items()])
-      return f"{i.__class__.__name__}<{slots}>"
+      slots=[f":{k} {v}" for k,v in i.__dict__.items() if k[0] != "-"]
+      return i.__class__.__name__ + "{" + (' '.join(slots)) + "}"
 
 class obj(dict): __getattr__ = dict.get # allows easy slot access (`e.g. d.fred, not d["fred"])
 # `the` is an `obj` of settings and defaults pulled from `__doc__` string.
@@ -49,28 +49,30 @@ def ent(d):       # entropy
    return -sum((m/n * log(m/n,2) for m in d.values() if m>0))
 
 # ### Conventions for column names
-def nump(s):  return s[ 0].isupper() # nums have upper case
-def goalp(s): return s[-1] in "+-"   # goals in "+-"
-def skipp(s): return s[-1] == "X"    #  skip anything ending with "X"
-def xnump(s): return not goalp(s) and nump(s)
-def xsymp(s): return not goalp(s) and not nump(s)
+def isNum(s):  return s[ 0].isupper() # nums have upper case
+def isGoal(s): return s[-1] in "+-"   # goals in "+-"
+def isSkip(s): return s[-1] == "X"    #  skip anything ending with "X"
+def isXnum(s): return not isGoal(s) and isNum(s)
+def isXsym(s): return not isGoal(s) and not isNum(s)
 
-class SYM(object):
-   "summarize at column of symbols"
+class SYM(pretty):
+   "summarize a column of symbols"
    def __init__(i,a,at=0,name=" "):
       d = Counter(a)
       i.at, i.name = at, name
       i.mid, i.div = mode(d), ent(d)
       i.cuts = [(at,x,x) for x in sorted(set(d))]
 
-class NUM(object):
-   "summarize at column of numbers"
+class NUM(pretty):
+   "summarize a column of numbers"
    def __init__(i,a,at=0,name=" "):
       a = sorted(a)
       i.at, i.name = at, name
       i.mid, i.div = median(a), stdev(a)
       i.lo, i.hi, i.heaven = a[0], a[-1], 0 if name[-1] == "-" else 1
-      i.cuts = i._stretch(at, i._unsuper(at,a))
+      i.cuts = i._unsuper(at,a)
+
+   def norm(i,x): return x if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big) 
 
    def _unsuper(i,at,a):
       "simplistic (equal frequency) unsupervised discretization"
@@ -81,12 +83,8 @@ class NUM(object):
          if x==a[n+1] or x - b4 < small: n += 1
          else:
             n += inc
-            cuts += [(at,b4,x)]
+            cuts += [(at,b4,x)] # [(col, lo, hi)]
             b4 = x
-      return cuts
-
-   def _stretch(i,at,cuts):
-      "ensure `cut` runs from minus to plus infinity"
       if len(cuts) < 2: return [(at, -inf, inf)] # happen when e.g. all nums are the same
       cuts[ 0] = (at, -inf,        cuts[0][2])
       cuts[-1] = (at, cuts[-1][1], inf)
@@ -95,50 +93,40 @@ class NUM(object):
 # ## Data
 # Store many `rows` and  the no "?" values in each column (in `cols`).
 # Also, small detail, the first `row` is a list of column `names`.
-class DATA(pretty): 
+class DATA(pretty):
    "src is a list of list, or an iterator that returns froms from files"
    def __init__(i,src):
       for n,row in enumerate(src):
-         if n==0: i.rows, i.names, cache = [], row, [[] for _ in row]
+         if n==0:
+            i.rows, i.names, cache = [], row, [[] for _ in row]
          else:
             i.rows += [row]
             [a.append(x) for a,x in zip(cache,row) if x != "?"]
-      i.just = obj( **{f.__name__:i._just(i.names,f)
-                       for f in [goalp,xnump,xsymp]})
-      i.cols = [(NUM if nump(name) else SYM)(a,at,name)
-                for at,(a,name) in enumerate(zip(cache,i.names))]
-
-   def _just(i,names, fun=lambda _:True):
-      "returns a function that can iterate over certain kinds of columns"
-      some = [at for at,name in enumerate(names) if not skipp(name) and fun(name)]
-      def iterator(row=names):
-         for at in some:
-            x = row[at]
-            if not(isinstance(x,str) and s== "?"):  yield at,x
-      return iterator
+      i.cols = obj(all = [(NUM if isNum(name) else SYM)(a, at, name)
+                          for at,(name,a) in enumerate(zip(i.names,cache))])
+      for fun in [isGoal, isXnum, isXsym]:
+         i.cols[fun.__name__] = [col for col in i.cols.all if fun(col.name)]
 
 # How to report stats on each column.
-def stats(data, just="goalp", n=None, what="mid"):
-   def show(col,x): return rnd(x,n) if (nump(col.name) or what=="div") else x
-   return obj(N=len(data.rows), **{col.name:show(col,col.__dict__[what])
-                                   for _,col in data.just[just](data.cols)})
+def stats(data, cols="isGoal", decimals=None, want="mid"):
+   return obj(N=len(data.rows),**{c.name:rnd(c.__dict__[want],decimals) for c in data.cols[cols]})
 
 # How to sort the rows closest to furthest from most desired.
-def sortedRows(data, just="goalp"):
+def sortedRows(data, cols="isGoal"):
    def _distance2heaven(row):
-      return sum(( (col.heaven - norm(col, row[col.at]))**2 
-                   for _,col in data.just[just](data.cols) ))**.5
+      return sum(( (col.heaven - col.norm(row[col.at]))**2 for col in data.cols[cols] ))**.5
    return sorted(data.rows, key=_distance2heaven)
-
-def norm(col,x): return x if x=="?" else (x- col.lo)/(col.hi - col.lo + 1/big) # normalize
 
 # How to make a new DATA that copies the structure of an old data (and fill in with `rows`).
 def clone(data,rows=[]): return DATA( [data.names] + rows)
-
 #-------------------------------------------------------------------------------
 # ## Discretization
 
 # A cut is a 3-part tuple `(columIndex, lo, hi)`
+def withins(x, cuts):
+   for cut in cuts:
+      if within(x,cut): return cut
+
 def within(x, cut):
    _,lo,hi = cut
    return  x=="?" and True or lo==hi==x or  x > lo and x <= hi
@@ -150,15 +138,13 @@ def within(x, cut):
 # (and this  is a set of pairs `[(label1,rows1),(label2,rows2)...]`).
 def gen0(data, labelledRows):
    def _counts(col,labelledRows, finalFun= lambda x:x):
-      "count how often  `cut` (in `cuts`) appears amongst the different labels?"
+      "count how often `cut` (in `cuts`) appears among the different labels?"
       counts = {cut : obj(x=cut, y=Counter()) for cut in col.cuts}
       for label,rows in labelledRows:
          for row in rows:
             x = row[col.at]
             if x != "?":
-               for cut in col.cuts:
-                  if within(x,cut): break  # at the break, "cut" is the one we want.
-               counts[cut].y[label] += 1/len(rows)
+               counts[withins(x,col.cuts)].y[label] += 1/len(rows)
       return finalFun( sorted(counts.values(), key=lambda z:z.x))
 
    def _merges(ins):
@@ -183,11 +169,11 @@ def gen0(data, labelledRows):
       if ent(ab.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
          return ab
 
-   for _,col in data.just.xsymp(data.cols):
+   for col in data.cols.isXsym:
       if len(col.cuts) > 1:
          for cut in _counts(col, labelledRows):
             yield cut
-   for _,col in data.just.xnump(data.cols):
+   for col in data.cols.isXnum:
       for cut in  _counts(col, labelledRows, _merges):
          if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
             yield cut
@@ -246,7 +232,9 @@ big = 1e100
 R = random.random
 
 # If decimals offered, then round to that. else just return `x`
-def rnd(x,decimals=None): return round(x,decimals) if decimals != None  else x
+def rnd(x,decimals=None): 
+  if decimals is None or not instance(x,float): return x
+  return round(x,decimals)
 
 def coerce(x):
    try : return lit(x)
