@@ -1,8 +1,9 @@
 #!/usr/bin/env python3 -B
-#<!--- vim: set et sts=3 sw=3 ts=3 : --->
+# <!--- vim: set et sts=3 sw=3 ts=3 : --->
+# <img src="samplr.png" width=250 align=left>
 """
 samplr: a little smart sampling goes a long way
-(multi- objective, semi- supervised, explanations)
+(multi- objective, semi- supervised, rule-based explanations)
 (c) Tim Menzies <timm@ieee.org>, BSD-2 license
 
 OPTIONS:
@@ -16,8 +17,6 @@ OPTIONS:
   -r --rest   |rest| = |best|*rest       = 3
   -w --want   plan|xplore|monitor|doubt  = "plan"
 """
-#-------------------------------------------------------------------------------
-# ## Set-up
 from ast import literal_eval as lit
 from copy import deepcopy
 import fileinput, random, ast, sys, re
@@ -25,19 +24,19 @@ from collections import Counter, defaultdict
 from fileinput import FileInput as file_or_stdin
 from termcolor import colored
 from math import pi,log,cos,sin,sqrt,inf
-
+#-------------------------------------------------------------------------------
+# ## Base classes (and settings)
 class pretty(object):
    def __repr__(i):
-      slots=[f":{k} {v}" for k,v in i.__dict__.items() if k[0] != "-"]
-      return i.__class__.__name__ + "{" + (' '.join(slots)) + "}"
+      slots = [f":{k} {rnd(v)}" for k,v in i.__dict__.items() if k[0] != "-"]
+      return i.__class__.__name__ + "{" + (" ".join(slots)) + "}"
 
-class obj(dict): __getattr__ = dict.get # allows easy slot access (`e.g. d.fred, not d["fred"])
 # `the` is an `obj` of settings and defaults pulled from `__doc__` string.
+class obj(dict): __getattr__ = dict.get # allows easy slot access (`e.g. d.fred, not d["fred"])
 the = obj(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #-------------------------------------------------------------------------------
 # ## Stats
 
-# ### Dict,Lists to Stats
 # Given a sorted list of numbers `a` or a dictionary `d` containing frequency counts
 # for each key, what can we report?  
 def per(a,n=.5):  return a[int(n*len(a))]
@@ -49,22 +48,24 @@ def ent(d):       # entropy
    return -sum((m/n * log(m/n,2) for m in d.values() if m>0))
 
 # ### Conventions for column names
-ako = obj(num = lambda s: s[0].isupper(),
-          goal= lambda s: s[-1] in "+-",
-          skip= lambda s: s[-1] == "X",
-          xnum= lambda s: not ako.goal(s) and ako.num(s),
-          xsym= lambda s: not ako.goal(s) and not ako.num(s))
+ako = obj(num  = lambda s: s[0].isupper(),
+          goal = lambda s: s[-1] in "+-",
+          skip = lambda s: s[-1] == "X",
+          xnum = lambda s: not ako.goal(s) and ako.num(s),
+          xsym = lambda s: not ako.goal(s) and not ako.num(s))
+#-------------------------------------------------------------------------------
+# ## Columns
 
+# ### Summarize SYMs
 class SYM(pretty):
-   "summarize a column of symbols"
    def __init__(i,a,at=0,name=" "):
       d = Counter(a)
       i.at, i.name = at, name
       i.mid, i.div = mode(d), ent(d)
       i.cuts = [(at,x,x) for x in sorted(set(d))]
 
+# ### Summarize NUMs
 class NUM(pretty):
-   "summarize a column of numbers"
    def __init__(i,a,at=0,name=" "):
       a = sorted(a)
       i.at, i.name = at, name
@@ -72,7 +73,9 @@ class NUM(pretty):
       i.lo, i.hi, i.heaven = a[0], a[-1], 0 if name[-1] == "-" else 1
       i.cuts = i._unsuper(at,a)
 
-   def norm(i,x): return x if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big) 
+   def norm(i,x): 
+      "map `x` 0..1 for `lo..hi`"
+      return x if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
 
    def _unsuper(i,at,a):
       "simplistic (equal frequency) unsupervised discretization"
@@ -85,8 +88,7 @@ class NUM(pretty):
             n += inc
             cuts += [(at,b4,x)] # [(col, lo, hi)]
             b4 = x
-      # ensure cuts run -inf to inf
-      if len(cuts) < 2: return [(at, -inf, inf)] # happen when e.g. all nums are the same
+      if len(cuts) < 2: return [(at, -inf, inf)] # ensure cuts run -inf to inf
       cuts[ 0] = (at, -inf,        cuts[0][2])
       cuts[-1] = (at, cuts[-1][1], inf)
       return cuts
@@ -104,13 +106,13 @@ class DATA(pretty):
             i.rows += [row]
             [a.append(x) for a,x in zip(cache,row) if x != "?"]
       i.cols = obj(all = [(NUM if ako.num(name) else SYM)(a, at, name)
-                         for at,(name,a) in enumerate(zip(i.names,cache)) if not ako.skip(name)])
+                          for at,(name,a) in enumerate(zip(i.names,cache))])
       for k,fun in ako.items():
-         i.cols[k] = [col for col in i.cols.all if fun(col.name)]
+         i.cols[k] = [col for col in i.cols.all if not ako.skip(name) and fun(col.name)]
 
    def stats(i, cols="goal", decimals=None, want="mid"):
-       "How to report stats on each column."
-       return obj(N=len(i.rows),**{c.name:rnd(c.__dict__[want],decimals) for c in i.cols[cols]})
+      "How to report stats on each column."
+      return obj(N=len(i.rows), **{c.name:rnd(c.__dict__[want],decimals) for c in i.cols[cols]})
 
    def sortedRows(i, cols="goal"):
       "How to sort the rows closest to furthest from most desired"
@@ -131,6 +133,7 @@ def withins(x, cuts):
 def within(x, cut):
    _,lo,hi = cut
    return  x=="?" or lo==hi==x or  x > lo and x <= hi
+
 
 # Gen0 contains ranges to be used in the rule generation.
 # It looks for ways to combine `col.cuts` and reports 
@@ -325,7 +328,3 @@ class go:
          print(f"{s:.3f}\t{x}")
 
 if __name__ == "__main__": go._on()
-
-# data = discretize(data)
-# tmp = sortedRows(data)
-# print(*data.names,sep="\t")
