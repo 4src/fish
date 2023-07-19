@@ -49,11 +49,11 @@ def ent(d):       # entropy
    return -sum((m/n * log(m/n,2) for m in d.values() if m>0))
 
 # ### Conventions for column names
-def isNum(s):  return s[ 0].isupper() # nums have upper case
-def isGoal(s): return s[-1] in "+-"   # goals in "+-"
-def isSkip(s): return s[-1] == "X"    #  skip anything ending with "X"
-def isXnum(s): return not isGoal(s) and isNum(s)
-def isXsym(s): return not isGoal(s) and not isNum(s)
+ako = obj(num = lambda s: s[0].isupper(),
+          goal= lambda s: s[-1] in "+-",
+          skip= lambda s: s[-1] == "X",
+          xnum= lambda s: not ako.goal(s) and ako.num(s),
+          xsym= lambda s: not ako.goal(s) and not ako.num(s))
 
 class SYM(pretty):
    "summarize a column of symbols"
@@ -85,6 +85,7 @@ class NUM(pretty):
             n += inc
             cuts += [(at,b4,x)] # [(col, lo, hi)]
             b4 = x
+      # ensure cuts run -inf to inf
       if len(cuts) < 2: return [(at, -inf, inf)] # happen when e.g. all nums are the same
       cuts[ 0] = (at, -inf,        cuts[0][2])
       cuts[-1] = (at, cuts[-1][1], inf)
@@ -94,28 +95,28 @@ class NUM(pretty):
 # Store many `rows` and  the no "?" values in each column (in `cols`).
 # Also, small detail, the first `row` is a list of column `names`.
 class DATA(pretty):
-   "src is a list of list, or an iterator that returns froms from files"
-   def __init__(i,src):
+   def __init__(i, src):
+      "src is a list of list, or an iterator that returns froms from files"
       for n,row in enumerate(src):
          if n==0:
             i.rows, i.names, cache = [], row, [[] for _ in row]
          else:
             i.rows += [row]
             [a.append(x) for a,x in zip(cache,row) if x != "?"]
-      i.cols = obj(all = [(NUM if isNum(name) else SYM)(a, at, name)
-                          for at,(name,a) in enumerate(zip(i.names,cache))])
-      for fun in [isGoal, isXnum, isXsym]:
-         i.cols[fun.__name__] = [col for col in i.cols.all if fun(col.name)]
+      i.cols = obj(all = [(NUM if ako.num(name) else SYM)(a, at, name)
+                         for at,(name,a) in enumerate(zip(i.names,cache)) if not ako.skip(name)])
+      for k,fun in ako.items():
+         i.cols[k] = [col for col in i.cols.all if fun(col.name)]
 
-# How to report stats on each column.
-def stats(data, cols="isGoal", decimals=None, want="mid"):
-   return obj(N=len(data.rows),**{c.name:rnd(c.__dict__[want],decimals) for c in data.cols[cols]})
+   def stats(i, cols="goal", decimals=None, want="mid"):
+       "How to report stats on each column."
+       return obj(N=len(i.rows),**{c.name:rnd(c.__dict__[want],decimals) for c in i.cols[cols]})
 
-# How to sort the rows closest to furthest from most desired.
-def sortedRows(data, cols="isGoal"):
-   def _distance2heaven(row):
-      return sum(( (col.heaven - col.norm(row[col.at]))**2 for col in data.cols[cols] ))**.5
-   return sorted(data.rows, key=_distance2heaven)
+   def sortedRows(i, cols="goal"):
+      "How to sort the rows closest to furthest from most desired"
+      def _distance2heaven(row):
+         return sum(( (col.heaven - col.norm(row[col.at]))**2 for col in i.cols[cols] ))**.5
+      return sorted(i.rows, key=_distance2heaven)
 
 # How to make a new DATA that copies the structure of an old data (and fill in with `rows`).
 def clone(data,rows=[]): return DATA( [data.names] + rows)
@@ -129,7 +130,7 @@ def withins(x, cuts):
 
 def within(x, cut):
    _,lo,hi = cut
-   return  x=="?" and True or lo==hi==x or  x > lo and x <= hi
+   return  x=="?" or lo==hi==x or  x > lo and x <= hi
 
 # Gen0 contains ranges to be used in the rule generation.
 # It looks for ways to combine `col.cuts` and reports 
@@ -137,7 +138,7 @@ def within(x, cut):
 # showing frequency counts of these ranges amongst these `labelledRows`.
 # (and this  is a set of pairs `[(label1,rows1),(label2,rows2)...]`).
 def gen0(data, labelledRows):
-   def _counts(col,cuts,labelledRows):
+   def _counts(col, cuts, labelledRows):
       "count how often `cut` (in `cuts`) appears among the different labels?"
       counts = {cut : obj(x=cut, y=Counter()) for cut in cuts}
       for label,rows in labelledRows:
@@ -164,16 +165,16 @@ def gen0(data, labelledRows):
    def _merge(a,b):
       "combines a,b (and returns None if the whole is more complex than that parts)"
       ab = obj(x= (a.x[0], a.x[1], b.x[2]), y= a.y + b.y)
-      n1 = a.y.total() + a.y.total() + 1/big
-      n2 = b.y.total() + b.y.total() + 1/big
+      n1 = a.y.total() + 1/big
+      n2 = b.y.total() + 1/big
       if ent(ab.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
          return ab
 
-   for col in data.cols.isXsym:
+   for col in data.cols.xsym:
       if len(col.cuts) > 1:
          for cut in _counts(col, col.cuts, labelledRows):
             yield cut
-   for col in data.cols.isXnum:
+   for col in data.cols.xnum:
       for cut in  _merges( _counts(col, col.cuts, labelledRows)):
          if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
             yield cut
@@ -188,9 +189,9 @@ def score(b, r):
     case "xplore"  : print(2); return 1     /    (b + r)  # seeking other
 
 def scores(data):
-   rows  = sortedRows(data)
+   rows  = data.sortedRows()
    n     = int(len(rows)**the.min)
-   bests,rests = rows[:n], rows[-n*the.rest:]
+   bests,rests  = rows[:n], rows[-n*the.rest:]
    labelledRows = [("best",bests), ("rests",rests)]
    for (s,x) in sorted([(score(cut.y["best"], cut.y["rest"]),cut) for cut in
                         gen0(data,labelledRows)], reverse=True,
@@ -306,17 +307,17 @@ class go:
 
    def data():
       "can we load disk rows into a DATA?"
-      data1 = DATA(csv(the.file))
-      prints(stats(data1))
+      data = DATA(csv(the.file))
+      prints(data.stats())
 
    def sorted():
       "can we find best, rest rows?"
-      data1= DATA(csv(the.file))
-      rows = sortedRows(data1)
+      data= DATA(csv(the.file))
+      rows = data.sortedRows()
       n    = int(len(rows)**the.min)
-      prints(stats(data1),
-             stats(clone(data1, rows[:n])),
-             stats(clone(data1, rows[-n*the.rest:])))
+      prints(data.stats(),
+             clone(data, rows[:n]).stats(),
+             clone(data, rows[-n*the.rest:]).stats())
 
    def discret():
       "can i do supervised discretization?"
