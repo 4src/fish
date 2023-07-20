@@ -49,7 +49,7 @@ the = slots(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*
 
 # A rule bundles together all the cuts that reference the same column.
 def cuts2Rule(cuts, pre=lambda x:x):
-   d={}
+   d = defaultdict(list)
    for at,lo,hi in [pre(x) for x in cuts]:
       d[at]  = d.get(at,[])
       d[at] += [(at,lo,hi)]
@@ -127,21 +127,21 @@ class NUM(pretty):
       cuts[-1] = (at, cuts[-1][1], inf)
       return cuts
 #---------------------------------------------------------------------------------------------------
-# ## ROWS
+# ## TABLE
 # Store many `rows` and  the none "?" values in each column (in `cols`).
-# Note that first `row` is a list of column `names`. Also, `names` can be
-# categories ed as follows:
+# Note that first `row` is a list of column `names`. Also, the column `names` can be
+# categories as follows:
 ako = slots(num  = lambda s: s[0].isupper(),
             goal = lambda s: s[-1] in "+-",
             skip = lambda s: s[-1] == "X",
             xnum = lambda s: not ako.goal(s) and ako.num(s),
             xsym = lambda s: not ako.goal(s) and not ako.num(s))
 
-class ROWS(pretty):
-   def __init__(i, src): i.createColumns( i.readRows(src))
+class TABLE(pretty):
+   def __init__(i, src): i._cols( i._rows(src))
 
-   def readRows(i,src):
-      "src is a list of list, or an iterator that returns froms from files"
+   def _rows(i,src):
+      "Make rows from src is a list of list, or an iterator that returns lists from files"
       for n,row in enumerate(src): 
          if n==0:
             i.rows, i.names, cache = [], row, [[] for _ in row]
@@ -150,7 +150,8 @@ class ROWS(pretty):
             [a.append(x) for a,x in zip(cache,row) if x != "?"]
       return cache
 
-   def createColumns(i,cache):
+   def _cols(i,cache):
+      "Make columns using the information cached while reading rows"
       i.cols = slots(all = [(NUM if ako.num(name) else SYM)(a, at, name)
                             for at,(name,a) in enumerate(zip(i.names,cache))])
       for k,fun in ako.items():
@@ -166,9 +167,9 @@ class ROWS(pretty):
          return sum(( (col.heaven - col.norm(row[col.at]))**2 for col in i.cols[cols] ))**.5
       return sorted(i.rows, key=_distance2heaven)
 
-   def clone(i, rows=[]):
-      "How to make a new ROWS that copies the structure of an old data (and fill in with `rows`)."
-      return ROWS( [i.names] + rows)
+   def clone(i, a=[]):
+      "How to make a new TABLE that copies the structure of an this TABLE (and fill in with `rows`)."
+      return TABLE( [i.names] + a)
 
 #-------------------------------------------------------------------------------
 # ## Discretization
@@ -245,7 +246,7 @@ def showd(d,pre=""):
 # If decimals offered, then round to that. else just return `x`
 def show(x,decimals=None):
   if callable(x): return x.__name__
-  if decimals is None or not instance(x,float): return x
+  if decimals is None or not isinstance(x,float): return x
   return round(x,decimals)
 
 # Given a sorted list of numbers `a` or a dictionary `d` containing frequency counts
@@ -359,27 +360,27 @@ class go:
       [print(*row,sep=",\t") for r,row in enumerate(csv(the.file)) if r < 10]
 
    def data():
-      "can we load disk rows into a ROWS?"
-      rows = ROWS(csv(the.file))
-      prints(rows.stats())
+      "can we load disk rows into a TABLE?"
+      table = TABLE(csv(the.file))
+      prints(table.stats())
 
    def sorted():
       "can we find best, rest rows?"
-      rows= ROWS(csv(the.file))
-      a    = rows.sorted()
+      table= TABLE(csv(the.file))
+      a    = table.sorted()
       n    = int(len(a)**the.min)
-      prints(rows.stats(),
-             rows.clone(a[:n]).stats(),
-             rows.clone(a[-n*the.rest:]).stats())
+      prints(table.stats(),
+             table.clone(a[:n]).stats(),
+             table.clone(a[-n*the.rest:]).stats())
 
    def discret():
       "can i do supervised discretization?"
-      for s,x in ROWS(csv(the.file)).sorted():
+      for s,x in TABLE(csv(the.file)).sorted():
          print(f"{s:.3f}\t{x}")
 
    def rules():
       "can i do supervised discretization?"
-      threes = [rule for s,rule in scores(ROWS(csv(the.file)))]
+      threes = [rule for s,rule in scores(TABLE(csv(the.file)))]
       rule = threes2Rule(threes)
       print(rules2rule([rule,rule,rule]))
       #print(  rule) #rule2Threes(rule))
