@@ -225,7 +225,7 @@ def selects(rule, labelledRows):
       for row in rows:
          if selects(rule,row):
             caught[label] += [row]
-            counts[label]  += 1/len(rows)
+            counts[label]  += 1/len(rows)  
    return counts, caught
 
 def selects(rule,row):
