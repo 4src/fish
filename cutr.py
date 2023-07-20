@@ -1,15 +1,15 @@
 #!/usr/bin/env python3 -B
 # <!--- vim: set et sts=3 sw=3 ts=3 : --->
-# [src](https://github.com/4src/fish/blob/main/samplr.py)
+# [src](https://github.com/4src/fish/blob/main/cutr.py)
 # &sol; [cite](https://github.com/4src/fish/blob/main/CITATION.cff)
 # &sol; [issues](https://github.com/4src/fish/issues)
 # &sol; [&copy;2023](https://github.com/4src/fish/blob/main/LICENSE.md)
 # by [timm](mailto:timm@ieee.org)
 #
-# <img src="sample3.png"  width=450>
+# <img  src="sample3.png"   width=450>
 """
-samplr: a little smart sampling goes a long way
-(multi- objective, semi- supervised, rule-based explanations)
+cutr: to understand "it",  cut "it" into smaller pieces. E.g. here
+we use cuts for multi- objective, semi- supervised, rule-based explanations.
 (c) Tim Menzies <timm@ieee.org>, BSD-2 license
 
 OPTIONS:
@@ -30,37 +30,19 @@ from collections import Counter, defaultdict
 from fileinput import FileInput as file_or_stdin
 from termcolor import colored
 from math import pi,log,cos,sin,sqrt,inf
-# ## Setup
 
-# `Pretty` objects know how to pretty print themselves.
-class pretty(object):
-   def __repr__(i):
-      slots = [f":{k} {rnd(v)}" for k,v in i.__dict__.items() if k[0] != "-"]
-      return i.__class__.__name__ + "{" + (" ".join(slots)) + "}"
+# A `cut` is a tuple `(col, lo, hi)` which represents a constraint on
+# column `col` (and if `lo==hi` then this is a symbolic column). `Cuts`
+# are generated initially by a simplistic algorithm (one `cut` for each symbolic
+# column while numerics are divided into equal frequency bins). Then we try
+# combining `cut`s;  e.g. for numerics, does it make sense to merge it with its
+# neighbor?; e.g. after merging, can we combine `cut`s into `rules` (where rules
+# are just a set of cuts grouped by their column id).
+class pretty     : __repr__    = lambda i:showd(i.__dict__, i.__class__.__name__)  # pretty print
+class slots(dict): __getattr__ = dict.get # allows easy slot access (e.g. `d.fred` for `d["fred"]`)
 
-# `Slot` objects allow access either by x["slot"] or x.slot
-class slots(dict): __getattr__ = dict.get # allows easy slot access (`e.g. d.fred, not d["fred"])
-
-# `the` is an `slot` of settings and defaults pulled from `__doc__` string.
+# In this code, global settings are kept in `the` (which is parsed from `__doc__`).
 the = slots(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
-# ### Stats
-
-# Given a sorted list of numbers `a` or a dictionary `d` containing frequency counts
-# for each key, what can we report?  
-def per(a,n=.5):  return a[int(n*len(a))]
-def median(nums): return per(nums, .5) # middle number
-def stdev(nums):  return (per(nums,.9) - per(nums,.1))/ 2.56 # div=diversity
-def mode(d):      return max(d, key=d.get) # most frequent number
-def entropy(d):   # measures diversity for symbolic distributions
-   n = sum(d.values())
-   return -sum((m/n * log(m/n,2) for m in d.values() if m>0))
-
-# ### Column types
-ako = slots(num  = lambda s: s[0].isupper(),
-            goal = lambda s: s[-1] in "+-",
-            skip = lambda s: s[-1] == "X",
-            xnum = lambda s: not ako.goal(s) and ako.num(s),
-            xsym = lambda s: not ako.goal(s) and not ako.num(s))
 #-------------------------------------------------------------------------------
 # ## Columns
 
@@ -71,6 +53,7 @@ class SYM(pretty):
       i.at, i.name = at, name
       i.mid, i.div = mode(d), entropy(d)
       i.cuts = [(at,x,x) for x in sorted(set(d))]
+      i.cardinality = len(i.cuts)
 
 # ### Summarize NUMs
 class NUM(pretty):
@@ -101,10 +84,17 @@ class NUM(pretty):
       cuts[-1] = (at, cuts[-1][1], inf)
       return cuts
 #---------------------------------------------------------------------------------------------------
-# ## Data
-# Store many `rows` and  the no "?" values in each column (in `cols`).
-# Also, small detail, the first `row` is a list of column `names`.
-class DATA(pretty):
+# ## ROWS
+# Store many `rows` and  the none "?" values in each column (in `cols`).
+# Note that first `row` is a list of column `names`. Also, `names` can be
+# categories ed as follows:
+ako = slots(num  = lambda s: s[0].isupper(),
+            goal = lambda s: s[-1] in "+-",
+            skip = lambda s: s[-1] == "X",
+            xnum = lambda s: not ako.goal(s) and ako.num(s),
+            xsym = lambda s: not ako.goal(s) and not ako.num(s))
+
+class ROWS(pretty):
    def __init__(i, src):
       "src is a list of list, or an iterator that returns froms from files"
       for n,row in enumerate(src):
@@ -114,13 +104,13 @@ class DATA(pretty):
             i.rows += [row]
             [a.append(x) for a,x in zip(cache,row) if x != "?"]
       i.cols = slots(all = [(NUM if ako.num(name) else SYM)(a, at, name)
-                          for at,(name,a) in enumerate(zip(i.names,cache))])
+                            for at,(name,a) in enumerate(zip(i.names,cache))])
       for k,fun in ako.items():
          i.cols[k] = [c for c in i.cols.all if not ako.skip(c.name) and fun(c.name)]
 
    def stats(i, cols="goal", decimals=None, want="mid"):
       "How to report stats on each column."
-      return slots(N=len(i.rows), **{c.name:rnd(c.__dict__[want],decimals) for c in i.cols[cols]})
+      return slots(N=len(i.rows), **{c.name:show(c.__dict__[want],decimals) for c in i.cols[cols]})
 
    def sortedRows(i, cols="goal"):
       "How to sort the rows closest to furthest from most desired"
@@ -128,8 +118,8 @@ class DATA(pretty):
          return sum(( (col.heaven - col.norm(row[col.at]))**2 for col in i.cols[cols] ))**.5
       return sorted(i.rows, key=_distance2heaven)
 
-# How to make a new DATA that copies the structure of an old data (and fill in with `rows`).
-def clone(data,rows=[]): return DATA( [data.names] + rows)
+# How to make a new ROWS that copies the structure of an old data (and fill in with `rows`).
+def clone(data,rows=[]): return ROWS( [data.names] + rows)
 #-------------------------------------------------------------------------------
 # ## Discretization
 
@@ -142,12 +132,12 @@ def within(x, cut):
    _,lo,hi = cut
    return  x=="?" or lo==hi==x or  x > lo and x <= hi
 
-# Gen0 contains ranges to be used in the rule generation.
+# `Merging` contains ranges to be used in the rule generation.
 # It looks for ways to combine `col.cuts` and reports 
 # `slots(x=(columnIndex,lo, hi) y=Counter(labelCounts))`
 # showing frequency counts of these ranges amongst these `labelledRows`.
 # (and this  is a set of pairs `[(label1,rows1),(label2,rows2)...]`).
-def gen0(data, labelledRows):
+def merges(data, labelledRows):
    def _counts(col, cuts, labelledRows):
       "count how often `cut` (in `cuts`) appears among the different labels?"
       counts = {cut : slots(x=cut, y=Counter()) for cut in cuts}
@@ -204,7 +194,7 @@ def scores(data):
    bests,rests  = rows[:n], rows[-n*the.rest:]
    labelledRows = [("best",bests), ("rests",rests)]
    for (s,x) in sorted([(score(cut.y["best"], cut.y["rest"]),cut) for cut in
-                        gen0(data,labelledRows)], reverse=True,
+                        merges(data,labelledRows)], reverse=True,
                         key=lambda z:z[0]):
       yield s,x.x
 
@@ -220,7 +210,7 @@ def rules2rule(rules):
   return cuts2Rule((cut for rule in rules for cuts in rule for cut in cuts))
 
 def selects(rule, labelledRows):
-   counts,caught = Counter(), defaultdict(lambda: []))
+   counts,caught = Counter(), defaultdict(list)
    for label, rows in labelledRows:
       for row in rows:
          if selects(rule,row):
@@ -236,6 +226,25 @@ def selects(rule,row):
       if not _any(cuts): return False
    return True
 #---------------------------------------------
+def showd(d,pre=""):
+   return pre + "{" + (" ".join([f":{k} {show(v,3)}" for k,v in d.items() if k[0] != "_"])) + "}"
+
+# If decimals offered, then round to that. else just return `x`
+def show(x,decimals=None):
+  if callable(x): return x.__name__
+  if decimals is None or not instance(x,float): return x
+  return round(x,decimals)
+
+# Given a sorted list of numbers `a` or a dictionary `d` containing frequency counts
+# for each key, what can we report?  
+def per(a,n=.5):  return a[int(n*len(a))]
+def median(nums): return per(nums, .5) # middle number
+def stdev(nums):  return (per(nums,.9) - per(nums,.1))/ 2.56 # div=diversity
+def mode(d):      return max(d, key=d.get) # most frequent number
+def entropy(d):   # measures diversity for symbolic distributions
+   n = sum(d.values())
+   return -sum((m/n * log(m/n,2) for m in d.values() if m>0))
+
 def pick(pairs,n):
    r = R()
    for s,x in pairs:
@@ -269,11 +278,6 @@ def grow(bestRows, restRows, a=[], scores={}, top=None):
 big = 1e100
 R = random.random
 
-# If decimals offered, then round to that. else just return `x`
-def rnd(x,decimals=None): 
-  if decimals is None or not instance(x,float): return x
-  return round(x,decimals)
-
 def coerce(x):
    try : return lit(x)
    except Exception: return x.strip()
@@ -295,7 +299,7 @@ def cli2dict(d):
       for j, x in enumerate(sys.argv):
          if ("-"+k[0]) == x or ("--"+k) == x:
             d[k] = coerce("True" if s == "False" else ("False" if s == "True" else sys.argv[j+1]))
-#---------------------------------------------
+#---------------------------------------------
 # ## Start-up Actions
 
 # Before eacha ction, reset the random num 
@@ -323,9 +327,9 @@ class go:
        "show help"
        def yell(s) : return colored(s[1], "yellow",attrs=["bold"])
        def bold(s) : return colored(s[1], "white", attrs=["bold"])
-       def show(s) : return re.sub(r"(\n[A-Z]+:)", yell, re.sub(r"(-[-]?[\w]+)", bold, s))
-       print(show(__doc__ + "\nACTIONS:"))
-       [print(show(f"  -g {x:8} {f.__doc__}")) for x,f in go._all.items() if x[0].islower()]
+       def say(s)  : return re.sub(r"(\n[A-Z]+:)", yell, re.sub(r"(-[-]?[\w]+)", bold, s))
+       print(say(__doc__ + "\nACTIONS:"))
+       [print(say(f"  -g {x:8} {f.__doc__}")) for x,f in go._all.items() if x[0].islower()]
 
    def the():
       "show config"
@@ -342,13 +346,13 @@ class go:
       [print(*row,sep=",\t") for r,row in enumerate(csv(the.file)) if r < 10]
 
    def data():
-      "can we load disk rows into a DATA?"
-      data = DATA(csv(the.file))
+      "can we load disk rows into a ROWS?"
+      data = ROWS(csv(the.file))
       prints(data.stats())
 
    def sorted():
       "can we find best, rest rows?"
-      data= DATA(csv(the.file))
+      data= ROWS(csv(the.file))
       rows = data.sortedRows()
       n    = int(len(rows)**the.min)
       prints(data.stats(),
@@ -357,12 +361,12 @@ class go:
 
    def discret():
       "can i do supervised discretization?"
-      for s,x in scores(DATA(csv(the.file))):
+      for s,x in scores(ROWS(csv(the.file))):
          print(f"{s:.3f}\t{x}")
 
    def rules():
       "can i do supervised discretization?"
-      threes = [rule for s,rule in scores(DATA(csv(the.file)))]
+      threes = [rule for s,rule in scores(ROWS(csv(the.file)))]
       rule = threes2Rule(threes)
       print(rules2rule([rule,rule,rule]))
       #print(  rule) #rule2Threes(rule))

@@ -12,3 +12,13 @@ src="https://zenodo.org/badge/631627449.svg"></a>
 # Fish
 
 Look around a little, catch good stuff.
+o
+# Rules of merging
+
+if a rule'attr  contains all values of a symbolic colum, ignore that attr
+
+similarlay, if a merge runs -nf to inf, ignore it
+
+if all attr of a rule are ignored, ignore the rule
+
+select ranges where B> R, and score is no worse than top 10% of top
