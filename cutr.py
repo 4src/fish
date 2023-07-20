@@ -8,8 +8,8 @@
 #
 # <img  src="sample3.png"   width=450>
 """
-cutr: to understand "it",  cut "it" into smaller pieces. E.g. here
-we use cuts for multi- objective, semi- supervised, rule-based explanations.
+cutr: to understand "it",  cut "it" up, then seek patterns in the pieces. E.g. here
+we use cuts for multi- objective, semi- supervised, rule-based explanation.
 (c) Tim Menzies <timm@ieee.org>, BSD-2 license
 
 OPTIONS:
