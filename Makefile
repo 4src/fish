@@ -41,7 +41,7 @@ xclean:
 	$(MARKDOWN) $< --output $@
 
 html: 
-	cp docs/samplr.png ~/tmp
+	cp docs/sample.jpg ~/tmp
 	docco -o $(HOME)/tmp samplr.py 
 	#awk '/<h1>/{ print $$0; print "<p>"f"</p>";next} 1' f="`cat top.html`" ~/tmp/samplr.html > tmp1
 	#mv tmp1 ~/tmp/samplr.html

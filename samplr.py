@@ -1,6 +1,6 @@
 #!/usr/bin/env python3 -B
 # <!--- vim: set et sts=3 sw=3 ts=3 : --->
-# <img src="samplr.png" width=250 align=left>
+# <img src="sample.jpg" width=400>
 """
 samplr: a little smart sampling goes a long way
 (multi- objective, semi- supervised, rule-based explanations)
@@ -73,7 +73,7 @@ class NUM(pretty):
       i.lo, i.hi, i.heaven = a[0], a[-1], 0 if name[-1] == "-" else 1
       i.cuts = i._unsuper(at,a)
 
-   def norm(i,x): 
+   def norm(i,x):
       "map `x` 0..1 for `lo..hi`"
       return x if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
 
@@ -92,7 +92,7 @@ class NUM(pretty):
       cuts[ 0] = (at, -inf,        cuts[0][2])
       cuts[-1] = (at, cuts[-1][1], inf)
       return cuts
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
 # ## Data
 # Store many `rows` and  the no "?" values in each column (in `cols`).
 # Also, small detail, the first `row` is a list of column `names`.
@@ -108,7 +108,7 @@ class DATA(pretty):
       i.cols = obj(all = [(NUM if ako.num(name) else SYM)(a, at, name)
                           for at,(name,a) in enumerate(zip(i.names,cache))])
       for k,fun in ako.items():
-         i.cols[k] = [col for col in i.cols.all if not ako.skip(name) and fun(col.name)]
+         i.cols[k] = [c for c in i.cols.all if not ako.skip(c.name) and fun(c.name)]
 
    def stats(i, cols="goal", decimals=None, want="mid"):
       "How to report stats on each column."
@@ -133,7 +133,6 @@ def withins(x, cuts):
 def within(x, cut):
    _,lo,hi = cut
    return  x=="?" or lo==hi==x or  x > lo and x <= hi
-
 
 # Gen0 contains ranges to be used in the rule generation.
 # It looks for ways to combine `col.cuts` and reports 
@@ -200,8 +199,17 @@ def scores(data):
                         gen0(data,labelledRows)], reverse=True,
                         key=lambda z:z[0]):
       yield s,x.x
-#---------------------------------------------
 
+def threes2Rule(threes):
+   d={}
+   for at,lo,hi in threes:
+      d[at]  = d.get(at,[])
+      d[at] += [(at,lo,hi)]
+   return tuple(sorted([tuple(sorted(d[k])) for k in d]))
+
+def rule2Threes(rules):
+   return [three for  threes in rule for three in threes]
+#---------------------------------------------
 def pick(pairs,n):
    r = R()
    for s,x in pairs:
@@ -261,7 +269,6 @@ def cli2dict(d):
       for j, x in enumerate(sys.argv):
          if ("-"+k[0]) == x or ("--"+k) == x:
             d[k] = coerce("True" if s == "False" else ("False" if s == "True" else sys.argv[j+1]))
-
 #---------------------------------------------
 # ## Start-up Actions
 
@@ -326,5 +333,11 @@ class go:
       "can i do supervised discretization?"
       for s,x in scores(DATA(csv(the.file))):
          print(f"{s:.3f}\t{x}")
+
+   def rules():
+      "can i do supervised discretization?"
+      threes = scores(DATA(csv(the.file)))
+      rule = threes2Rule(threes)
+      print(  rule3Threes(rule))
 
 if __name__ == "__main__": go._on()
