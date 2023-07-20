@@ -1,6 +1,6 @@
 #!/usr/bin/env python3 -B
 # <!--- vim: set et sts=3 sw=3 ts=3 : --->
-# <img src="sample.jpg" width=400>
+# <img src="sample2.png"  style="border: 1px solid #ddd; width: 450px;">
 """
 samplr: a little smart sampling goes a long way
 (multi- objective, semi- supervised, rule-based explanations)
@@ -201,19 +201,16 @@ def scores(data):
       yield s,x.x
 
 def threes2Rule(threes):
-   #( ((1 4 5) (1 5 8))
-   #  ((2 10 30))
-   #  ((3 2 10) (3 10 12)))
    d={}
-   for x in threes:
-      print(x)
-      at,lo,hi = x
+   for at,lo,hi in threes:
       d[at]  = d.get(at,[])
       d[at] += [(at,lo,hi)]
-   return tuple(sorted([tuple(sorted(d[k])) for k in d]))
+   for k in d: d[k] = tuple(sorted(set(d[k])))
+   return tuple(sorted(d.values()))
 
-def rule2Threes(rules):
-   return [three for  threes in rule for three in threes]
+def rules2rule(rules):
+  return threes2Rule((three for rule in rules for threes in rule for three in threes))
+
 #---------------------------------------------
 def pick(pairs,n):
    r = R()
@@ -343,6 +340,7 @@ class go:
       "can i do supervised discretization?"
       threes = [rule for s,rule in scores(DATA(csv(the.file)))]
       rule = threes2Rule(threes)
-      print(  rule2Threes(rule))
+      print(rules2rule([rule,rule,rule]))
+      #print(  rule) #rule2Threes(rule))
 
 if __name__ == "__main__": go._on()
