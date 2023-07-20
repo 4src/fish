@@ -1,6 +1,12 @@
 #!/usr/bin/env python3 -B
 # <!--- vim: set et sts=3 sw=3 ts=3 : --->
-# <img src="sample2.png"  style="border: 1px solid #ddd; width: 450px;">
+# [src](https://github.com/4src/fish/blob/main/samplr.py)
+# &sol; [cite](https://github.com/4src/fish/blob/main/CITATION.cff)
+# &sol; [issues](https://github.com/4src/fish/issues)
+# &sol; [&copy;2023](https://github.com/4src/fish/blob/main/LICENSE.md)
+# by [timm](mailto:timm@ieee.org)
+#
+# <img src="sample3.png"  width=450>
 """
 samplr: a little smart sampling goes a long way
 (multi- objective, semi- supervised, rule-based explanations)
@@ -24,18 +30,20 @@ from collections import Counter, defaultdict
 from fileinput import FileInput as file_or_stdin
 from termcolor import colored
 from math import pi,log,cos,sin,sqrt,inf
-#-------------------------------------------------------------------------------
-# ## Base classes (and settings)
+# ## Setup
+
+# `Pretty` objects know how to pretty print themselves.
 class pretty(object):
    def __repr__(i):
       slots = [f":{k} {rnd(v)}" for k,v in i.__dict__.items() if k[0] != "-"]
       return i.__class__.__name__ + "{" + (" ".join(slots)) + "}"
 
-# `the` is an `obj` of settings and defaults pulled from `__doc__` string.
+# `Slot` objects allow access either by x["slot"] or x.slot
 class slots(dict): __getattr__ = dict.get # allows easy slot access (`e.g. d.fred, not d["fred"])
+
+# `the` is an `slot` of settings and defaults pulled from `__doc__` string.
 the = slots(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
-#-------------------------------------------------------------------------------
-# ## Stats
+# ### Stats
 
 # Given a sorted list of numbers `a` or a dictionary `d` containing frequency counts
 # for each key, what can we report?  
@@ -47,7 +55,7 @@ def entropy(d):   # measures diversity for symbolic distributions
    n = sum(d.values())
    return -sum((m/n * log(m/n,2) for m in d.values() if m>0))
 
-# ### Conventions for column names
+# ### Column types
 ako = slots(num  = lambda s: s[0].isupper(),
             goal = lambda s: s[-1] in "+-",
             skip = lambda s: s[-1] == "X",
@@ -200,17 +208,33 @@ def scores(data):
                         key=lambda z:z[0]):
       yield s,x.x
 
-def threes2Rule(threes):
+def cuts2Rule(cuts, pre=lambda x:x):
    d={}
-   for at,lo,hi in threes:
+   for at,lo,hi in [pre(x) for x in cuts]:
       d[at]  = d.get(at,[])
       d[at] += [(at,lo,hi)]
    for k in d: d[k] = tuple(sorted(set(d[k])))
    return tuple(sorted(d.values()))
 
 def rules2rule(rules):
-  return threes2Rule((three for rule in rules for threes in rule for three in threes))
+  return cuts2Rule((cut for rule in rules for cuts in rule for cut in cuts))
 
+def selects(rule, labelledRows):
+   counts,caught = Counter(), defaultdict(lambda: []))
+   for label, rows in labelledRows:
+      for row in rows:
+         if selects(rule,row):
+            caught[label] += [row]
+            counts[label]  += 1/len(rows)
+   return counts, caught
+
+def selects(rule,row):
+   def _any(cuts):
+      for cut in cuts:
+         if within(row[cut[0]], cut): return True
+   for cuts in rule:
+      if not _any(cuts): return False
+   return True
 #---------------------------------------------
 def pick(pairs,n):
    r = R()
