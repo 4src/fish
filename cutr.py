@@ -31,6 +31,14 @@ from fileinput import FileInput as file_or_stdin
 from termcolor import colored
 from math import pi,log,cos,sin,sqrt,inf
 
+class pretty     : __repr__    = lambda i:showd(i.__dict__, i.__class__.__name__)  # pretty print
+class slots(dict): __getattr__ = dict.get # allows easy slot access (e.g. `d.fred` for `d["fred"]`)
+
+# In this code, global settings are kept in `the` (which is parsed from `__doc__`).
+the = slots(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
+#-------------------------------------------------------------------------------
+# ## What is a "cut"?
+# This code finds `cuts`, then uses those `cuts` to explore data.
 # A `cut` is a tuple `(col, lo, hi)` which represents a constraint on
 # column `col` (and if `lo==hi` then this is a symbolic column). `Cuts`
 # are generated initially by a simplistic algorithm (one `cut` for each symbolic
@@ -38,11 +46,46 @@ from math import pi,log,cos,sin,sqrt,inf
 # combining `cut`s;  e.g. for numerics, does it make sense to merge it with its
 # neighbor?; e.g. after merging, can we combine `cut`s into `rules` (where rules
 # are just a set of cuts grouped by their column id).
-class pretty     : __repr__    = lambda i:showd(i.__dict__, i.__class__.__name__)  # pretty print
-class slots(dict): __getattr__ = dict.get # allows easy slot access (e.g. `d.fred` for `d["fred"]`)
 
-# In this code, global settings are kept in `the` (which is parsed from `__doc__`).
-the = slots(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
+# A rule bundles together all the cuts that reference the same column.
+def cuts2Rule(cuts, pre=lambda x:x):
+   d={}
+   for at,lo,hi in [pre(x) for x in cuts]:
+      d[at]  = d.get(at,[])
+      d[at] += [(at,lo,hi)]
+   for k in d: d[k] = tuple(sorted(set(d[k])))
+   return tuple(sorted(d.values()))
+
+#  To combine rules, tear them down to their cuts and then build a new rule.
+def rules2rule(rules):
+  return cuts2Rule((cut for rule in rules for cuts in rule for cut in cuts))
+
+# Rules can select rows
+def selects(rule, labelledRows):
+   counts,caught = Counter(), defaultdict(list)
+   for label, rows in labelledRows:
+      for row in rows:
+         if select1(rule,row):
+            caught[label] += [row]
+            counts[label]  += 1/len(rows)  
+   return counts, caught
+
+# One rule can select one row.
+def select1(rule,row):
+   for cuts in rule:
+      if not within(row[cuts[0][0]], cuts): return False
+   return True
+
+# Does a value live within any cut?
+def withins(x, cuts):
+   for cut in cuts:
+      if within(x,cut): return cut
+
+# Does a value live within one cut?
+def within(x, cut):
+   _,lo,hi = cut
+   return  x=="?" or lo==hi==x or  x > lo and x <= hi
+
 #-------------------------------------------------------------------------------
 # ## Columns
 
@@ -95,14 +138,19 @@ ako = slots(num  = lambda s: s[0].isupper(),
             xsym = lambda s: not ako.goal(s) and not ako.num(s))
 
 class ROWS(pretty):
-   def __init__(i, src):
+   def __init__(i, src): i.createColumns( i.readRows(src))
+
+   def readRows(i,src):
       "src is a list of list, or an iterator that returns froms from files"
-      for n,row in enumerate(src):
+      for n,row in enumerate(src): 
          if n==0:
             i.rows, i.names, cache = [], row, [[] for _ in row]
          else:
             i.rows += [row]
             [a.append(x) for a,x in zip(cache,row) if x != "?"]
+      return cache
+
+   def createColumns(i,cache):
       i.cols = slots(all = [(NUM if ako.num(name) else SYM)(a, at, name)
                             for at,(name,a) in enumerate(zip(i.names,cache))])
       for k,fun in ako.items():
@@ -112,26 +160,18 @@ class ROWS(pretty):
       "How to report stats on each column."
       return slots(N=len(i.rows), **{c.name:show(c.__dict__[want],decimals) for c in i.cols[cols]})
 
-   def sortedRows(i, cols="goal"):
+   def sorted(i, cols="goal"):
       "How to sort the rows closest to furthest from most desired"
       def _distance2heaven(row):
          return sum(( (col.heaven - col.norm(row[col.at]))**2 for col in i.cols[cols] ))**.5
       return sorted(i.rows, key=_distance2heaven)
 
-# How to make a new ROWS that copies the structure of an old data (and fill in with `rows`).
-def clone(data,rows=[]): return ROWS( [data.names] + rows)
-#-------------------------------------------------------------------------------
+   def clone(i, rows=[]):
+      "How to make a new ROWS that copies the structure of an old data (and fill in with `rows`)."
+      return ROWS( [i.names] + rows)
+
+#-------------------------------------------------------------------------------
 # ## Discretization
-
-# A cut is a 3-part tuple `(columIndex, lo, hi)`
-def withins(x, cuts):
-   for cut in cuts:
-      if within(x,cut): return cut
-
-def within(x, cut):
-   _,lo,hi = cut
-   return  x=="?" or lo==hi==x or  x > lo and x <= hi
-
 # `Merging` contains ranges to be used in the rule generation.
 # It looks for ways to combine `col.cuts` and reports 
 # `slots(x=(columnIndex,lo, hi) y=Counter(labelCounts))`
@@ -189,7 +229,7 @@ def score(b, r):
     case "xplore"  : print(2); return 1     /    (b + r)  # seeking other
 
 def scores(data):
-   rows  = data.sortedRows()
+   rows  = data.sorted()
    n     = int(len(rows)**the.min)
    bests,rests  = rows[:n], rows[-n*the.rest:]
    labelledRows = [("best",bests), ("rests",rests)]
@@ -198,34 +238,7 @@ def scores(data):
                         key=lambda z:z[0]):
       yield s,x.x
 
-def cuts2Rule(cuts, pre=lambda x:x):
-   d={}
-   for at,lo,hi in [pre(x) for x in cuts]:
-      d[at]  = d.get(at,[])
-      d[at] += [(at,lo,hi)]
-   for k in d: d[k] = tuple(sorted(set(d[k])))
-   return tuple(sorted(d.values()))
-
-def rules2rule(rules):
-  return cuts2Rule((cut for rule in rules for cuts in rule for cut in cuts))
-
-def selects(rule, labelledRows):
-   counts,caught = Counter(), defaultdict(list)
-   for label, rows in labelledRows:
-      for row in rows:
-         if selects(rule,row):
-            caught[label] += [row]
-            counts[label]  += 1/len(rows)  
-   return counts, caught
-
-def selects(rule,row):
-   def _any(cuts):
-      for cut in cuts:
-         if within(row[cut[0]], cut): return True
-   for cuts in rule:
-      if not _any(cuts): return False
-   return True
-#---------------------------------------------
+#---------------------------------------------
 def showd(d,pre=""):
    return pre + "{" + (" ".join([f":{k} {show(v,3)}" for k,v in d.items() if k[0] != "_"])) + "}"
 
@@ -299,7 +312,7 @@ def cli2dict(d):
       for j, x in enumerate(sys.argv):
          if ("-"+k[0]) == x or ("--"+k) == x:
             d[k] = coerce("True" if s == "False" else ("False" if s == "True" else sys.argv[j+1]))
-#---------------------------------------------
+#---------------------------------------------
 # ## Start-up Actions
 
 # Before eacha ction, reset the random num 
@@ -347,21 +360,21 @@ class go:
 
    def data():
       "can we load disk rows into a ROWS?"
-      data = ROWS(csv(the.file))
-      prints(data.stats())
+      rows = ROWS(csv(the.file))
+      prints(rows.stats())
 
    def sorted():
       "can we find best, rest rows?"
-      data= ROWS(csv(the.file))
-      rows = data.sortedRows()
-      n    = int(len(rows)**the.min)
-      prints(data.stats(),
-             clone(data, rows[:n]).stats(),
-             clone(data, rows[-n*the.rest:]).stats())
+      rows= ROWS(csv(the.file))
+      a    = rows.sorted()
+      n    = int(len(a)**the.min)
+      prints(rows.stats(),
+             rows.clone(a[:n]).stats(),
+             rows.clone(a[-n*the.rest:]).stats())
 
    def discret():
       "can i do supervised discretization?"
-      for s,x in scores(ROWS(csv(the.file))):
+      for s,x in ROWS(csv(the.file)).sorted():
          print(f"{s:.3f}\t{x}")
 
    def rules():
