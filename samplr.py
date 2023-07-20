@@ -32,8 +32,8 @@ class pretty(object):
       return i.__class__.__name__ + "{" + (" ".join(slots)) + "}"
 
 # `the` is an `obj` of settings and defaults pulled from `__doc__` string.
-class obj(dict): __getattr__ = dict.get # allows easy slot access (`e.g. d.fred, not d["fred"])
-the = obj(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
+class slots(dict): __getattr__ = dict.get # allows easy slot access (`e.g. d.fred, not d["fred"])
+the = slots(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #-------------------------------------------------------------------------------
 # ## Stats
 
@@ -43,16 +43,16 @@ def per(a,n=.5):  return a[int(n*len(a))]
 def median(nums): return per(nums, .5) # middle number
 def stdev(nums):  return (per(nums,.9) - per(nums,.1))/ 2.56 # div=diversity
 def mode(d):      return max(d, key=d.get) # most frequent number
-def ent(d):       # entropy
-   n=sum(d.values())
+def entropy(d):   # measures diversity for symbolic distributions
+   n = sum(d.values())
    return -sum((m/n * log(m/n,2) for m in d.values() if m>0))
 
 # ### Conventions for column names
-ako = obj(num  = lambda s: s[0].isupper(),
-          goal = lambda s: s[-1] in "+-",
-          skip = lambda s: s[-1] == "X",
-          xnum = lambda s: not ako.goal(s) and ako.num(s),
-          xsym = lambda s: not ako.goal(s) and not ako.num(s))
+ako = slots(num  = lambda s: s[0].isupper(),
+            goal = lambda s: s[-1] in "+-",
+            skip = lambda s: s[-1] == "X",
+            xnum = lambda s: not ako.goal(s) and ako.num(s),
+            xsym = lambda s: not ako.goal(s) and not ako.num(s))
 #-------------------------------------------------------------------------------
 # ## Columns
 
@@ -61,7 +61,7 @@ class SYM(pretty):
    def __init__(i,a,at=0,name=" "):
       d = Counter(a)
       i.at, i.name = at, name
-      i.mid, i.div = mode(d), ent(d)
+      i.mid, i.div = mode(d), entropy(d)
       i.cuts = [(at,x,x) for x in sorted(set(d))]
 
 # ### Summarize NUMs
@@ -80,7 +80,7 @@ class NUM(pretty):
    def _unsuper(i,at,a):
       "simplistic (equal frequency) unsupervised discretization"
       n = inc = int(len(a)/(the.bins - 1))
-      cuts, b4, small = [], a[0], the.cohen*stdev(a)
+      cuts, b4, small = [], a[0], the.cohen*i.div
       while n < len(a) -1 :
          x = a[n]
          if x==a[n+1] or x - b4 < small: n += 1
@@ -105,14 +105,14 @@ class DATA(pretty):
          else:
             i.rows += [row]
             [a.append(x) for a,x in zip(cache,row) if x != "?"]
-      i.cols = obj(all = [(NUM if ako.num(name) else SYM)(a, at, name)
+      i.cols = slots(all = [(NUM if ako.num(name) else SYM)(a, at, name)
                           for at,(name,a) in enumerate(zip(i.names,cache))])
       for k,fun in ako.items():
          i.cols[k] = [c for c in i.cols.all if not ako.skip(c.name) and fun(c.name)]
 
    def stats(i, cols="goal", decimals=None, want="mid"):
       "How to report stats on each column."
-      return obj(N=len(i.rows), **{c.name:rnd(c.__dict__[want],decimals) for c in i.cols[cols]})
+      return slots(N=len(i.rows), **{c.name:rnd(c.__dict__[want],decimals) for c in i.cols[cols]})
 
    def sortedRows(i, cols="goal"):
       "How to sort the rows closest to furthest from most desired"
@@ -136,13 +136,13 @@ def within(x, cut):
 
 # Gen0 contains ranges to be used in the rule generation.
 # It looks for ways to combine `col.cuts` and reports 
-# `obj(x=(columnIndex,lo, hi) y=Counter(labelCounts))`
+# `slots(x=(columnIndex,lo, hi) y=Counter(labelCounts))`
 # showing frequency counts of these ranges amongst these `labelledRows`.
 # (and this  is a set of pairs `[(label1,rows1),(label2,rows2)...]`).
 def gen0(data, labelledRows):
    def _counts(col, cuts, labelledRows):
       "count how often `cut` (in `cuts`) appears among the different labels?"
-      counts = {cut : obj(x=cut, y=Counter()) for cut in cuts}
+      counts = {cut : slots(x=cut, y=Counter()) for cut in cuts}
       for label,rows in labelledRows:
          for row in rows:
             x = row[col.at]
@@ -166,10 +166,10 @@ def gen0(data, labelledRows):
 
    def _merge(a,b):
       "combines a,b (and returns None if the whole is more complex than that parts)"
-      ab = obj(x= (a.x[0], a.x[1], b.x[2]), y= a.y + b.y)
+      ab = slots(x= (a.x[0], a.x[1], b.x[2]), y= a.y + b.y)
       n1 = a.y.total() + 1/big
       n2 = b.y.total() + 1/big
-      if ent(ab.y) <= (ent(a.y)*n1 + ent(b.y)*n2) / (n1+n2):
+      if entropy(ab.y) <=  (entropy(a.y)*n1 + entropy(b.y)*n2) / (n1+n2):
          return ab
 
    for col in data.cols.xsym:
@@ -201,8 +201,13 @@ def scores(data):
       yield s,x.x
 
 def threes2Rule(threes):
+   #( ((1 4 5) (1 5 8))
+   #  ((2 10 30))
+   #  ((3 2 10) (3 10 12)))
    d={}
-   for at,lo,hi in threes:
+   for x in threes:
+      print(x)
+      at,lo,hi = x
       d[at]  = d.get(at,[])
       d[at] += [(at,lo,hi)]
    return tuple(sorted([tuple(sorted(d[k])) for k in d]))
@@ -336,8 +341,8 @@ class go:
 
    def rules():
       "can i do supervised discretization?"
-      threes = scores(DATA(csv(the.file)))
+      threes = [rule for s,rule in scores(DATA(csv(the.file)))]
       rule = threes2Rule(threes)
-      print(  rule3Threes(rule))
+      print(  rule2Threes(rule))
 
 if __name__ == "__main__": go._on()
