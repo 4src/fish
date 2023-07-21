@@ -48,11 +48,9 @@ the = slots(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*
 # are just a set of cuts grouped by their column id).
 
 # A rule bundles together all the cuts that reference the same column.
-def cuts2Rule(cuts, pre=lambda x:x):
+def cuts2Rule(cuts):
    d = defaultdict(list)
-   for at,lo,hi in [pre(x) for x in cuts]:
-      d[at]  = d.get(at,[])
-      d[at] += [(at,lo,hi)]
+   for at,lo,hi in cuts: d[at] += [(at,lo,hi)]
    for k in d: d[k] = tuple(sorted(set(d[k])))
    return tuple(sorted(d.values()))
 
@@ -65,24 +63,26 @@ def selects(rule, labelledRows):
    counts,caught = Counter(), defaultdict(list)
    for label, rows in labelledRows:
       for row in rows:
-         if select1(rule,row):
+         if ands(rule,row):
             caught[label] += [row]
-            counts[label]  += 1/len(rows)  
+            counts[label] += 1/len(rows)
    return counts, caught
 
-# One rule can select one row.
-def select1(rule,row):
+# `rule` is a  collection of  conjunctions. If any of them are false, then
+# the rule fails.
+def ands(rule,row):
    for cuts in rule:
-      if not within(row[cuts[0][0]], cuts): return False
+      if not ors(row[cuts[0][0]], cuts): return False
    return True
 
-# Does a value live within any cut?
-def withins(x, cuts):
+# `cuts` are  a collection of  disjunctions,  of which at least one of which must
+# be true  (otherwise, return None).
+def ors(x, cuts):
    for cut in cuts:
-      if within(x,cut): return cut
+      if true(x, cut): return cut
 
 # Does a value live within one cut?
-def within(x, cut):
+def true(x, cut):
    _,lo,hi = cut
    return  x=="?" or lo==hi==x or  x > lo and x <= hi
 
@@ -117,7 +117,8 @@ class NUM(pretty):
       cuts, b4, small = [], a[0], the.cohen*i.div
       while n < len(a) -1 :
          x = a[n]
-         if x==a[n+1] or x - b4 < small: n += 1
+         if x==a[n+1] or x - b4 < small: 
+            n += 1
          else:
             n += inc
             cuts += [(at,b4,x)] # [(col, lo, hi)]
@@ -186,7 +187,7 @@ def merges(data, labelledRows):
          for row in rows:
             x = row[col.at]
             if x != "?":
-               counts[ withins(x,cuts) ].y[ label ] += 1/len(rows)
+               counts[ ors(x,cuts) ].y[ label ] += 1/len(rows)
       return sorted(counts.values(), key=lambda z:z.x)
 
    def _merges(ins):
