@@ -60,13 +60,13 @@ def rules2rule(rules):
 
 # Rules can select rows
 def selects(rule, labelledRows):
-   counts,caught = Counter(), defaultdict(list)
+   counts, selected = Counter(), defaultdict(list)
    for label, rows in labelledRows:
       for row in rows:
          if ands(rule,row):
-            caught[label] += [row]
+            selected[label] += [row]
             counts[label] += 1/len(rows)
-   return counts, caught
+   return counts, selected
 
 # `rule` is a  collection of  conjunctions. If any of them are false, then
 # the rule fails.
@@ -79,13 +79,12 @@ def ands(rule,row):
 # be true  (otherwise, return None).
 def ors(x, cuts):
    for cut in cuts:
-      if true(x, cut): return cut
+      if holds(x, cut): return cut
 
-# Does a value live within one cut?
-def true(x, cut):
+# Can this `cut` hold `x`?
+def holds(x, cut):
    _,lo,hi = cut
    return  x=="?" or lo==hi==x or  x > lo and x <= hi
-
 #-------------------------------------------------------------------------------
 # ## Columns
 
