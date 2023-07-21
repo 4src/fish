@@ -106,13 +106,13 @@ class NUM(pretty):
       i.at, i.name = at, name
       i.mid, i.div = median(a), stdev(a)
       i.lo, i.hi, i.heaven = a[0], a[-1], 0 if name[-1] == "-" else 1
-      i.cuts = i._unsuper(at,a)
+      i.cuts = i._unsupercuts(at,a)
 
    def norm(i,x):
       "map `x` 0..1 for `lo..hi`"
       return x if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
 
-   def _unsuper(i,at,a):
+   def _unsupercuts(i,at,a):
       "simplistic (equal frequency) unsupervised discretization"
       n = inc = int(len(a)/(the.bins - 1))
       cuts, b4, small = [], a[0], the.cohen*i.div
@@ -180,7 +180,7 @@ class TABLE(pretty):
 # `slots(x=(columnIndex,lo, hi) y=Counter(labelCounts))`
 # showing frequency counts of these ranges amongst these `labelledRows`.
 # (and this  is a set of pairs `[(label1,rows1),(label2,rows2)...]`).
-def merges(data, labelledRows):
+def supercuts(data, labelledRows):
    def _counts(col, cuts, labelledRows):
       "count how often `cut` (in `cuts`) appears among the different labels?"
       counts = {cut : slots(x=cut, y=Counter()) for cut in cuts}
@@ -237,7 +237,7 @@ def scores(data):
    bests,rests  = rows[:n], rows[-n*the.rest:]
    labelledRows = [("best",bests), ("rests",rests)]
    for (s,x) in sorted([(score(cut.y["best"], cut.y["rest"]),cut) for cut in
-                        merges(data,labelledRows)], reverse=True,
+                        supercuts(data,labelledRows)], reverse=True,
                         key=lambda z:z[0]):
       yield s,x.x
 
