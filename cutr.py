@@ -79,10 +79,10 @@ def ands(rule,row):
 # be true  (otherwise, return None).
 def ors(x, cuts):
    for cut in cuts:
-      if holds(x, cut): return cut
+      if true(x, cut): return cut
 
-# Can this `cut` hold `x`?
-def holds(x, cut):
+# Is it true that this `cut` hold `x`?
+def true(x, cut):
    _,lo,hi = cut
    return  x=="?" or lo==hi==x or  x > lo and x <= hi
 #-------------------------------------------------------------------------------
