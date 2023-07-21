@@ -31,10 +31,10 @@ from fileinput import FileInput as file_or_stdin
 from termcolor import colored
 from math import pi,log,cos,sin,sqrt,inf
 
-class pretty     : __repr__    = lambda i:showd(i.__dict__, i.__class__.__name__)  # pretty print
-class slots(dict): __getattr__ = dict.get # allows easy slot access (e.g. `d.fred` for `d["fred"]`)
-
 # In this code, global settings are kept in `the` (which is parsed from `__doc__`).
+# This variable is a `slots`, which is a neat way to represent dictionaries that
+# allows easy slot access (e.g. `d.bins` instead of `d["bins"]`)
+class slots(dict): __getattr__ = dict.get 
 the = slots(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #-------------------------------------------------------------------------------
 # ## What is a "cut"?
@@ -88,6 +88,8 @@ def true(x, cut):
 #-------------------------------------------------------------------------------
 # ## Columns
 
+# Here's a class that can pretty print itself
+class pretty: __repr__ = lambda i:showd(i.__dict__, i.__class__.__name__) 
 # ### Summarize SYMs
 class SYM(pretty):
    def __init__(i,a,at=0,name=" "):
