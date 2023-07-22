@@ -49,10 +49,25 @@ the = slots(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*
 
 # A rule bundles together all the cuts that reference the same column.
 def cuts2Rule(cuts):
-   d = defaultdict(list)
-   [d[cut[0]].append(cut) for cut in cuts]
-   return tuple(sorted([ tuple(sorted(set(value))) 
-                         for value in d.values()]))
+   d0,d = defaultdict(list),{}
+   [d0[cut[0]].append(cut) for cut in cuts]
+   for k in d0:
+      tmp = simpler(sorted(d0[k])):
+      if not(tmp[0][1] == -inf and tmp[0][2] == inf):
+         d[k] = tuple(tmp)
+   if len(d) > 0:
+      return tuple(sorted(d.values()]))
+
+def simpler(ins):
+   i,outs = 0,[]
+   while i< len(ins):
+      c,lo,hi = ins[i]
+      while i < len(a) - 1 and hi == ins[i+1][1]:
+         hi = ins[i+1][2]
+         i += 1
+      outs += [(c,lo,hi)]
+      i += 1
+   return outs
 
 #  To combine rules, tear them down to their cuts and then build a new rule.
 def rules2rule(rules):
@@ -363,6 +378,22 @@ class go:
       "can i do supervised discretization?"
       for s,x in TABLE(csv(the.file)).sorted():
          print(f"{s:.3f}\t{x}")
+
+   Weather = [["outlook","Temp","Humid","windy","play"],
+              ["sunny","85","85","FALSE","no"],
+              ["sunny","80","90","TRUE","no"],
+              ["overcast","83","86","FALSE","yes"],
+              ["rainy","70","96","FALSE","yes"],
+              ["rainy","68","80","FALSE","yes"],
+              ["rainy","65","70","TRUE","no"],
+              ["overcast","64","65","TRUE","yes"],
+              ["sunny","72","95","FALSE","no"],
+              ["sunny","69","70","FALSE","yes"],
+              ["rainy","75","80","FALSE","yes"],
+              ["sunny","75","70","TRUE","yes"],
+              ["overcast","72","90","TRUE","yes"],
+              ["overcast","81","75","FALSE","yes"],
+              ["rainy","71","91","TRUE","no"]]
 
    def rules():
       "can i do supervised discretization?"
