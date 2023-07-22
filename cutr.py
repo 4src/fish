@@ -14,28 +14,30 @@ we use cuts for multi- objective, semi- supervised, rule-based explanation.
 
 OPTIONS:
   -b --bins   initial number of bins     = 16
+  -B --Beam   max. good cuts to explore  = 10
   -c --cohen  small delta = cohen*stdev  = .35
   -f --file   where to read data         = "../data/auto93.csv"
   -g --go     start up action            = "help"
   -h --help   show help                  = False
-  -s --seed   random number seed         = 1234567890
+  -s --seed   random number seed         = 1234567891
   -m --min    minuimum size              = .5
   -r --rest   |rest| = |best|*rest       = 3
   -w --want   plan|xplore|monitor|doubt  = "plan"
 """
-from ast import literal_eval as lit
-from copy import deepcopy
-import fileinput, random, ast, sys, re
 from collections import Counter, defaultdict
-from fileinput import FileInput as file_or_stdin
+from math import pi, log, cos, sin, sqrt, inf
+import fileinput, random, time, copy, ast, sys, re
 from termcolor import colored
-from math import pi,log,cos,sin,sqrt,inf
+
+def coerce(x):
+   try : return ast.literal_eval(x)
+   except Exception: return x.strip()
 
 # In this code, global settings are kept in `the` (which is parsed from `__doc__`).
 # This variable is a `slots`, which is a neat way to represent dictionaries that
 # allows easy slot access (e.g. `d.bins` instead of `d["bins"]`)
 class slots(dict): __getattr__ = dict.get 
-the = slots(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
+the = slots(**{m[1]:coerce(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #-------------------------------------------------------------------------------
 # ## What is a "cut"?
 # This code finds `cuts`, then uses those `cuts` to explore data.
@@ -59,10 +61,11 @@ def rules2rule(rules):
 
 # Rules can select rows
 def selects(rule, labelledRows):
-   selected =  defaultdict(list)
+   selected = defaultdict(list)
    for label, rows in labelledRows:
       for row in rows:
-         if ands(rule,row): selected[label] += [row]
+         if ands(rule,row): 
+            selected[label] += [row]
    return selected
 
 # `rule` is a  collection of  conjunctions. If any of them are false, then
@@ -102,7 +105,7 @@ def showRule(rule):
 # ## Columns
 
 # Here's a class that can pretty print itself
-class pretty: __repr__ = lambda i:showd(i.__dict__, i.__class__.__name__) 
+class pretty: __repr__ = lambda i:showd(i.__dict__, i.__class__.__name__)
 # ### Summarize SYMs
 class SYM(pretty):
    def __init__(i,a,at=0,name=" "):
@@ -126,15 +129,15 @@ class NUM(pretty):
 
    def _unsupercuts(i,at,a): # simplistic (equal frequency) unsupervised discretization
       n = inc = int(len(a)/(the.bins - 1))
-      cuts, b4, small = [], a[0], the.cohen*i.div
+      cuts, lo, small = [], a[0], the.cohen*i.div
       while n < len(a) -1 :
-         x = a[n]
-         if x==a[n+1] or x - b4 < small: 
+         hi = a[n]
+         if hi==a[n+1] or hi - lo < small:
             n += 1
          else:
             n += inc
-            cuts += [(at,b4,x)] # [(col, lo, hi)]
-            b4 = x
+            cuts += [(at,lo,hi)] # [(col, lo, hi)]
+            lo = hi
       if len(cuts) < 2: return [(at, -inf, inf)] # ensure cuts run -inf to inf
       cuts[ 0] = (at, -inf,        cuts[0][2])
       cuts[-1] = (at, cuts[-1][1], inf)
@@ -154,7 +157,7 @@ class TABLE(pretty):
    def __init__(i, src): i._cols( i._rows(src))
 
    def _rows(i,src): # src is a list of list, or an iterator that returns lists from files
-      for n,row in enumerate(src): 
+      for n,row in enumerate(src):
          if n==0:
             i.rows, i.names, cache = [], row, [[] for _ in row]
          else:
@@ -195,10 +198,9 @@ def supercuts(data, labelledRows):
          for row in rows:
             x = row[col.at]
             if x != "?":
-               counts[ ors(x,cuts) ].y[ label ] += 1/len(rows)
+               counts[ ors(x,cuts) ].y[ label ] += 1
       return sorted(counts.values(), key=lambda z:z.x)
 
-# SXXX stoping doing the 1/len(rows) trick. bad karma
    def _merges(ins): # Try merging any thing with its neighbor. Stop when no merges found
       outs, n = [], 0
       while n < len(ins):
@@ -228,24 +230,27 @@ def supercuts(data, labelledRows):
          if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
             yield cut
 #---------------------------------------------
+def scores(table):
+   rows = table.sorted()
+   n    = int(len(rows)**the.min)
+   bests, rests = rows[:n], rows[-n*the.rest:]
+   labelledRows = [("best",bests), ("rest", rests)]
+   cuts = supercuts(table, labelledRows)
+   ordered = sorted([(score(cut.y["best"], cut.y["rest"], len(bests), len(rests)),cut) for cut in cuts],
+                    reverse = True,
+                    key = lambda z:z[0])
+   top = ordered[:the.Beam]
+   return [z[1].x for z in top], bests,rests
+
 # Given you've found `b` or `r`, how much do we like you?
-def score(b, r):
-  r += 1/big # stop divide by zero errors
+def score(b, r, B,R):
+  b, r = b/(B+1/big), r/(R+1/big)
+  r += 1/big
   match the.want:
     case "plan"    : return b**2  /    (b + r)  # seeking best
     case "monitor" : print(1); return r**2  /    (b + r)  # seeking rest
     case "doubt"   : return (b+r) / abs(b - r)  # seeking border of best/rest 
     case "xplore"  : print(2); return 1     /    (b + r)  # seeking other
-
-def scores(data):
-   rows  = data.sorted()
-   n     = int(len(rows)**the.min)
-   bests,rests  = rows[:n], rows[-n*the.rest:]
-   labelledRows = [("best",bests), ("rests",rests)]
-   for (s,x) in sorted([(score(cut.y["best"], cut.y["rest"]),cut) for cut in
-                        supercuts(data,labelledRows)], reverse=True,
-                        key=lambda z:z[0]):
-      yield s,x.x
 
 #---------------------------------------------
 def showd(d,pre=""):
@@ -267,34 +272,12 @@ def entropy(d):   # measures diversity for symbolic distributions
    n = sum(d.values())
    return -sum(m/n * log(m/n,2) for m in d.values() if m>0)
 
-def pick(pairs,n):
-   r = R()
-   for s,x in pairs:
-      r -= s/n
-      if r <=0: yield x
-
-def grow(bestRows, restRows, a=[], scores={}, top=None):
-   top = top or the.rules*the.gens
-   a = set(a) # no repeats
-   for x in a:
-      if x not in scores: scores[x] = score(*selects(x,bestRows,restRows))
-   a.sort(reversed=True, key=lambda x:scores[x])
-   a = a[:top]
-   if len(a) < the.rules: return {x:scores[x] for x in a}
-   n = sum(x[0] for x in a)
-   picks = [combine(pick(a,n), pick(a,n)) for _ in range(the.grows)]
-   grow(bestRows, restRows, a+picks, scores,top//2)
-
 # Some standard short cuts
 big = 1e100
 R = random.random
 
-def coerce(x):
-   try : return lit(x)
-   except Exception: return x.strip()
-
 def csv(file="-"):
-   with file_or_stdin(file) as src:
+   with  fileinput.FileInput(file) as src:
       for line in src:
          line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
          if line:
@@ -310,12 +293,17 @@ def cli2dict(d):
       for j, x in enumerate(sys.argv):
          if ("-"+k[0]) == x or ("--"+k) == x:
             d[k] = coerce("True" if s == "False" else ("False" if s == "True" else sys.argv[j+1]))
+
+def powerset(s):
+  x = len(s)
+  for i in range(1 << x):
+     if tmp :=  [s[j] for j in range(x) if (i & (1 << j))]: yield tmp
 #---------------------------------------------
 # ## Start-up Actions
 
 # Before eacha ction, reset the random num 
 class go:
-   _saved = deepcopy(the)
+   _saved = copy.deepcopy(the)
    _all = locals()
    def _on(a=sys.argv): 
       cli2dict(the)
@@ -327,7 +315,7 @@ class go:
       random.seed(the.seed)
       failed = fun() is False
       print("❌ FAIL" if failed else "✅ OK", fun.__name__)
-      the = deepcopy(go._saved)
+      the = copy.deepcopy(go._saved)
       return failed
 
    def all():
@@ -345,6 +333,14 @@ class go:
    def the():
       "show config"
       print(the)
+
+   def powerset():
+      "Can we find all subsets of 4 things?"
+      [print(x) for x in powerset("abcd")]
+      t1= time.perf_counter()
+      n=1
+      for y  in powerset("01234567"): n = n+1
+      print(n,time.perf_counter() - t1)
 
    def sym():
       "can we find entropy of some syms"
@@ -377,8 +373,17 @@ class go:
 
    def discret():
       "can i do supervised discretization?"
-      for s,x in TABLE(csv(the.file)).sorted():
-         print(f"{s:.3f}\t{x}")
+      table = TABLE(csv(the.file))
+      cuts0, bests, rests = scores(table)
+      all = []
+      for cuts1 in powerset(cuts0):
+         rule = cuts2Rule(cuts1)
+         small = len(cuts1)/(2**len(cuts0))
+         d = selects(rule, [("best",bests), ("rest",rests)])
+         all += [((score(*map(len,[d["best"],d["rest"],bests,rests]))**2+(1-small)**2)**.5/2**.5, 
+                  rule)]
+      all = sorted(all, key=lambda x:x[0], reverse=True)[:20]
+      print(*all,sep="\n")
 
    Weather=[
       ("best",[["overcast", 83, 86, "FALSE", "yes"],
