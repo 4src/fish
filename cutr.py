@@ -49,41 +49,21 @@ the = slots(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*
 
 # A rule bundles together all the cuts that reference the same column.
 def cuts2Rule(cuts):
-   d0,d = defaultdict(list),{}
-   [d0[cut[0]].append(cut) for cut in cuts]
-   for k in d0:
-      x = simpler(sorted(d0[k])):
-      if not(x[0][1] == -inf and x[0][2] == inf):
-         d[k] = tuple(x)
-   if len(d) > 0:
-      return tuple(sorted(d.values()]))
-
-def simpler(ins):
-   i,outs = 0,[]
-   while i < len(ins):
-      c,lo,hi = ins[i]
-      while i < len(a) - 1 and hi == ins[i+1][1]:
-         hi = ins[i+1][2]
-         i += 1
-      outs += [(c,lo,hi)]
-      i += 1
-   return outs
+   d = defaultdict(list)
+   [d[cut[0]].append(cut) for cut in cuts]
+   return tuple(sorted([tuple(sorted(set(x))) for x in d.values()]))
 
 #  To combine rules, tear them down to their cuts and then build a new rule.
 def rules2rule(rules):
-   return cuts2Rule((cut for rule in rules
-                            for cuts in rule
-                               for cut in cuts))
+   return cuts2Rule(cut for rule in rules for cuts in rule for cut in cuts)
 
 # Rules can select rows
 def selects(rule, labelledRows):
-   counts, selected = Counter(), defaultdict(list)
+   selected =  defaultdict(list)
    for label, rows in labelledRows:
       for row in rows:
-         if ands(rule,row):
-            selected[label] += [row]
-            counts[label] += 1/len(rows)
-   return counts, selected
+         if ands(rule,row): selected[label] += [row]
+   return selected
 
 # `rule` is a  collection of  conjunctions. If any of them are false, then
 # the rule fails.
@@ -92,7 +72,7 @@ def ands(rule,row):
       if not ors(row[cuts[0][0]], cuts): return False
    return True
 
-# `cuts` are  a collection of  disjunctions,  of which at least one of which must
+# `cuts` are  a collection of  disjunctions, of which at least one of which must
 # be true  (otherwise, return None).
 def ors(x, cuts):
    for cut in cuts:
@@ -102,6 +82,22 @@ def ors(x, cuts):
 def true(x, cut):
    _,lo,hi = cut
    return  x=="?" or lo==hi==x or  x > lo and x <= hi
+
+# To display a rule, within an attribute, combine adjacent cuts.
+# Note that this returns a new rule since, once combined, this
+# new rule can no longer be used if `cuts2rule` or rules2rule`,
+def showRule(rule):
+   def spread(ins):
+      i,outs = 0,[]
+      while i < len(ins):
+         c,lo,hi = ins[i]
+         while i < len(a) - 1 and hi == ins[i+1][1]:
+            hi = ins[i+1][2]
+            i += 1
+         outs += [(c,lo,hi)]
+         i += 1
+      return tuple(outs)
+   return tuple(spread(v) for k,v in rule.items())
 #-------------------------------------------------------------------------------
 # ## Columns
 
@@ -179,7 +175,7 @@ class TABLE(pretty):
    # How to sort the rows closest to furthest from most desired
    def sorted(i, cols="goal"):
       def _distance2heaven(row):
-         return sum(( (col.heaven - col.norm(row[col.at]))**2 for col in i.cols[cols] ))**.5
+         return sum((col.heaven - col.norm(row[col.at]))**2 for col in i.cols[cols])**.5
       return sorted(i.rows, key=_distance2heaven)
 
    # How to make a new TABLE that copies the structure of an this TABLE (and fill in with `rows`).
@@ -269,7 +265,7 @@ def stdev(nums):  return (per(nums,.9) - per(nums,.1))/ 2.56 # div=diversity
 def mode(d):      return max(d, key=d.get) # most frequent number
 def entropy(d):   # measures diversity for symbolic distributions
    n = sum(d.values())
-   return -sum((m/n * log(m/n,2) for m in d.values() if m>0))
+   return -sum(m/n * log(m/n,2) for m in d.values() if m>0)
 
 def pick(pairs,n):
    r = R()
@@ -285,7 +281,7 @@ def grow(bestRows, restRows, a=[], scores={}, top=None):
    a.sort(reversed=True, key=lambda x:scores[x])
    a = a[:top]
    if len(a) < the.rules: return {x:scores[x] for x in a}
-   n = sum((x[0] for x in a))
+   n = sum(x[0] for x in a)
    picks = [combine(pick(a,n), pick(a,n)) for _ in range(the.grows)]
    grow(bestRows, restRows, a+picks, scores,top//2)
 
@@ -350,11 +346,16 @@ class go:
       "show config"
       print(the)
 
+   def sym():
+      "can we find entropy of some syms"
+      a = SYM('aaaabbc')
+      print(a.mid, a.div, ' '.join([f"({c} {x} {y})" for c,x,y in  a.cuts]))
+
    def nums():
       "can we find mean and sd of N(10,1)?"
       g= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
       a= NUM([g(10,1) for x in range(1000)])
-      print(a.mid,a.div,a.cuts)
+      print(a.mid,a.div,' '.join([f"({c} {x:.2f} {y:.2f})" for c,x,y in  a.cuts]))
 
    def read():
       "can we print rows from a disk-based csv file?"
@@ -379,27 +380,31 @@ class go:
       for s,x in TABLE(csv(the.file)).sorted():
          print(f"{s:.3f}\t{x}")
 
-   Weather = [["outlook","Temp","Humid","windy","play"],
-              ["sunny",    85, 85, "FALSE", "no"],
-              ["sunny",    80, 90, "TRUE",  "no"],
-              ["overcast", 83, 86, "FALSE", "yes"],
-              ["rainy",    70, 96, "FALSE", "yes"],
-              ["rainy",    68, 80, "FALSE", "yes"],
-              ["rainy",    65, 70, "TRUE",  "no"],
-              ["overcast", 64, 65, "TRUE",  "yes"],
-              ["sunny",    72, 95, "FALSE", "no"],
-              ["sunny",    69, 70, "FALSE", "yes"],
-              ["rainy",    75, 80, "FALSE", "yes"],
-              ["sunny",    75, 70, "TRUE",  "yes"],
-              ["overcast", 72, 90, "TRUE",  "yes"],
-              ["overcast", 81, 75, "FALSE", "yes"],
-              ["rainy",    71, 91, "TRUE",  "no"]]
+   Weather=[
+      ("best",[["overcast", 83, 86, "FALSE", "yes"],
+               ["rainy",    70, 96, "FALSE", "yes"],
+               ["rainy",    68, 80, "FALSE", "yes"],
+               ["overcast", 64, 65, "TRUE",  "yes"],
+               ["sunny",    69, 70, "FALSE", "yes"],
+               ["rainy",    75, 80, "FALSE", "yes"],
+               ["sunny",    75, 70, "TRUE",  "yes"],
+               ["overcast", 72, 90, "TRUE",  "yes"],
+               ["overcast", 81, 75, "FALSE", "yes"]]),
+      ("rest",[["sunny",    85, 85, "FALSE", "no"],
+               ["rainy",    65, 70, "TRUE",  "no"],
+               ["sunny",    72, 95, "FALSE", "no"],
+               ["rainy",    71, 91, "TRUE",  "no"],
+               ["sunny",    80, 90, "TRUE",  "no"]])]
 
-   def rules():
+   def cuts():
       "can i do supervised discretization?"
       threes = [rule for s,rule in scores(TABLE(csv(the.file)))]
-      rule = threes2Rule(threes)
-      print(rules2rule([rule,rule,rule]))
-      #print(  rule) #rule2Threes(rule))
+      rule = cuts2Rule( ((0,"overcast", "overcast"),(1,80, 90), (1, -inf,  65) ) )
+      rule = rules2rule([rule,rule,rule,rule])
+      print(rule)
+      selected = selects(rule, go.Weather)
+      [print("best",x) for x in selected["best"]]
+      [print("rest",x) for x in selected["rest"]]
+
 
 if __name__ == "__main__": go._on()
