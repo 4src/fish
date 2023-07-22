@@ -60,7 +60,7 @@ def cuts2Rule(cuts):
 
 def simpler(ins):
    i,outs = 0,[]
-   while i< len(ins):
+   while i < len(ins):
       c,lo,hi = ins[i]
       while i < len(a) - 1 and hi == ins[i+1][1]:
          hi = ins[i+1][2]
