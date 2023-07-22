@@ -50,13 +50,15 @@ the = slots(**{m[1]: lit(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*
 # A rule bundles together all the cuts that reference the same column.
 def cuts2Rule(cuts):
    d = defaultdict(list)
-   for at,lo,hi in cuts: d[at] += [(at,lo,hi)]
-   for k in d: d[k] = tuple(sorted(set(d[k])))
-   return tuple(sorted(d.values()))
+   [d[cut[0]].append(cut) for cut in cuts]
+   return tuple(sorted([ tuple(sorted(set(value))) 
+                         for value in d.values()]))
 
 #  To combine rules, tear them down to their cuts and then build a new rule.
 def rules2rule(rules):
-  return cuts2Rule((cut for rule in rules for cuts in rule for cut in cuts))
+   return cuts2Rule((cut for rule in rules
+                            for cuts in rule
+                               for cut in cuts))
 
 # Rules can select rows
 def selects(rule, labelledRows):
@@ -108,12 +110,10 @@ class NUM(pretty):
       i.lo, i.hi, i.heaven = a[0], a[-1], 0 if name[-1] == "-" else 1
       i.cuts = i._unsupercuts(at,a)
 
-   def norm(i,x):
-      "map `x` 0..1 for `lo..hi`"
-      return x if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
+   # Map `x` 0..1 for `lo..hi`".
+   def norm(i,x): return x if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
 
-   def _unsupercuts(i,at,a):
-      "simplistic (equal frequency) unsupervised discretization"
+   def _unsupercuts(i,at,a): # simplistic (equal frequency) unsupervised discretization
       n = inc = int(len(a)/(the.bins - 1))
       cuts, b4, small = [], a[0], the.cohen*i.div
       while n < len(a) -1 :
@@ -142,8 +142,7 @@ ako = slots(num  = lambda s: s[0].isupper(),
 class TABLE(pretty):
    def __init__(i, src): i._cols( i._rows(src))
 
-   def _rows(i,src):
-      "Make rows from src is a list of list, or an iterator that returns lists from files"
+   def _rows(i,src): # src is a list of list, or an iterator that returns lists from files
       for n,row in enumerate(src): 
          if n==0:
             i.rows, i.names, cache = [], row, [[] for _ in row]
@@ -152,26 +151,24 @@ class TABLE(pretty):
             [a.append(x) for a,x in zip(cache,row) if x != "?"]
       return cache
 
-   def _cols(i,cache):
-      "Make columns using the information cached while reading rows"
+   def _cols(i,cache): # Make columns using the information cached while reading rows
       i.cols = slots(all = [(NUM if ako.num(name) else SYM)(a, at, name)
                             for at,(name,a) in enumerate(zip(i.names,cache))])
       for k,fun in ako.items():
          i.cols[k] = [c for c in i.cols.all if not ako.skip(c.name) and fun(c.name)]
 
+  # How to report stats on each column.
    def stats(i, cols="goal", decimals=None, want="mid"):
-      "How to report stats on each column."
       return slots(N=len(i.rows), **{c.name:show(c.__dict__[want],decimals) for c in i.cols[cols]})
 
+   # How to sort the rows closest to furthest from most desired
    def sorted(i, cols="goal"):
-      "How to sort the rows closest to furthest from most desired"
       def _distance2heaven(row):
          return sum(( (col.heaven - col.norm(row[col.at]))**2 for col in i.cols[cols] ))**.5
       return sorted(i.rows, key=_distance2heaven)
 
-   def clone(i, a=[]):
-      "How to make a new TABLE that copies the structure of an this TABLE (and fill in with `rows`)."
-      return TABLE( [i.names] + a)
+   # How to make a new TABLE that copies the structure of an this TABLE (and fill in with `rows`).
+   def clone(i, a=[]): return TABLE( [i.names] + a)
 
 #-------------------------------------------------------------------------------
 # ## Discretization
@@ -181,8 +178,7 @@ class TABLE(pretty):
 # showing frequency counts of these ranges amongst these `labelledRows`.
 # (and this  is a set of pairs `[(label1,rows1),(label2,rows2)...]`).
 def supercuts(data, labelledRows):
-   def _counts(col, cuts, labelledRows):
-      "count how often `cut` (in `cuts`) appears among the different labels?"
+   def _counts(col, cuts, labelledRows): # how often is `cit` seen in different rows?
       counts = {cut : slots(x=cut, y=Counter()) for cut in cuts}
       for label,rows in labelledRows:
          for row in rows:
@@ -191,8 +187,8 @@ def supercuts(data, labelledRows):
                counts[ ors(x,cuts) ].y[ label ] += 1/len(rows)
       return sorted(counts.values(), key=lambda z:z.x)
 
-   def _merges(ins):
-      "Try merging any thing with its neighbor. Stop when no more merges found."
+# SXXX stoping doing the 1/len(rows) trick. bad karma
+   def _merges(ins): # Try merging any thing with its neighbor. Stop when no merges found
       outs, n = [], 0
       while n < len(ins):
          thing = ins[n]
@@ -205,8 +201,7 @@ def supercuts(data, labelledRows):
          n += 1
       return ins if len(ins)==len(outs) else _merges(outs)
 
-   def _merge(a,b):
-      "combines a,b (and returns None if the whole is more complex than that parts)"
+   def _merge(a,b): # merge  a,b unless the whole is more complex than that parts
       ab = slots(x= (a.x[0], a.x[1], b.x[2]), y= a.y + b.y)
       n1 = a.y.total() + 1/big
       n2 = b.y.total() + 1/big
@@ -222,8 +217,8 @@ def supercuts(data, labelledRows):
          if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
             yield cut
 #---------------------------------------------
+# Given you've found `b` or `r`, how much do we like you?
 def score(b, r):
-  "Given you've found `b` or `r`, how much do we like you?"
   r += 1/big # stop divide by zero errors
   match the.want:
     case "plan"    : return b**2  /    (b + r)  # seeking best
@@ -278,17 +273,6 @@ def grow(bestRows, restRows, a=[], scores={}, top=None):
    n = sum((x[0] for x in a))
    picks = [combine(pick(a,n), pick(a,n)) for _ in range(the.grows)]
    grow(bestRows, restRows, a+picks, scores,top//2)
-
-# def select(data,ranges,row):
-#   def _ors(chops,vals):
-#     for val in vals:
-#       if  within(row.cooked[col],*chops[val]): return True
-#   for col,vals in ranges:
-#     if not _ors(data.cols.all[col].chops, vals): return False
-#   return True
-#
-# def selects(data,ranges,rows):
-#   return [row for row in rows if select(data,ranges,row)]
 
 # Some standard short cuts
 big = 1e100
