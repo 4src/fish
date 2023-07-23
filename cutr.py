@@ -382,14 +382,15 @@ class go:
       print(a.mid,a.div,' '.join([f"({c} {x:.2f} {y:.2f})" for c,x,y in  a.cuts]))
 
    def stats():
-      a = [go.Normal(10,1) for _ in range(128)]
+      mu,sd = 10,1
+      a = [go.Normal(mu,sd) for _ in range(128)]
       yn = lambda x: "y" if x else "."
       print(the.seed)
       r = 0
       prints("a.mu","b.mu","cliffs","boot","c+b")
       while r <= 3:
-         b = [go.Normal(10+r,3) for _ in range(128)]
-         prints(10,f"{10+r}", yn(cliffsDelta(a,b)),yn(bootstrap(a,b)),yn(different(a,b)))
+         b = [go.Normal(mu+r,3*sd) for _ in range(128)]
+         prints(mu,f"{mu+r}", yn(cliffsDelta(a,b)),yn(bootstrap(a,b)),yn(different(a,b)))
          r += .25
 
    def read():
