@@ -383,15 +383,16 @@ class go:
 
    def stats():
       mu,sd = 10,1
-      a = [go.Normal(mu,sd) for _ in range(128)]
+      a = [go.Normal(mu,sd) for _ in range(64)]
       yn = lambda x: "y" if x else "."
-      print(the.seed)
+      seed=the.seed
       r = 0
       prints("a.mu","b.mu","cliffs","boot","c+b")
       while r <= 3:
-         b = [go.Normal(mu+r,3*sd) for _ in range(128)]
+         b = [go.Normal(mu+r,3*sd) for _ in range(64)]
          prints(mu,f"{mu+r}", yn(cliffsDelta(a,b)),yn(bootstrap(a,b)),yn(different(a,b)))
-         r += .25
+         r += .25 
+      print(seed)
 
    def read():
       "can we print rows from a disk-based csv file?"
