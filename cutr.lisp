@@ -31,6 +31,13 @@
   "kill whitespace at start, at end"
   (string-trim '(#\Space #\Tab #\Newline) s))
 
+(defun split (s &optional (sep #\,) (filter #'string2thing) (here 0))
+  "split  `s`, divided by `sep` filtered through `filter`"
+  (let* ((there (position sep s :start here))
+         (word  (funcall filter (subseq s here there))))
+    (labels ((tail () (if there (split s sep filter (1+ there)))))
+      (if (equal word "") (tail) (cons word (tail))))))
+
 (defun string2thing (s &aux (s1 (trim s)))
   "coerce `s` into a number or string or t or nil or #\?"
   (cond ((equal s1 "?") #\?)
@@ -39,7 +46,31 @@
         (t (let ((n (read-from-string s1 nil nil))) 
              (if (numberp n) n s1)))))
 
+#|
+
+  1 |#
+asdasd
+
+
+ Mode: regexrange
+  specifying regular expression delimited ranges
+      --regex-range=STRING      generate only the lines within the specified
+                                  regular expressions
+  when a line containing the specified regular expression is found, then
+  the lines after this one are actually generated, until another line,
+  containing the same regular expression is found (this last line is not
+  generated).
+  More than one regular expression can be specified.
+a
+
+|#
+
+(defun with-file (file fun &optional (filter #'split))
+  "call `fun` for each line in `file`"
+  (with-open-file (s file) 
+    (loop (funcall fun (funcall filter (or (read-line s nil) (return)))))))
 (defun cli (flag-help-values)
+  "update values from command line"
   (loop for (flag help value) in flag-help-values collect
         (labels ((_args ()     #+clisp ext:*args*  #+sbcl sb-ext:*posix-argv*)
                  (_update (arg) (cond ((eql value t) nil)
@@ -50,9 +81,9 @@
                   (if it (_update (second it)) value))))))
 
 (defun about (flag-help-values)
+  "show the `about` part of settings"
   (format t "~%~{~a~%~}OPTIONS:~%" (? about flag-help-values))
-  (dolist (x (cdr flag-help-values)) 
-    (format t "  ~10a ~a~%" (format nil "--~(~a~)" (first x)) (second x))))
+  (dolist (x (cdr flag-help-values)) (format t "  --~(~10a~) ~a~%"  (first x) (second x))))
 ;;;; ----------------------------------------------------------
 (setf *settings* (cli *settings*))
 (if (? help) (about *settings*))

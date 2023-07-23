@@ -18,13 +18,16 @@ OPTIONS:
   -c --cohen  parametric small delta      = .35
   -C --Cliffs  non-parametric small delta = 0.2385 
   -f --file   where to read data          = "../data/auto93.csv"
+  -F --far    distance to  distant rows   = .925
   -g --go     start up action             = "help"
   -h --help   show help                   = False
-  -s --seed   random number seed         = 1234567891
-  -m --min    minuimum size              = .5
-  -r --rest   |rest| = |best|*rest       = 3
+  -H --Halves #examples used in halving   = 512
+  -p --p      distance coefficient        = 2
+  -s --seed   random number seed          = 1234567891
+  -m --min    minimum size               = .5
+  -r --rest   |rest| = |best|*rest        = 3
   -T --Top    max. good cuts to explore   = 10
-  -w --want   plan|xplore|monitor|doubt  = "plan"
+  -w --want   plan|xplore|monitor|doubt   = "plan"
 """
 from collections import Counter, defaultdict
 from math import pi, log, cos, sin, sqrt, inf
@@ -87,7 +90,7 @@ def true(x, cut):
 # To display a rule, within an attribute, combine adjacent cuts.
 # Note that this returns a new rule since, once combined, this
 # new rule can no longer be used if `cuts2rule` or rules2rule`,
-def showRule(rule):
+def showRule(rule,names=None):
    def spread(ins):
       i,outs = 0,[]
       while i < len(ins):
@@ -95,7 +98,7 @@ def showRule(rule):
          while i < len(a) - 1 and hi == ins[i+1][1]:
             hi = ins[i+1][2]
             i += 1
-         outs += [(c,lo,hi)]
+         outs += [(names[c] if names else c,lo,hi)]
          i += 1
       return tuple(outs)
    return tuple(spread(v) for k,v in rule.items())
@@ -113,6 +116,9 @@ class SYM(pretty):
       i.cuts = [(at,x,x) for x in sorted(set(d))]
       i.cardinality = len(i.cuts)
 
+   # distance between two values
+   def dist(i,x,y): return 1 if x=="?" and y=="?" else (0 if x==y else 1)
+
 # ### Summarize NUMs
 class NUM(pretty):
    def __init__(i,a,at=0,name=" "):
@@ -123,7 +129,18 @@ class NUM(pretty):
       i.cuts = i._unsupercuts(at,a)
 
    # Map `x` 0..1 for `lo..hi`".
-   def norm(i,x): return x if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
+   def norm(i,x): return "?" if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
+
+   # distance between two values
+   def dist(i,x,y): 
+      if    x=="?" and x=="?": return 1
+      if    x=="?": y = i.norm(y); x= 0 if y > .5 else 1
+      elif  y=="?": x = i.norm(x); y= 0 if x > .5 else 1
+      else: x,y = i.norm(x), i.norm(y)
+      return abs(x - y)
+
+   # distance to theoretical max
+   def distance2heaven(i,row): return i.heaven - i.norm(row[col.at]
 
    def _unsupercuts(i,at,a): # simplistic (equal frequency) unsupervised discretization
       n = inc = int(len(a)/(the.bins - 1))
@@ -141,17 +158,18 @@ class NUM(pretty):
       cuts[-1] = (at, cuts[-1][1], inf)
       return cuts
 #---------------------------------------------------------------------------------------------------
-# ## TABLE
+# ## SHEET
 # Store many `rows` and  the none "?" values in each column (in `cols`).
 # Note that first `row` is a list of column `names`. Also, the column `names` can be
 # categories as follows:
 ako = slots(num  = lambda s: s[0].isupper(),
             goal = lambda s: s[-1] in "+-",
             skip = lambda s: s[-1] == "X",
-            xnum = lambda s: not ako.goal(s) and ako.num(s),
-            xsym = lambda s: not ako.goal(s) and not ako.num(s))
+            x    = lambda s: not ako.goal(s)
+            xnum = lambda s: ako.x(s) and ako.num(s),
+            xsym = lambda s: ako.x(s) and not ako.num(s))
 
-class TABLE(pretty):
+class SHEET(pretty):
    def __init__(i, src): i._cols( i._rows(src))
 
    def _rows(i,src): # src is a list of list, or an iterator that returns lists from files
@@ -169,7 +187,7 @@ class TABLE(pretty):
       for k,fun in ako.items():
          i.cols[k] = [c for c in i.cols.all if not ako.skip(c.name) and fun(c.name)]
 
-  # How to report stats on each column.
+   # How to report stats on each column.
    def stats(i, cols="goal", decimals=None, want="mid"):
       return slots(N=len(i.rows), **{c.name:show(c.__dict__[want],decimals) for c in i.cols[cols]})
 
@@ -179,8 +197,14 @@ class TABLE(pretty):
          return sum((col.heaven - col.norm(row[col.at]))**2 for col in i.cols[cols])**.5
       return sorted(i.rows, key=_distance2heaven)
 
-   # How to make a new TABLE that copies the structure of an this TABLE (and fill in with `rows`).
-   def clone(i, a=[]): return TABLE( [i.names] + a)
+   # How to make a new SHEET that copies the structure of an this SHEET (and fill in with `rows`).
+   def clone(i, a=[]): return SHEET( [i.names] + a)
+
+   # distance between two rows
+   def dist(i,row1,row2):
+    "distance between two rows"
+    return (sum(c.dist(row1.cells[c.at], row2.cells[c.at]) for c in i.cols.x )**the.p
+           / len(i.cols.x))**(1/the.p)
 
 #-------------------------------------------------------------------------------
 # ## Discretization
@@ -228,12 +252,12 @@ def supercuts(data, labelledRows):
          if not (cut.x[1] == -inf and cut.x[2] == inf): # ignore it if it spans whole range
             yield cut
 #---------------------------------------------
-def scores(table):
-   rows = table.sorted()
+def scores(sheet):
+   rows = sheet.sorted()
    n    = int(len(rows)**the.min)
    bests, rests = rows[:n], random.sample(rows[n:], n*the.rest)
    labelledRows = [("best",bests), ("rest", rests)]
-   cuts = supercuts(table, labelledRows)
+   cuts = supercuts(sheet, labelledRows)
    ordered = sorted([(score(cut.y["best"], cut.y["rest"], len(bests), len(rests)),cut) 
                      for cut in cuts],
                      reverse = True,
@@ -249,6 +273,40 @@ def score(b, r, B,R):
     case "monitor" : print(1); return r**2  /    (b + r)  # seeking rest
     case "doubt"   : return (b+r) / abs(b - r)  # seeking border of best/rest 
     case "xplore"  : print(2); return 1     /    (b + r)  # seeking other
+
+#---------------------------------------------
+def better(data,row1,row2)
+   return sum((col.norm(row1[col.at[ - col.norm(row2[col.at]))**2 for col in i.cols.goal)**.5
+
+def tree (sheet)
+   def _d(row1,row2) : return sheet.dist(row1,row2)
+
+   def _far(rows,row1):
+      fun = lambda row2: return _d(row1,row2),row2
+      rows = sorted(map(fun,rows), key=lambda z:z[0]))
+      return rows[:len(rows)*the.Far //1 ][1]
+
+   def _halve(rows):
+      some = rows in len(rows) <= the.Halves else random.sample(rows,k=the.Halves)
+      a    = _far(some, random.choice(some))
+      b    = _far(some, a)
+      C    = _d(a,b)
+      half1, half2=[],[]
+      _cosine = lambda r: return ((_d(r,a)**2 + C**2 - _d(r,b)**2)/(2*C), r)
+      for n,(_,row) in enumerate(sorted(map(_cosine, rows), key=lambda z:z[0])):
+         (haf1 if rowsb <= len(rows)/2 else half2).append(row)
+      return half1, half2
+
+   def _tree(rows,stop=None):
+      stop = stop or len(rows)**the.min
+      here = SHEET(rows)
+      here.left = here.right = None
+      if len(rows) > 2*stop:
+         left,right = _halve(rows)
+         if len(left)  != len(rows): here.left  =  _tree(left,stop)
+         if len(right) != len(rows): here.right =  _tree(right,stop)
+      return here
+
 
 #---------------------------------------------
 def showd(d,pre=""):
@@ -399,23 +457,23 @@ class go:
       [prints(*row) for r,row in enumerate(csv(the.file)) if r < 10]
 
    def data():
-      "can we load disk rows into a TABLE?"
-      table = TABLE(csv(the.file))
-      printd(table.stats())
+      "can we load disk rows into a SHEET?"
+      sheet = SHEET(csv(the.file))
+      printd(sheet.stats())
 
    def sorted():
       "can we find best, rest rows?"
-      table= TABLE(csv(the.file))
-      a    = table.sorted()
+      sheet= SHEET(csv(the.file))
+      a    = sheet.sorted()
       n    = int(len(a)**the.min)
-      printd(table.stats(),
-             table.clone(a[:n]).stats(),
-             table.clone(a[-n*the.rest:]).stats())
+      printd(sheet.stats(),
+             sheet.clone(a[:n]).stats(),
+             sheet.clone(a[-n*the.rest:]).stats())
 
    def discret():
       "can i do supervised discretization?"
-      table = TABLE(csv(the.file))
-      cuts0, bests, rests = scores(table)
+      sheet = SHEET(csv(the.file))
+      cuts0, bests, rests = scores(sheet)
       cuts0 = cuts0[:the.Top]
       all = []
       for cuts1 in powerset(cuts0):
@@ -425,11 +483,11 @@ class go:
          all += [((score(*map(len,[d["best"],d["rest"],bests,rests]))**2+(1-small)**2)**.5/2**.5,
                   rule)]
       bestRule = sorted(all, key=lambda x:x[0], reverse=True)[0][1]
-      selected = select(bestRule, table.rows)
-      prints("","N", *[col.name for col in table.cols.goal])
-      prints("old",  *table.stats().values())
-      prints("want", *table.clone(bests).stats().values())
-      prints("got",  *table.clone(selected).stats().values())
+      selected = select(bestRule, sheet.rows)
+      prints("","N", *[col.name for col in sheet.cols.goal])
+      prints("old",  *sheet.stats().values())
+      prints("want", *sheet.clone(bests).stats().values())
+      prints("got",  *sheet.clone(selected).stats().values())
       print(R())
 
    Weather=[
@@ -450,7 +508,7 @@ class go:
 
    def cuts():
       "can i do supervised discretization?"
-      threes = [rule for s,rule in scores(TABLE(csv(the.file)))]
+      threes = [rule for s,rule in scores(SHEET(csv(the.file)))]
       rule = cuts2Rule( ((0,"overcast", "overcast"),(1,80, 90), (1, -inf,  65) ) )
       rule = rules2rule([rule,rule,rule,rule])
       print(rule)
