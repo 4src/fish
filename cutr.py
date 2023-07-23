@@ -13,15 +13,17 @@ we use cuts for multi- objective, semi- supervised, rule-based explanation.
 (c) Tim Menzies <timm@ieee.org>, BSD-2 license
 
 OPTIONS:
-  -b --bins   initial number of bins     = 16
-  -B --Beam   max. good cuts to explore  = 10
-  -c --cohen  small delta = cohen*stdev  = .35
-  -f --file   where to read data         = "../data/auto93.csv"
-  -g --go     start up action            = "help"
-  -h --help   show help                  = False
+  -b --bins   initial number of bins      = 16
+  -B --Bootstraps number of bootstraps    = 256
+  -c --cohen  parametric small delta      = .35
+  -C --Cliffs  non-parametric small delta = 0.147
+  -f --file   where to read data          = "../data/auto93.csv"
+  -g --go     start up action             = "help"
+  -h --help   show help                   = False
   -s --seed   random number seed         = 1234567891
   -m --min    minuimum size              = .5
   -r --rest   |rest| = |best|*rest       = 3
+  -T --Top    max. good cuts to explore   = 10
   -w --want   plan|xplore|monitor|doubt  = "plan"
 """
 from collections import Counter, defaultdict
@@ -59,24 +61,20 @@ def cuts2Rule(cuts):
 def rules2rule(rules):
    return cuts2Rule(cut for rule in rules for cuts in rule for cut in cuts)
 
-# Rules can select rows
+# `Rule`s can select rows from multiple `labelledRows`.
 def selects(rule, labelledRows):
-   selected = defaultdict(list)
-   for label, rows in labelledRows:
-      for row in rows:
-         if ands(rule,row): 
-            selected[label] += [row]
-   return selected
+   return {label: select(rule,rows) for label,rows in labelledRows}
 
-# `rule` is a  collection of  conjunctions. If any of them are false, then
-# the rule fails.
+# `Rule`s can pull specific `rows`.
+def select(rule, rows): return [row for row in rows if ands(rule,row)]
+
+# `Rule` is a  collection of  conjunctions. If any are false, then the rule fails.
 def ands(rule,row):
    for cuts in rule:
       if not ors(row[cuts[0][0]], cuts): return False
    return True
 
-# `cuts` are  a collection of  disjunctions, of which at least one of which must
-# be true  (otherwise, return None).
+# For each disjunction in `cuts`, at least one c`cut` must be true (else, return None).
 def ors(x, cuts):
    for cut in cuts:
       if true(x, cut): return cut
@@ -110,7 +108,7 @@ class pretty: __repr__ = lambda i:showd(i.__dict__, i.__class__.__name__)
 class SYM(pretty):
    def __init__(i,a,at=0,name=" "):
       d = Counter(a)
-      i.at, i.name = at, name
+      i.n, i.at, i.name = len(a), at, name
       i.mid, i.div = mode(d), entropy(d)
       i.cuts = [(at,x,x) for x in sorted(set(d))]
       i.cardinality = len(i.cuts)
@@ -119,7 +117,7 @@ class SYM(pretty):
 class NUM(pretty):
    def __init__(i,a,at=0,name=" "):
       a = sorted(a)
-      i.at, i.name = at, name
+      i.n, i.at, i.name = len(a), at, name
       i.mid, i.div = median(a), stdev(a)
       i.lo, i.hi, i.heaven = a[0], a[-1], 0 if name[-1] == "-" else 1
       i.cuts = i._unsupercuts(at,a)
@@ -233,21 +231,21 @@ def supercuts(data, labelledRows):
 def scores(table):
    rows = table.sorted()
    n    = int(len(rows)**the.min)
-   bests, rests = rows[:n], rows[-n*the.rest:]
+   bests, rests = rows[:n], random.sample(rows[n:], n*the.rest)
    labelledRows = [("best",bests), ("rest", rests)]
    cuts = supercuts(table, labelledRows)
-   ordered = sorted([(score(cut.y["best"], cut.y["rest"], len(bests), len(rests)),cut) for cut in cuts],
-                    reverse = True,
-                    key = lambda z:z[0])
-   top = ordered[:the.Beam]
-   return [z[1].x for z in top], bests,rests
+   ordered = sorted([(score(cut.y["best"], cut.y["rest"], len(bests), len(rests)),cut) 
+                     for cut in cuts],
+                     reverse = True,
+                     key = lambda z:z[0])
+   return [z[1].x for z in ordered], bests,rests
 
 # Given you've found `b` or `r`, how much do we like you?
 def score(b, r, B,R):
   b, r = b/(B+1/big), r/(R+1/big)
   r += 1/big
   match the.want:
-    case "plan"    : return b**2  /    (b + r)  # seeking best
+    case "plan"    : return b**2 /    (b + r)  # seeking best
     case "monitor" : print(1); return r**2  /    (b + r)  # seeking rest
     case "doubt"   : return (b+r) / abs(b - r)  # seeking border of best/rest 
     case "xplore"  : print(2); return 1     /    (b + r)  # seeking other
@@ -283,10 +281,6 @@ def csv(file="-"):
          if line:
             yield [coerce(x) for x in line.split(",")]
 
-def prints(*dists):
-   print(*dists[0].keys(), sep="\t")
-   [print(*d.values(), sep="\t") for d in dists]
-
 def cli2dict(d):
    for k, v in d.items():
       s = str(v)
@@ -298,6 +292,40 @@ def powerset(s):
   x = len(s)
   for i in range(1 << x):
      if tmp :=  [s[j] for j in range(x) if (i & (1 << j))]: yield tmp
+
+def prints(*t): print(*t,sep="\t")
+
+def printd(*d):
+   prints(*list(d[0].keys()))
+   [prints(*list(d1.values())) for d1 in d]
+
+def different(x,y):
+  return cliffsDelta(x,y) and bootstrap(x,y)
+
+def cliffsDelta(x,y):
+   if len(x) > 10*len(y) : return cliffsDelta(random.choices(x,10*len(y)),y)
+   if len(y) > 10*len(x) : return cliffsDelta(x, random.choices(y,10*len(x)))
+   n,lt,gt = 0,0,0
+   for x1 in x:
+      for y1 in y:
+         n = n + 1
+         if x1 > y1: gt = gt + 1
+         if x1 < y1: lt = lt + 1
+   return abs(lt - gt)/n > the.Cliffs # true if different
+
+def bootstrap(y0,z0,conf=.05):
+   obs= lambda x,y: abs(x.mid-y.mid) / ((x.div**2/x.n + y.div**2/y.n)**.5 + 1/big)
+   x, y, z = NUM(y0+z0), NUM(y0), NUM(z0)
+   d = obs(y,z)
+   yhat = [y1 - y.mid + x.mid for y1 in y0]
+   zhat = [z1 - z.mid + x.mid for z1 in z0]
+   n      = 0
+   for _ in range(the.Bootstraps):
+      ynum = NUM(random.choices(yhat,k=len(yhat)))
+      znum = NUM(random.choices(zhat,k=len(zhat)))
+      if obs(ynum, znum) > d:
+         n += 1
+   return n / the.Bootstraps < conf # true if different
 #---------------------------------------------
 # ## Start-up Actions
 
@@ -349,25 +377,35 @@ class go:
 
    def nums():
       "can we find mean and sd of N(10,1)?"
-      g= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
-      a= NUM([g(10,1) for x in range(1000)])
+      normal= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
+      a= NUM([normal(10,1) for x in range(1000)])
       print(a.mid,a.div,' '.join([f"({c} {x:.2f} {y:.2f})" for c,x,y in  a.cuts]))
+
+   def stats():
+      gauss= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
+      a = [gauss(5,2)+gauss(10,3)+gauss(15,2) for _ in range(256)]
+      r = 1
+      prints("r","cliffs","boot","c+b","different?")
+      while r < 1.1:
+         b = [x*r for x in a]
+         prints(f"{r:.3f}",cliffsDelta(a,b),bootstrap(a,b),different(a,b),int(sum(b)))
+         r += .01
 
    def read():
       "can we print rows from a disk-based csv file?"
-      [print(*row,sep=",\t") for r,row in enumerate(csv(the.file)) if r < 10]
+      [prints(*row) for r,row in enumerate(csv(the.file)) if r < 10]
 
    def data():
       "can we load disk rows into a TABLE?"
       table = TABLE(csv(the.file))
-      prints(table.stats())
+      printd(table.stats())
 
    def sorted():
       "can we find best, rest rows?"
       table= TABLE(csv(the.file))
       a    = table.sorted()
       n    = int(len(a)**the.min)
-      prints(table.stats(),
+      printd(table.stats(),
              table.clone(a[:n]).stats(),
              table.clone(a[-n*the.rest:]).stats())
 
@@ -375,15 +413,21 @@ class go:
       "can i do supervised discretization?"
       table = TABLE(csv(the.file))
       cuts0, bests, rests = scores(table)
+      cuts0 = cuts0[:the.Top]
       all = []
       for cuts1 in powerset(cuts0):
          rule = cuts2Rule(cuts1)
          small = len(cuts1)/(2**len(cuts0))
          d = selects(rule, [("best",bests), ("rest",rests)])
-         all += [((score(*map(len,[d["best"],d["rest"],bests,rests]))**2+(1-small)**2)**.5/2**.5, 
+         all += [((score(*map(len,[d["best"],d["rest"],bests,rests]))**2+(1-small)**2)**.5/2**.5,
                   rule)]
-      all = sorted(all, key=lambda x:x[0], reverse=True)[:20]
-      print(*all,sep="\n")
+      bestRule = sorted(all, key=lambda x:x[0], reverse=True)[0][1]
+      selected = select(bestRule, table.rows)
+      prints("","N", *[col.name for col in table.cols.goal])
+      prints("old",  *table.stats().values())
+      prints("want", *table.clone(bests).stats().values())
+      prints("got",  *table.clone(selected).stats().values())
+      print(R())
 
    Weather=[
       ("best",[["overcast", 83, 86, "FALSE", "yes"],
