@@ -18,9 +18,9 @@
     (top       "top items to explore"       10)
     (want      "optimization goal"          plan)))
 
-(defmacro ? (x) 
+(defmacro ? (x &optional (lst *settings*)) 
   "alist accessor, defaults to searching `*settings*`"
-  `(second (cdr (assoc ',x *settings* :test #'equalp))))
+  `(second (cdr (assoc ',x ,lst :test #'equalp))))
 
 (defmacro o (s x &rest xs)
   "nested slot accessor"
@@ -31,7 +31,7 @@
   "kill whitespace at start, at end"
   (string-trim '(#\Space #\Tab #\Newline) s))
 
-(defun thing (s &aux (s1 (trim s)))
+(defun string2thing (s &aux (s1 (trim s)))
   "coerce `s` into a number or string or t or nil or #\?"
   (cond ((equal s1 "?") #\?)
         ((equal s1 "t") t)
@@ -39,27 +39,21 @@
         (t (let ((n (read-from-string s1 nil nil))) 
              (if (numberp n) n s1)))))
 
-(defun args () 
-  "accessing command-line flats"
-  #+clisp ext:*args*  
-  #+sbcl sb-ext:*posix-argv*)
+(defun cli (flag-help-values)
+  (loop for (flag help value) in flag-help-values collect
+        (labels ((_args ()     #+clisp ext:*args*  #+sbcl sb-ext:*posix-argv*)
+                 (_update (arg) (cond ((eql value t) nil)
+                                      ((eql value nil) t)
+                                      (t (string2thing arg)))))
+          (list flag help 
+                (let ((it (member (format nil "--~(~a~)" flag) (_args) :test #'equal)))
+                  (if it (_update (second it)) value))))))
 
-(defun cli ()
-  (labels ((_flag (flag) (format nil "--~(~a~)" flag))
-           (_update (it val) 
-                    (cond ((eql val t) nil)
-                          ((eql val nil) t)
-                          (t (thing (second it)))))
-           (_cli (flag val &aux it) 
-                 (if (setf it (member (_flag flag) (args) :test #'equal))
-                   (_update it val)
-                   val)))
-    (setf *settings* (loop for (flag  h x) in *settings* 
-                           collect (list flag h (_cli flag x))))
-    (when (? help)
-      (format t "~%~{~a~%~}OPTIONS:~%" (? about))
-      (loop for (flag h _) in  *settings* do 
-            (format t "  ~10a ~a~%" (_flag flag) h)))))
+(defun about (flag-help-values)
+  (format t "~%~{~a~%~}OPTIONS:~%" (? about flag-help-values))
+  (dolist (x (cdr flag-help-values)) 
+    (format t "  ~10a ~a~%" (format nil "--~(~a~)" (first x)) (second x))))
 ;;;; ----------------------------------------------------------
-(cli)
+(setf *settings* (cli *settings*))
+(if (? help) (about *settings*))
 (print (? bins))

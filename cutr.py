@@ -14,9 +14,9 @@ we use cuts for multi- objective, semi- supervised, rule-based explanation.
 
 OPTIONS:
   -b --bins   initial number of bins      = 16
-  -B --Bootstraps number of bootstraps    = 256
+  -B --Bootstraps number of bootstraps    = 512
   -c --cohen  parametric small delta      = .35
-  -C --Cliffs  non-parametric small delta = 0.147
+  -C --Cliffs  non-parametric small delta = 0.2385 
   -f --file   where to read data          = "../data/auto93.csv"
   -g --go     start up action             = "help"
   -h --help   show help                   = False
@@ -375,21 +375,22 @@ class go:
       a = SYM('aaaabbc')
       print(a.mid, a.div, ' '.join([f"({c} {x} {y})" for c,x,y in  a.cuts]))
 
+   Normal= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
    def nums():
       "can we find mean and sd of N(10,1)?"
-      normal= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
-      a= NUM([normal(10,1) for x in range(1000)])
+      a= NUM([go.Normal(10,1) for x in range(1000)])
       print(a.mid,a.div,' '.join([f"({c} {x:.2f} {y:.2f})" for c,x,y in  a.cuts]))
 
    def stats():
-      gauss= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
-      a = [gauss(5,2)+gauss(10,3)+gauss(15,2) for _ in range(256)]
-      r = 1
-      prints("r","cliffs","boot","c+b","different?")
-      while r < 1.1:
-         b = [x*r for x in a]
-         prints(f"{r:.3f}",cliffsDelta(a,b),bootstrap(a,b),different(a,b),int(sum(b)))
-         r += .01
+      a = [go.Normal(10,1) for _ in range(128)]
+      yn = lambda x: "y" if x else "."
+      print(the.seed)
+      r = 0
+      prints("a.mu","b.mu","cliffs","boot","c+b")
+      while r <= 3:
+         b = [go.Normal(10+r,3) for _ in range(128)]
+         prints(10,f"{10+r}", yn(cliffsDelta(a,b)),yn(bootstrap(a,b)),yn(different(a,b)))
+         r += .25
 
    def read():
       "can we print rows from a disk-based csv file?"
