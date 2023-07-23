@@ -1,12 +1,4 @@
-(defmacro settings (&rest lst)
-  (let (pairs flags)
-    (loop for (key _ value) in lst do
-          (push (list key value) pairs)
-          (push (list (format nil "-~(~a~)" key) key) flags))
-    `(progn (defstruct settings (_flags ',flags) ,@(reverse pairs))
-            (defvar *settings* (make-settings)))))
-
-(settings 
+(defvar *settings* '(
   (about "help" "
 cutr: to understand 'it',  cut 'it' up, then seek patterns in 
 the pieces. E.g. here we use cuts for multi- objective, 
@@ -22,12 +14,15 @@ semi- supervised, rule-based explanation.
   (min       "min size"                  .5)
   (rest      "exapansion best to rest"   3)
   (top       "top items to explore"      10)
-  (want      "optimization goal"         'plan))
+  (want      "optimization goal"         'plan)))
 
-(defmacro ? (s x &rest xs)
-  (if xs `(? (slot-value ,s ',x) ,@xs) `(slot-value ,s ',x)))
+(defmacro ? (x) 
+  "alist accessor, defaults to searching `*settings*`"
+  `(second (cdr (assoc *settings*  ,lst :test #'equalp))))
 
-(defmacro $ (x) `(? *settings* ,x))
+(defmacro o (s x &rest xs)
+  "nested slot accessor"
+  (if xs `(o (slot-value ,s ',x) ,@xs) `(slot-value ,s ',x)))
 
 (defun thing (s &aux (s1 (trim s)))
   "coerce `s` into a number or string or t or nil or #\?"
@@ -38,8 +33,13 @@ semi- supervised, rule-based explanation.
              (if (numberp n) n s1)))))
 
 (defun cli (&aux it)
-  (loop for (flag slot) in (? *settings* _flags) do
-        (when (setf it (member flag (args) :test #'equal))
-          (setf (? *settings* slot) (cond ((eql b4 t) nil)
-                                          ((eql b4 nil) t)
-                                          (t (thing (second it))))))))
+  (loop for (flag _ slot) in  *settings* do
+        (when (setf it (member (format nil  "--~(~a~)" flag) (args) :test #'equal))
+          (setf (? slot) (cond ((eql b4 t) nil)
+                               ((eql b4 nil) t)
+                               (t (thing (second it)))))))
+  (if (? help)
+    (format t "~a~%~%" (? about))
+    (loop for (flag str slot) in  *settings* do
+        (format t " --~(~a~) ~a~%" flag str)))
+
