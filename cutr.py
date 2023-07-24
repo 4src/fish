@@ -60,10 +60,6 @@ def cuts2Rule(cuts):
    [d[cut[0]].append(cut) for cut in cuts]
    return tuple(sorted([tuple(sorted(set(x))) for x in d.values()]))
 
-#  To combine rules, tear them down to their cuts and then build a new rule.
-def rules2rule(rules):
-   return cuts2Rule(cut for rule in rules for cuts in rule for cut in cuts)
-
 # `Rule`s can select rows from multiple `labelledRows`.
 def selects(rule, labelledRows):
    return {label: select(rule,rows) for label,rows in labelledRows}
@@ -140,7 +136,7 @@ class NUM(pretty):
       return abs(x - y)
 
    # distance to theoretical max
-   def distance2heaven(i,row): return i.heaven - i.norm(row[col.at]
+   def distance2heaven(i,row): return i.heaven - i.norm(row[i.at])
 
    def _unsupercuts(i,at,a): # simplistic (equal frequency) unsupervised discretization
       n = inc = int(len(a)/(the.bins - 1))
@@ -165,7 +161,7 @@ class NUM(pretty):
 ako = slots(num  = lambda s: s[0].isupper(),
             goal = lambda s: s[-1] in "+-",
             skip = lambda s: s[-1] == "X",
-            x    = lambda s: not ako.goal(s)
+            x    = lambda s: not ako.goal(s),
             xnum = lambda s: ako.x(s) and ako.num(s),
             xsym = lambda s: ako.x(s) and not ako.num(s))
 
@@ -191,11 +187,13 @@ class SHEET(pretty):
    def stats(i, cols="goal", decimals=None, want="mid"):
       return slots(N=len(i.rows), **{c.name:show(c.__dict__[want],decimals) for c in i.cols[cols]})
 
+   def distance2heaven(i,row):
+      return (sum((col.distance2heaven(row)**the.p for col in i.cols.goal))
+              / len(i.cols.goal))**(1/the.p)
+
    # How to sort the rows closest to furthest from most desired
-   def sorted(i, cols="goal"):
-      def _distance2heaven(row):
-         return sum((col.heaven - col.norm(row[col.at]))**2 for col in i.cols[cols])**.5
-      return sorted(i.rows, key=_distance2heaven)
+   def sorted(i):
+      return sorted(i.rows, key=lambda row: i.distance2heaven(row))
 
    # How to make a new SHEET that copies the structure of an this SHEET (and fill in with `rows`).
    def clone(i, a=[]): return SHEET( [i.names] + a)
@@ -275,37 +273,50 @@ def score(b, r, B,R):
     case "xplore"  : print(2); return 1     /    (b + r)  # seeking other
 
 #---------------------------------------------
-def better(data,row1,row2)
-   return sum((col.norm(row1[col.at[ - col.norm(row2[col.at]))**2 for col in i.cols.goal)**.5
+class TREE:
+   def __init__(i, sheet):
+      i.sheet = sheet
+      i.stop  = len(sheet.row)**the.min
 
-def tree (sheet)
-   def _d(row1,row2) : return sheet.dist(row1,row2)
+   def _far(i,rows,row1):
+      _dist = lambda row2: i.sheet.dist(row1,row2)
+      return sorted(rows, key=_dist)[:len(rows)*the.Far // 1]
 
-   def _far(rows,row1):
-      fun = lambda row2: return _d(row1,row2),row2
-      rows = sorted(map(fun,rows), key=lambda z:z[0]))
-      return rows[:len(rows)*the.Far //1 ][1]
+   def _halve(i,rows):
+      some = rows if len(rows) <= the.Halves else random.sample(rows,k=the.Halves)
+      D    = lambda row1,row2: i.sheet(row1,row2)
+      a    = i._far(some, random.choice(some))
+      b    = i._far(some, a)
+      C    = D(a,b)
+      half1, half2 = [],[]
+      for n,row in enumerate(sorted(rows, key=lambda r: (D(r,a)**2 + C**2 - D(r,b)**2)/(2*C))):
+         (haf1 if n <= len(rows)/2 else half2).append(row)
+      return a,b,half1, half2
 
-   def _halve(rows):
-      some = rows in len(rows) <= the.Halves else random.sample(rows,k=the.Halves)
-      a    = _far(some, random.choice(some))
-      b    = _far(some, a)
-      C    = _d(a,b)
-      half1, half2=[],[]
-      _cosine = lambda r: return ((_d(r,a)**2 + C**2 - _d(r,b)**2)/(2*C), r)
-      for n,(_,row) in enumerate(sorted(map(_cosine, rows), key=lambda z:z[0])):
-         (haf1 if rowsb <= len(rows)/2 else half2).append(row)
-      return half1, half2
+   def tree(i,verbose=False):
+      def _grow(rows,lvl=0):
+         here = SHEET(rows)
+         if verbose: print(("|.."*lvl) + str(here.stats()))
+         here.lefts, here.rights = None,None
+         if len(rows) >= 2*i.stop:
+            _,__,lefts,rights = _halve(rows)
+            if len(lefts)  != len(rows): here.lefts  = _grow(lefts,lvl+1)
+            if len(rights) != len(rows): here.rights = _grow(rights,lvl+1)
+         return here
+      return _grow(i.sheet.rows)
 
-   def _tree(rows,stop=None):
-      stop = stop or len(rows)**the.min
-      here = SHEET(rows)
-      here.left = here.right = None
-      if len(rows) > 2*stop:
-         left,right = _halve(rows)
-         if len(left)  != len(rows): here.left  =  _tree(left,stop)
-         if len(right) != len(rows): here.right =  _tree(right,stop)
-      return here
+   def branch(i):
+      def _grow(rows,rest,evals):
+         if len(rows) >= 2*i.stop:
+            left,right,lefts,rights = _halve(rows)
+            if  i.sheet.distance2heaven(right) < i.sheet.distance2heave(left):
+                left,right,lefts,rights = right,left,rights,lefts
+            evals += 2
+            if len(lefts)  != len(rows):
+                rest += rights
+                return _grow(lefts, rest, evals)
+         return SHEET(rows), SHEET(rest), evals
+      return _grow(i.sheet.rows, [], 0)
 
 
 #---------------------------------------------
@@ -456,7 +467,7 @@ class go:
       "can we print rows from a disk-based csv file?"
       [prints(*row) for r,row in enumerate(csv(the.file)) if r < 10]
 
-   def data():
+   def sheet():
       "can we load disk rows into a SHEET?"
       sheet = SHEET(csv(the.file))
       printd(sheet.stats())
@@ -478,7 +489,7 @@ class go:
       all = []
       for cuts1 in powerset(cuts0):
          rule = cuts2Rule(cuts1)
-         small = len(cuts1)/(2**len(cuts0))
+         small = len(cuts1)/len(cuts0)
          d = selects(rule, [("best",bests), ("rest",rests)])
          all += [((score(*map(len,[d["best"],d["rest"],bests,rests]))**2+(1-small)**2)**.5/2**.5,
                   rule)]
@@ -510,7 +521,6 @@ class go:
       "can i do supervised discretization?"
       threes = [rule for s,rule in scores(SHEET(csv(the.file)))]
       rule = cuts2Rule( ((0,"overcast", "overcast"),(1,80, 90), (1, -inf,  65) ) )
-      rule = rules2rule([rule,rule,rule,rule])
       print(rule)
       selected = selects(rule, go.Weather)
       [print("best",x) for x in selected["best"]]

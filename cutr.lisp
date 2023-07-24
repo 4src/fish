@@ -18,9 +18,10 @@
     (top       "top items to explore"       10)
     (want      "optimization goal"          plan)))
 
-(defmacro ? (x &optional (lst *settings*)) 
+
+(defmacro ? (x)
   "alist accessor, defaults to searching `*settings*`"
-  `(second (cdr (assoc ',x ,lst :test #'equalp))))
+  `(second (cdr (assoc ',x *settings* :test #'equalp))))
 
 (defmacro o (s x &rest xs)
   "nested slot accessor"
@@ -46,29 +47,15 @@
         (t (let ((n (read-from-string s1 nil nil))) 
              (if (numberp n) n s1)))))
 
-#|
-
-  1 |#
-asdasd
-
-
- Mode: regexrange
-  specifying regular expression delimited ranges
-      --regex-range=STRING      generate only the lines within the specified
-                                  regular expressions
-  when a line containing the specified regular expression is found, then
-  the lines after this one are actually generated, until another line,
-  containing the same regular expression is found (this last line is not
-  generated).
-  More than one regular expression can be specified.
-a
-
-|#
-
 (defun with-file (file fun &optional (filter #'split))
   "call `fun` for each line in `file`"
   (with-open-file (s file) 
     (loop (funcall fun (funcall filter (or (read-line s nil) (return)))))))
+
+"asdasdsa asdkasdas
+asdasdsaads
+" 
+
 (defun cli (flag-help-values)
   "update values from command line"
   (loop for (flag help value) in flag-help-values collect
@@ -80,11 +67,13 @@ a
                 (let ((it (member (format nil "--~(~a~)" flag) (_args) :test #'equal)))
                   (if it (_update (second it)) value))))))
 
-(defun about (flag-help-values)
+(defun about ()
   "show the `about` part of settings"
-  (format t "~%~{~a~%~}OPTIONS:~%" (? about flag-help-values))
-  (dolist (x (cdr flag-help-values)) (format t "  --~(~10a~) ~a~%"  (first x) (second x))))
+  (format t "~%~{~a~%~}OPTIONS:~%" (? about))
+  (dolist (x (cdr *settings*)) (format t "  --~(~10a~) ~a~%"  (first x) (second x))))
+
 ;;;; ----------------------------------------------------------
-(setf *settings* (cli *settings*))
-(if (? help) (about *settings*))
-(print (? bins))
+(defun cutr()
+  (setf *settings* (cli *settings*))
+   (if (? help) (about))
+   (print (? bins)))
