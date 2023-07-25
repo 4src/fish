@@ -18,7 +18,7 @@ OPTIONS:
   -c --cohen  parametric small delta      = .35
   -C --Cliffs  non-parametric small delta = 0.2385 
   -f --file   where to read data          = "../data/auto93.csv"
-  -F --far    distance to  distant rows   = .925
+  -F --Far    distance to  distant rows   = .925
   -g --go     start up action             = "help"
   -h --help   show help                   = False
   -H --Halves #examples used in halving   = 512
@@ -125,7 +125,8 @@ class NUM(pretty):
       i.cuts = i._unsupercuts(at,a)
 
    # Map `x` 0..1 for `lo..hi`".
-   def norm(i,x): return "?" if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
+   def norm(i,x): 
+      return "?" if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
 
    # distance between two values
    def dist(i,x,y): 
@@ -201,7 +202,7 @@ class SHEET(pretty):
    # distance between two rows
    def dist(i,row1,row2):
     "distance between two rows"
-    return (sum(c.dist(row1.cells[c.at], row2.cells[c.at]) for c in i.cols.x )**the.p
+    return (sum(c.dist(row1[c.at], row2[c.at]) for c in i.cols.x )**the.p
            / len(i.cols.x))**(1/the.p)
 
 #-------------------------------------------------------------------------------
@@ -276,21 +277,22 @@ def score(b, r, B,R):
 class TREE:
    def __init__(i, sheet):
       i.sheet = sheet
-      i.stop  = len(sheet.row)**the.min
+      i.stop  = int(len(sheet.rows)**the.min)
 
    def _far(i,rows,row1):
       _dist = lambda row2: i.sheet.dist(row1,row2)
-      return sorted(rows, key=_dist)[:len(rows)*the.Far // 1]
+      return sorted(rows, key=_dist)[int(len(rows)*the.Far)]
 
    def _halve(i,rows):
       some = rows if len(rows) <= the.Halves else random.sample(rows,k=the.Halves)
-      D    = lambda row1,row2: i.sheet(row1,row2)
+      D    = lambda row1,row2: i.sheet.dist(row1,row2)
+      anywhere = random.choice(some)
       a    = i._far(some, random.choice(some))
       b    = i._far(some, a)
       C    = D(a,b)
       half1, half2 = [],[]
       for n,row in enumerate(sorted(rows, key=lambda r: (D(r,a)**2 + C**2 - D(r,b)**2)/(2*C))):
-         (haf1 if n <= len(rows)/2 else half2).append(row)
+         (half1 if n <= len(rows)/2 else half2).append(row)
       return a,b,half1, half2
 
    def tree(i,verbose=False):
@@ -480,6 +482,35 @@ class go:
       printd(sheet.stats(),
              sheet.clone(a[:n]).stats(),
              sheet.clone(a[-n*the.rest:]).stats())
+
+   def dist():
+      "check distances between random cols in random rows"
+      sheet= SHEET(csv(the.file))
+      rows=sheet.rows
+      c= random.choice
+      a=[]
+      for _ in range(50):
+          col = c(sheet.cols.x + sheet.cols.goal)
+          z1  = c(rows)[col.at]
+          z2  = c(rows)[col.at]
+          a  += [(show(col.dist(z1, z2),3), z1,z2,col.name)]
+      [prints(*x) for x in sorted(a)]
+
+   def dists():
+      "can we find best, rest rows?"
+      sheet= SHEET(csv(the.file))
+      row1 = sheet.rows[0]
+      rows = sorted(sheet.rows, key = lambda row2: sheet.dist(row1,row2))
+      prints("cols",*sheet.names)
+      for i in range(1,len(rows),50):
+         prints(i,*rows[i])
+
+   def halves():
+      "can we divide the data into best and rest?"
+      sheet= SHEET(csv(the.file))
+      tree = TREE(sheet)
+      tree._halve(sheet.rows)
+
 
    def discret():
       "can i do supervised discretization?"

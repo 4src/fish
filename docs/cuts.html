@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>cuts.lisp</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="public/stylesheets/normalize.css" />
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="page">
+
+      <div class="header">
+        
+          <h1>cuts.lisp</h1>
+        
+
+        
+      </div>
+
+      
+        
+        
+        
+          <div class='highlight'><pre>(<span class="hljs-name">defvar</span> *settings* 
+  &#x27;((about <span class="hljs-string">&quot;cutr&quot;</span>
+           (<span class="hljs-string">&quot;cutr: to understand &#x27;it&#x27;,  cut &#x27;it&#x27; up, then seek patterns in&quot;</span> 
+            <span class="hljs-string">&quot;the pieces. E.g. here we use cuts for multi- objective,&quot;</span>
+            <span class="hljs-string">&quot;semi- supervised, rule-based explanation.&quot;</span>  
+            <span class="hljs-string">&quot;(c) Tim Menzies &lt;timm@ieee.org&gt;, BSD-2 license&quot;</span>
+            <span class="hljs-string">&quot;&quot;</span>))
+    (bins      <span class="hljs-string">&quot;initial number of bins&quot;</span>     <span class="hljs-number">16</span>)
+    (bootstrap <span class="hljs-string">&quot;bootstraps&quot;</span>                 <span class="hljs-number">256</span>)
+    (cliffs    <span class="hljs-string">&quot;nonparametric small delta&quot;</span>  .<span class="hljs-number">147</span>)
+    (cohen     <span class="hljs-string">&quot;parametric small delta&quot;</span>     .<span class="hljs-number">35</span>)
+    (file      <span class="hljs-string">&quot;read data file&quot;</span>             <span class="hljs-string">&quot;../data/auto93.csv&quot;</span>)
+    (go        <span class="hljs-string">&quot;start up action&quot;</span>            help)
+    (help      <span class="hljs-string">&quot;show help&quot;</span>                  <span class="hljs-literal">nil</span>)
+    (seed      <span class="hljs-string">&quot;random number seed&quot;</span>         <span class="hljs-number">1234567891</span>)
+    (min       <span class="hljs-string">&quot;min size&quot;</span>                   .<span class="hljs-number">5</span>)
+    (rest      <span class="hljs-string">&quot;exapansion best to rest&quot;</span>    <span class="hljs-number">3</span>)
+    (top       <span class="hljs-string">&quot;top items to explore&quot;</span>       <span class="hljs-number">10</span>)
+    (want      <span class="hljs-string">&quot;optimization goal&quot;</span>          plan)))
+
+
+(<span class="hljs-name">defmacro</span> ? (<span class="hljs-name">x</span>)
+  <span class="hljs-string">&quot;alist accessor, defaults to searching `*settings*`&quot;</span>
+  `(second (cdr (assoc &#x27;,x *settings* :test #&#x27;equalp))))
+
+(<span class="hljs-name">defmacro</span> o (<span class="hljs-name">s</span> x <span class="hljs-symbol">&amp;rest</span> xs)
+  <span class="hljs-string">&quot;nested slot accessor&quot;</span>
+  (<span class="hljs-name">if</span> xs `(o (slot-value ,s &#x27;,x) ,@xs) `(slot-value ,s &#x27;,x)))</pre></div>
+        
+      
+        
+        <p>;;; ———————————————————-</p>
+
+        
+          <div class='highlight'><pre>(<span class="hljs-name">defun</span> trim (<span class="hljs-name">s</span>) 
+  <span class="hljs-string">&quot;kill whitespace at start, at end&quot;</span>
+  (<span class="hljs-name">string-trim</span> &#x27;(#\Space #\Tab #\Newline) s))
+
+(<span class="hljs-name">defun</span> split (<span class="hljs-name">s</span> <span class="hljs-symbol">&amp;optional</span> (<span class="hljs-name">sep</span> #\,) (<span class="hljs-name">filter</span> #&#x27;string2thing) (<span class="hljs-name">here</span> <span class="hljs-number">0</span>))
+  <span class="hljs-string">&quot;split  `s`, divided by `sep` filtered through `filter`&quot;</span>
+  (<span class="hljs-name">let*</span> ((<span class="hljs-name">there</span> (<span class="hljs-name">position</span> sep s <span class="hljs-symbol">:start</span> here))
+         (<span class="hljs-name">word</span>  (<span class="hljs-name">funcall</span> filter (<span class="hljs-name">subseq</span> s here there))))
+    (<span class="hljs-name">labels</span> ((<span class="hljs-name">tail</span> () (<span class="hljs-name">if</span> there (<span class="hljs-name">split</span> s sep filter (<span class="hljs-number">1</span>+ there)))))
+      (<span class="hljs-name">if</span> (<span class="hljs-name">equal</span> word <span class="hljs-string">&quot;&quot;</span>) (<span class="hljs-name">tail</span>) (<span class="hljs-name">cons</span> word (<span class="hljs-name">tail</span>))))))
+
+(<span class="hljs-name">defun</span> string2thing (<span class="hljs-name">s</span> <span class="hljs-symbol">&amp;aux</span> (<span class="hljs-name">s1</span> (<span class="hljs-name">trim</span> s)))
+  <span class="hljs-string">&quot;coerce `s` into a number or string or t or nil or #\?&quot;</span>
+  (<span class="hljs-name">cond</span> ((<span class="hljs-name">equal</span> s1 <span class="hljs-string">&quot;?&quot;</span>) #\?)
+        ((<span class="hljs-name">equal</span> s1 <span class="hljs-string">&quot;t&quot;</span>) <span class="hljs-literal">t</span>)
+        ((<span class="hljs-name">equal</span> s1 <span class="hljs-string">&quot;nil&quot;</span>) <span class="hljs-literal">nil</span>)
+        (<span class="hljs-name">t</span> (<span class="hljs-name">let</span> ((<span class="hljs-name">n</span> (<span class="hljs-name">read-from-string</span> s1 <span class="hljs-literal">nil</span> <span class="hljs-literal">nil</span>))) 
+             (<span class="hljs-name">if</span> (<span class="hljs-name">numberp</span> n) n s1)))))
+
+(<span class="hljs-name">defun</span> with-file (<span class="hljs-name">file</span> fun <span class="hljs-symbol">&amp;optional</span> (<span class="hljs-name">filter</span> #&#x27;split))
+  <span class="hljs-string">&quot;call `fun` for each line in `file`&quot;</span>
+  (<span class="hljs-name">with-open-file</span> (<span class="hljs-name">s</span> file) 
+    (<span class="hljs-name">loop</span> (<span class="hljs-name">funcall</span> fun (<span class="hljs-name">funcall</span> filter (<span class="hljs-name">or</span> (<span class="hljs-name">read-line</span> s <span class="hljs-literal">nil</span>) (<span class="hljs-name">return</span>)))))))
+
+<span class="hljs-string">&quot;asdasdsa asdkasdas
+asdasdsaads
+&quot;</span> 
+
+(<span class="hljs-name">defun</span> cli (<span class="hljs-name">flag-help-values</span>)
+  <span class="hljs-string">&quot;update values from command line&quot;</span>
+  (<span class="hljs-name">loop</span> for (<span class="hljs-name">flag</span> help value) in flag-help-values collect
+        (<span class="hljs-name">labels</span> ((<span class="hljs-name">_args</span> ()     #+clisp ext<span class="hljs-symbol">:*args*</span>  #+sbcl sb-ext<span class="hljs-symbol">:*posix-argv*</span>)
+                 (<span class="hljs-name">_update</span> (<span class="hljs-name">arg</span>) (<span class="hljs-name">cond</span> ((<span class="hljs-name">eql</span> value <span class="hljs-literal">t</span>) <span class="hljs-literal">nil</span>)
+                                      ((<span class="hljs-name">eql</span> value <span class="hljs-literal">nil</span>) <span class="hljs-literal">t</span>)
+                                      (<span class="hljs-name">t</span> (<span class="hljs-name">string2thing</span> arg)))))
+          (<span class="hljs-name">list</span> flag help 
+                (<span class="hljs-name">let</span> ((<span class="hljs-name">it</span> (<span class="hljs-name">member</span> (<span class="hljs-name">format</span> <span class="hljs-literal">nil</span> <span class="hljs-string">&quot;--~(~a~)&quot;</span> flag) (<span class="hljs-name">_args</span>) <span class="hljs-symbol">:test</span> #&#x27;equal)))
+                  (<span class="hljs-name">if</span> it (<span class="hljs-name">_update</span> (<span class="hljs-name">second</span> it)) value))))))
+
+(<span class="hljs-name">defun</span> about ()
+  <span class="hljs-string">&quot;show the `about` part of settings&quot;</span>
+  (<span class="hljs-name">format</span> <span class="hljs-literal">t</span> <span class="hljs-string">&quot;~%~{~a~%~}OPTIONS:~%&quot;</span> (? about))
+  (<span class="hljs-name">dolist</span> (<span class="hljs-name">x</span> (<span class="hljs-name">cdr</span> *settings*)) (<span class="hljs-name">format</span> <span class="hljs-literal">t</span> <span class="hljs-string">&quot;  --~(~10a~) ~a~%&quot;</span>  (<span class="hljs-name">first</span> x) (<span class="hljs-name">second</span> x))))</pre></div>
+        
+      
+        
+        <p>;;; ———————————————————-</p>
+
+        
+          <div class='highlight'><pre>(<span class="hljs-name">defun</span> cutr()
+  (<span class="hljs-name">setf</span> *settings* (<span class="hljs-name">cli</span> *settings*))
+   (<span class="hljs-name">if</span> (? help) (<span class="hljs-name">about</span>))
+   (<span class="hljs-name">print</span> (? bins)))</pre></div>
+        
+      
+      <div class="fleur">h</div>
+    </div>
+  </div>
+</body>
+</html>
