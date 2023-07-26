@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+cat $1 |
+gawk -F, '
+BEGIN {FS="\n";RS=""}
+      {print ""
+       if (sub(/^ /,"",$1)) {
+         gsub(/\n /,"\n",$0) 
+         print $0 }
+      else {
+         gsub(/\n/,"\n# ",$0) 
+         print "#"$0}}' > tmp.py
+
+python3 -B tmp.py 
+      
