@@ -1,5 +1,5 @@
 #!./mydown
-# vim: set filetype=python et sts=3 sw=3 ts=3 :
+# vim: set filetype=text et sts=3 sw=3 ts=3 :
 Copyright 1995, Prentice-Hall.)
 
 Introduction
