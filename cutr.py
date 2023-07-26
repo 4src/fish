@@ -297,11 +297,14 @@ class TREE:
 
    def tree(i,verbose=False):
       def _grow(rows,lvl=0):
-         here = SHEET(rows)
-         if verbose: print(("|.."*lvl) + str(here.stats()))
+         here = i.sheet.clone(rows)
          here.lefts, here.rights = None,None
+         if verbose:
+            s = here.stats()
+            if lvl==0: prints(*s.keys())
+            prints(*s.values(), "|.."*lvl)
          if len(rows) >= 2*i.stop:
-            _,__,lefts,rights = _halve(rows)
+            _,__,lefts,rights = i._halve(rows)
             if len(lefts)  != len(rows): here.lefts  = _grow(lefts,lvl+1)
             if len(rights) != len(rows): here.rights = _grow(rights,lvl+1)
          return here
@@ -310,14 +313,14 @@ class TREE:
    def branch(i):
       def _grow(rows,rest,evals):
          if len(rows) >= 2*i.stop:
-            left,right,lefts,rights = _halve(rows)
-            if  i.sheet.distance2heaven(right) < i.sheet.distance2heave(left):
+            left,right,lefts,rights = i._halve(rows)
+            if  i.sheet.distance2heaven(right) < i.sheet.distance2heaven(left):
                 left,right,lefts,rights = right,left,rights,lefts
             evals += 2
             if len(lefts)  != len(rows):
                 rest += rights
                 return _grow(lefts, rest, evals)
-         return SHEET(rows), SHEET(rest), evals
+         return i.sheet.clone(rows), i.sheet.clone(rest), evals
       return _grow(i.sheet.rows, [], 0)
 
 
@@ -508,9 +511,26 @@ class go:
    def halves():
       "can we divide the data into best and rest?"
       sheet= SHEET(csv(the.file))
+      rows = sheet.rows
       tree = TREE(sheet)
-      tree._halve(sheet.rows)
+      l,r,ls,rs=tree._halve(rows)
+      print(len(rows), len(ls), len(rs),
+            len(ls) <= len(rows)*.51,
+            len(rs) <= len(rows)*.51)
 
+   def tree():
+      "can we divide the data into best and rest?"
+      sheet= SHEET(csv(the.file))
+      rows = sheet.rows
+      TREE(sheet).tree(verbose=True)
+
+   def branch():
+      "can we divide the data into best and rest?"
+      sheet= SHEET(csv(the.file))
+      best,rest,evals = TREE(sheet).branch()
+      printd(sheet.stats(),
+             best.stats(),
+             rest.stats())
 
    def discret():
       "can i do supervised discretization?"
@@ -548,14 +568,14 @@ class go:
                ["rainy",    71, 91, "TRUE",  "no"],
                ["sunny",    80, 90, "TRUE",  "no"]])]
 
-   def cuts():
-      "can i do supervised discretization?"
-      threes = [rule for s,rule in scores(SHEET(csv(the.file)))]
-      rule = cuts2Rule( ((0,"overcast", "overcast"),(1,80, 90), (1, -inf,  65) ) )
-      print(rule)
-      selected = selects(rule, go.Weather)
-      [print("best",x) for x in selected["best"]]
-      [print("rest",x) for x in selected["rest"]]
-
+   # def cuts():
+   #    "can i do supervised discretization?"
+   #    threes = [rule for s,rule in scores(SHEET(csv(the.file)))]
+   #    rule = cuts2Rule( ((0,"overcast", "overcast"),(1,80, 90), (1, -inf,  65) ) )
+   #    print(rule)
+   #    selected = selects(rule, go.Weather)
+   #    [print("best",x) for x in selected["best"]]
+   #    [print("rest",x) for x in selected["rest"]]
+   #
 
 if __name__ == "__main__": go._on()
