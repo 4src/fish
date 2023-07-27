@@ -5,8 +5,8 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Asciidoctor 2.0.20">
-<meta name="author" content="Tim Menzies">
-<title>SE+AI, the important BITS (Big Ideas, Tiny Scrips)</title>
+<meta name="author" content="Tim Menzies &lt;timm@ieee.org&gt;, July 26 2023">
+<title>SE+AI, just the important BITS (Big Ideas, Tiny Scrips)</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700">
 <style>
 /*! Asciidoctor default stylesheet | MIT License | https://asciidoctor.org */
@@ -433,16 +433,29 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 #footer-text{color:rgba(0,0,0,.6);font-size:.9em}}
 @media amzn-kf8{#header,#content,#footnotes,#footer{padding:0}}
 </style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 </head>
-<body class="article">
+<body class="article toc2 toc-left">
 <div id="header">
-<h1>SE+AI, the important BITS (Big Ideas, Tiny Scrips)</h1>
+<h1>SE+AI, just the important BITS (Big Ideas, Tiny Scrips)</h1>
 <div class="details">
-<span id="author" class="author">Tim Menzies</span><br>
-<span id="email" class="email"><a href="mailto:timm@ieee.org">timm@ieee.org</a></span><br>
+<span id="author" class="author">Tim Menzies &lt;timm@ieee.org&gt;, July 26 2023</span><br>
+</div>
+<div id="toc" class="toc2">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#first">First Steps with AsciiDoc</a>
+<ul class="sectlevel2">
+<li><a href="#_lists_upon_lists">Lists Upon Lists</a></li>
+</ul>
+</li>
+</ul>
 </div>
 </div>
 <div id="content">
+<div class="sect1">
+<h2 id="first"><a class="anchor" href="#first"></a>First Steps with <a href="http://asciidoc.org">AsciiDoc</a></h2>
+<div class="sectionbody">
 <div class="paragraph">
 <p>We all know how complex and difficult
 and expensive it can be to build and maitntain
@@ -454,12 +467,29 @@ of experience with AI and SE, what have we learned?
 What are the big ideas that lead to the smallest scripts
 that do the most?</p>
 </div>
+<div class="listingblock">
+<div class="content">
+<pre>class A&lt;T&gt; &lt;&lt;singleton&gt;&gt; {
+    {abstract} -int x
+    {static} #void meta()
+}
+
+class B
+
+A &lt;|-- B</pre>
+</div>
+</div>
 <div class="paragraph">
 <p>One big idea, that is often missing is "sampling".
 Sampling has a formal definition(footnote{fn-sample}) but I like to call it
 "not looking at everything". Life is short, the road is long,
 you stop to look at everything or you will never get
 anything done(footnote{fn-maths}).</p>
+</div>
+<div class="paragraph">
+<p>experience, just look at "list of human cognitive biases" in Wikipedia.
+At last count, 125 (and growing). This page lists all the ways humans
+routinely act in non-rational manner.]</p>
 </div>
 <div class="paragraph">
 <p>characteristics relevant to the research question, to be
@@ -471,8 +501,7 @@ about the larger population. From the
 <p>Say you build software with variables that take four values:
 veryLow, low, hi, veryHigh_. If you software has more that four dozen
 variable variables then your software has more states stars
-in the sky (\(4^{48} &gt; 10^{28}\)).]
-:fn-notrational: <sup class="footnote">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup></p>
+in the sky (\(4^{48} &gt; 10^{28}\)).]</p>
 </div>
 <div class="paragraph">
 <p>sampling take sus to confngituve sphyctologu and all the quirks
@@ -490,7 +519,33 @@ In a cost-effective way? I say the answer is modeling. I say that
 when faced with somethig u dont understad</p>
 </div>
 <div class="paragraph">
-<p>artifacct -&#8594; notes -&#8594; expecation -&#8594; test cases -&#8594; testing -&#8594; issues</p>
+<p>artifacct &#8594; notes &#8594; expecation &#8594; test cases &#8594; testing &#8594; issues</p>
+</div>
+<div class="sect2">
+<h3 id="_lists_upon_lists"><a class="anchor" href="#_lists_upon_lists"></a>Lists Upon Lists</h3>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+If you want the output to look familiar, copy (or link) the AsciiDoc stylesheet, asciidoc.css, to the output directory.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Items marked with TODO are either not yet supported or a work in progress.
+</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
 <p>To answr that wuqation I wokred with NASA&#8217;s
@@ -504,15 +559,12 @@ softwar types built in very many ways by developers with widely
 varying skills. A common theme in that V&amp;V</p>
 </div>
 </div>
-<div id="footnotes">
-<hr>
-<div class="footnote" id="_footnotedef_1">
-<a href="#_footnoteref_1">1</a>. For an illuminating, and perhaps humbling experience, just look at "list of human cognitive biases" in Wikipedia. At last count, 125 (and growing). This page lists all the ways humans routinely act in non-rational manner.
+</div>
 </div>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-07-27 12:29:20 -0400
+Last updated 2023-07-27 16:12:15 -0400
 </div>
 </div>
 <script type="text/x-mathjax-config">

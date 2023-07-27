@@ -1,8 +1,14 @@
-= SE+AI, the important BITS (Big Ideas, Tiny Scrips)
-Tim Menzies <timm@ieee.org>
+= SE+AI, just the important BITS (Big Ideas, Tiny Scrips)
+Tim Menzies <timm@ieee.org>, July 26 2023
+:toc: left
+:toclevels: 5
+:icons: font
 :sectanchors: 
 :url-repo: https://my-git-repo.com 
 :stem: latexmath
+
+[[first,First Steps]]
+== First Steps with http://asciidoc.org[AsciiDoc]
 
 We all know how complex and difficult
 and expensive it can be to build and maitntain
@@ -14,12 +20,29 @@ of experience with AI and SE, what have we learned?
 What are the big ideas that lead to the smallest scripts
 that do the most?
 
+[plantuml, asciidoc-plant-uml-sample, svg]
+-------------------------------------------
+class A<T> <<singleton>> {
+    {abstract} -int x
+    {static} #void meta()
+}
+
+class B
+
+A <|-- B
+-------------------------------------------
 
 One big idea, that is often missing is "sampling".
 Sampling has a formal definition(footnote{fn-sample}) but I like to call it
 "not looking at everything". Life is short, the road is long,
 you stop to look at everything or you will never get 
 anything done(footnote{fn-maths}).
+
+:fn-notrational: footnote:[For an illuminating, and perhaps humbling
+experience, just look at "list of human cognitive biases" in Wikipedia.
+At last count, 125 (and growing). This page lists all the ways humans
+routinely act in non-rational manner.]
+
 
 :fn-sample: footnote:[Approximate a larger population on 
 characteristics relevant to the research question, to be 
@@ -32,10 +55,6 @@ Say you build software with variables that take four values:
 veryLow, low, hi, veryHigh_. If you software has more that four dozen
 variable variables then your software has more states stars
 in the sky (stem:[4^{48} > 10^{28}]).]
-:fn-notrational: footnote:[For an illuminating, and perhaps humbling
-experience, just look at "list of human cognitive biases" in Wikipedia.
-At last count, 125 (and growing). This page lists all the ways humans
-routinely act in non-rational manner.]
 
 sampling take sus to confngituve sphyctologu and all the quirks
 of the human brain that mean we rountinely do not behave
@@ -51,7 +70,13 @@ In a cost-effective way? I say the answer is modeling. I say that
 when faced with somethig u dont understad
 
 
-artifacct --> notes --> expecation --> test cases --> testing --> issues
+artifacct -> notes -> expecation -> test cases -> testing -> issues
+
+=== Lists Upon Lists
+
+TIP: If you want the output to look familiar, copy (or link) the AsciiDoc stylesheet, asciidoc.css, to the output directory.
+
+NOTE: Items marked with TODO are either not yet supported or a work in progress.
 
 To answr that wuqation I wokred with NASA's
 independent softare valdation and vertiiation cernter for a decade. 
