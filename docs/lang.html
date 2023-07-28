@@ -567,40 +567,42 @@ to distinguish the functions with potential security flaws <sup class="footnote"
 </tbody>
 </table>
 <div class="paragraph">
-<p>There is some maths suggesting that the above is not unaccepted. The maths
-is a little esoteric but it comes down to a curiosity about high-dimensional data.
-Let&#8217;s ask what is the value of have more data; specifically,
-it is easier to learn a model from a table of data with \(n\in \{5,10,20\}\)
-attributes.
-To build any part of a model,
-we need to find several similar data points that can confirm the presence of that part.
-If we say each  attribute is one dimension, then  the space of data similar to any one example
-is a sphere of volume
+<p>It can be shown, mathematically  that the more attributes we add to a model,
+the harder it becomes to find data that supports that bigger models. Hence, models are either
+simple or unsupportable. To make that case, lets image a
+table of data with
+\(n\in \{5,10,20\}\) columns. To fill in that table, we have to find data about the
+some phenomena. How hard is to find that data?
+That data must be about the phenomena under question; i.e. it must be some related
+data that clusters clone around the effects we are studying,
+If each  column is one dimension, then  the space of data revel amt data (
+that is similar to any one example)
+is found in a sphere of volume
 \(V_n=V_{n-2}\frac{2{\pi}r}{n}\).
-That is, we can compute
+For example, we can calculate
 the volume of a four-dimensional sphere by looking back at the volume
 of a two-dimensional sphere (which is
 \(V_2=2{\pi}r\)), then multiplying by a factor \(\frac{2{\pi}r}{n}\) <sup class="footnote">[<a id="_footnoteref_9" class="footnote" href="#_footnotedef_9" title="View footnote.">9</a>]</sup>.
-So, if we were to hunt for similar examples in the unit sphere, what is the space
-where they can be found:</p>
+Assuming a unit sphere where \(r=1\), the volume of data relevant to our model comes from a volume:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>\(V_5=5.25\)</p>
+<p>Assuming five attributes: \(V_5=5.25\)</p>
 </li>
 <li>
-<p>\(V_{10}=2.55\)</p>
+<p>Assuming ten attributes: ftem:[V_{10}=2.55]</p>
 </li>
 <li>
-<p>\(V_{20}=0.03\)</p>
+<p>Assuming twenty attributes: \(V_{20}=0.03\)</p>
 </li>
 </ul>
 </div>
 <div class="paragraph">
-<p>Note that our sphere is <em>shrinking</em>
+<p>Strange to say, the volume <em>shrinking</em>
 as the number of dimensions gets large.
-See, for a unit-sphere (where \(r=1\)), the factor \(\frac{2{\pi}r}{n}\)
+Why? Well,
+for a unit-sphere, the factor \(\frac{2{\pi}r}{n}\)
 becomes less that one when
 \(n&gt;2\pi\); i.e. when \(n&gt;6\). To say that another away:
 if we over-elaborate our models with too
@@ -608,7 +610,14 @@ many variables, we will not be able to find the data to
 validate those models.</p>
 </div>
 <div class="paragraph">
-<p>(Aside: there are some caveats here. Each  dimension  could be itself be some
+<p>(Aside: there are some caveats here. Firstly, note that the above holds
+for any definition of distance (and not just
+for "similar data"
+means
+\(r&lt;1\)). Not matter what similar means, at some point, the extra attributes
+will start eating away at that the region where you can find relevant data.
+Secondly, there are cases when the above may not mean that models are either
+simple or non-existent. Each  dimension  could be itself be some
 synthesized construct that combines multiple dimensions-- in which case we can model
 more that \(n=6\) dimensions. Also, even if the <em>current model</em> needs just a few attributes,
 whose to know when your context switches and suddenly you are in a new situation that
@@ -763,7 +772,7 @@ varying skills. A common theme in that V&amp;V</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-07-28 01:13:43 -0400
+Last updated 2023-07-28 05:04:53 -0400
 </div>
 </div>
 <script type="text/x-mathjax-config">

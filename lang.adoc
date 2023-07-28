@@ -107,43 +107,61 @@ functions from the Firefox blowers, around 200 vectors were enough
 to distinguish the functions with potential security flaws {fn-yu}.
 |===
 
-There is some maths suggesting that the above is not unaccepted. The maths
-is a little esoteric but it comes down to a curiosity about high-dimensional data.
-Let's ask what is the value of have more data; specifically,
-it is easier to learn a model from a table of data with stem:[n\in \{5,10,20\}]
-attributes.
-To build any part of a model,
-we need to find several similar data points that can confirm the presence of that part.
-If we say each  attribute is one dimension, then  the space of data similar to any one example
-is a sphere of volume 
+It can be shown, mathematically  that the more attributes we add to a model,
+the harder it becomes to find data that supports that bigger models. Hence, models are either
+simple or unsupportable. To make that case, lets image a
+table of data with 
+stem:[n\in \{5,10,20\}] columns. To fill in that table, we have to find data about the
+some phenomena. How hard is to find that data?
+That data must be about the phenomena under question; i.e. it must be some related
+data that clusters clone around the effects we are studying,
+If each  column is one dimension, then  the space of data revel amt data (
+that is similar to any one example)
+is found in a sphere of volume
 stem:[V_n=V_{n-2}\frac{2{\pi}r}{n}]. 
-That is, we can compute
+For example, we can calculate
 the volume of a four-dimensional sphere by looking back at the volume
 of a two-dimensional sphere (which is 
 stem:[V_2=2{\pi}r]), then multiplying by a factor stem:[\frac{2{\pi}r}{n}] {fn-unit}.
-So, if we were to hunt for similar examples in the unit sphere, what is the space
-where they can be found:
+Assuming a unit sphere where stem:[r=1], the volume of data relevant to our model comes from a volume:
 
-- stem:[V_5=5.25]
-- stem:[V_{10}=2.55]
-- stem:[V_{20}=0.03]
+- Assuming five attributes the space where we can find similar examples 
+  (where "similar" means  stem:[r=1]) is stem:[V_5=5.25] units;
+- But at  ten attributes, that space has shrunk to  ftem:[V_{10}=2.55];
+- At at twenty, that space has almost disappeared (volume =  stem:[V_{20}=0.03]). That is,
+  there is almost no space to find data that can build or confirm the model.
 
-Note that our sphere is _shrinking_
-as the number of dimensions gets large.
-See, for a unit-sphere (where stem:[r=1]), the factor stem:[\frac{2{\pi}r}{n}] 
+Why does the volume _shrink_
+as the number of dimensions gets large?
+Why? Well,
+for a unit-sphere, the factor stem:[\frac{2{\pi}r}{n}] 
 becomes less that one when
 stem:[n>2\pi]; i.e. when stem:[n>6]. To say that another away:
 if we over-elaborate our models with too
 many variables, we will not be able to find the data to 
 validate those models.
 
-(Aside: there are some caveats here. Each  dimension  could be itself be some 
+(Aside: there are some caveats here. Firstly, note that the above holds
+for any definition of distance (and not just
+for "similar data"
+means
+stem:[r<1]). Not matter what similar means, at some point, the extra attributes
+will start eating away at that the region where you can find relevant data.
+Secondly, there are cases when the above may not mean that models are either
+simple or non-existent. Each  dimension  could be itself be some 
 synthesized construct that combines multiple dimensions-- in which case we can model
 more that stem:[n=6] dimensions. Also, even if the _current model_ needs just a few attributes,
 whose to know when your context switches and suddenly you are in a new situation that
 needs a new model with six different attributes?)  
  
-
+Other maths tells us even for non-determinate systems, the variables that control
+the whole model can be a very small set. Suppose we have two normal variables 
+stem:[x,y] (and by "normal", we means variables 
+with a bell-shaped curve) with a mean value of 10 and 20 and a wriggle
+(called the standard deviation) of one. 95% of the time, the first variable will be found  
+between 8 and 12 and the second variable will be found between 18 and 22. 
+Over a number line stretching from the min of one number to the max of the other (8 to 22),
+the first variable ignores 75% of therange (12 to 22) and the second variable algo infores  25% of the range (8 to 12) and the other variable
 at what happens when we try to learn a model using lots of data,
 versus learning from just a little. For example, we have a spreadsheet with 10 columns
 or 100.
