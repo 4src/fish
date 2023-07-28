@@ -528,7 +528,7 @@ where seen (52%, 75%, 91%) of the time<sup class="footnote">[<a id="_footnoteref
 is to
 first collect data from that software then see how much
 that that can be compressed (without loss of signal). The experience to
-date is that those compression rates can be very large:</p>
+date is that those compression rates can be very large.</p>
 </div>
 <table class="tableblock frame-all grid-rows stretch">
 <caption class="title">Table 2. Table Software data can be dramatically compressed</caption>
@@ -567,7 +567,61 @@ to distinguish the functions with potential security flaws <sup class="footnote"
 </tbody>
 </table>
 <div class="paragraph">
-<p>Do you k</p>
+<p>There is some maths suggesting that the above is not unaccepted. The maths
+is a little esoteric but it comes down to a curiosity about high-dimensional data.
+Let&#8217;s ask what is the value of have more data; specifically,
+it is easier to learn a model from a table of data with \(n\in \{5,10,20\}\)
+attributes.
+To build any part of a model,
+we need to find several similar data points that can confirm the presence of that part.
+If we say each  attribute is one dimension, then  the space of data similar to any one example
+is a sphere of volume
+\(V_n=V_{n-2}\frac{2{\pi}r}{n}\).
+That is, we can compute
+the volume of a four-dimensional sphere by looking back at the volume
+of a two-dimensional sphere (which is
+\(V_2=2{\pi}r\)), then multiplying by a factor \(\frac{2{\pi}r}{n}\) <sup class="footnote">[<a id="_footnoteref_9" class="footnote" href="#_footnotedef_9" title="View footnote.">9</a>]</sup>.
+So, if we were to hunt for similar examples in the unit sphere, what is the space
+where they can be found:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>\(V_5=5.25\)</p>
+</li>
+<li>
+<p>\(V_{10}=2.55\)</p>
+</li>
+<li>
+<p>\(V_{20}=0.03\)</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Note that our sphere is <em>shrinking</em>
+as the number of dimensions gets large.
+See, for a unit-sphere (where \(r=1\)), the factor \(\frac{2{\pi}r}{n}\)
+becomes less that one when
+\(n&gt;2\pi\); i.e. when \(n&gt;6\). To say that another away:
+if we over-elaborate our models with too
+many variables, we will not be able to find the data to
+validate those models.</p>
+</div>
+<div class="paragraph">
+<p>(Aside: there are some caveats here. Each  dimension  could be itself be some
+synthesized construct that combines multiple dimensions-- in which case we can model
+more that \(n=6\) dimensions. Also, even if the <em>current model</em> needs just a few attributes,
+whose to know when your context switches and suddenly you are in a new situation that
+needs a new model with six different attributes?)</p>
+</div>
+<div class="paragraph">
+<p>at what happens when we try to learn a model using lots of data,
+versus learning from just a little. For example, we have a spreadsheet with 10 columns
+or 100.
+If you want to find relevant data to elan some part of a model,  you should look
+to  the sphere of similar things that a close by.
+Now this sphere for  has a volume that is can be calulated i.e. things that are close-by. One way to model "close"
+is to reflect on the</p>
 </div>
 </div>
 </div>
@@ -597,7 +651,7 @@ that do the most?</p>
 </div>
 <div class="paragraph">
 <p>One big idea, that is often missing is "sampling".
-Sampling has a formal definition(footnote<sup class="footnote">[<a id="_footnoteref_9" class="footnote" href="#_footnotedef_9" title="View footnote.">9</a>]</sup>) but I like to call it
+Sampling has a formal definition(footnote<sup class="footnote">[<a id="_footnoteref_10" class="footnote" href="#_footnotedef_10" title="View footnote.">10</a>]</sup>) but I like to call it
 "not looking at everything". Life is short, the road is long,
 you stop to look at everything or you will never get
 anything done(footnote{fn-maths}).</p>
@@ -701,12 +755,15 @@ varying skills. A common theme in that V&amp;V</p>
 <a href="#_footnoteref_8">8</a>. Yu, Z., Theisen, C., Williams, L., &amp; Menzies, T. (2019). Improving vulnerability inspection efficiency using active learning. IEEE Transactions on Software Engineering, 47(11), 2401-2420.
 </div>
 <div class="footnote" id="_footnotedef_9">
-<a href="#_footnoteref_9">9</a>. Approximate a larger population on characteristics relevant to the research question, to be representative so that researchers can make inferences about the larger population. From the <a href="https://www.nlm.nih.gov/nichsr/stats_tutorial/section2/mod1_sampling.html">National Library of Medicine</a>
+<a href="#_footnoteref_9">9</a>. <a href="https://en.wikipedia.org/wiki/Unit_sphere" class="bare">https://en.wikipedia.org/wiki/Unit_sphere</a>
+</div>
+<div class="footnote" id="_footnotedef_10">
+<a href="#_footnoteref_10">10</a>. Approximate a larger population on characteristics relevant to the research question, to be representative so that researchers can make inferences about the larger population. From the <a href="https://www.nlm.nih.gov/nichsr/stats_tutorial/section2/mod1_sampling.html">National Library of Medicine</a>
 </div>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-07-27 23:33:20 -0400
+Last updated 2023-07-28 01:13:43 -0400
 </div>
 </div>
 <script type="text/x-mathjax-config">
