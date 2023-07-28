@@ -49,3 +49,6 @@ html:
 	open $(HOME)/tmp/cutr.html
 
 pdf: $(HOME)/tmp/cutr.pdf
+
+docs/%.html : %.adoc
+	asciidoctor -D docs -r asciidoctor-diagram $^

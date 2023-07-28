@@ -5,8 +5,8 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Asciidoctor 2.0.20">
-<meta name="author" content="Tim Menzies &lt;timm@ieee.org&gt;, July 26 2023">
-<title>SE+AI, just the important BITS (Big Ideas, Tiny Scrips)</title>
+<meta name="author" content="Tim Menzies">
+<title>SE+AI, just the important bits</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700">
 <style>
 /*! Asciidoctor default stylesheet | MIT License | https://asciidoctor.org */
@@ -437,13 +437,15 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </head>
 <body class="article toc2 toc-left">
 <div id="header">
-<h1>SE+AI, just the important BITS (Big Ideas, Tiny Scrips)</h1>
+<h1>SE+AI, just the important bits</h1>
 <div class="details">
-<span id="author" class="author">Tim Menzies &lt;timm@ieee.org&gt;, July 26 2023</span><br>
+<span id="author" class="author">Tim Menzies</span><br>
+<span id="email" class="email"><a href="mailto:timm@ieee.org">timm@ieee.org</a></span><br>
 </div>
 <div id="toc" class="toc2">
 <div id="toctitle">Table of Contents</div>
 <ul class="sectlevel1">
+<li><a href="#_cut_the_crap">Cut the Crap</a></li>
 <li><a href="#first">First Steps with AsciiDoc</a>
 <ul class="sectlevel2">
 <li><a href="#_lists_upon_lists">Lists Upon Lists</a></li>
@@ -453,6 +455,122 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div>
 </div>
 <div id="content">
+<div class="sect1">
+<h2 id="_cut_the_crap"><a class="anchor" href="#_cut_the_crap"></a>Cut the Crap</h2>
+<div class="sectionbody">
+<div class="quoteblock">
+<blockquote>
+"The sculpture is already complete within the marble block, before
+I start my work. It is already there, I just have to chisel away
+the superfluous material."
+</blockquote>
+<div class="attribution">
+&#8212; Michelangelo di Lodovico Buonarroti Simoni
+</div>
+</div>
+<div class="quoteblock">
+<blockquote>
+"The best thing you can do with most of what you have, is to throw it away."
+</blockquote>
+<div class="attribution">
+&#8212; Me
+</div>
+</div>
+<div class="paragraph">
+<p>Sadly, all too often,  simple things get too complicated.  I&#8217;m a
+knowledge engineer who writes software systems to capture human
+ideas.  If I ask any subject matter experts about, well,  anything
+at all, they feel duty bound to say something- even if it is outside
+their expertise and experience.  As a result, software specifications
+can collect much silly stuff.</p>
+</div>
+<div class="paragraph">
+<p>The same thing happens with committees.  Parkinson&#8217;s law of
+Triviality (also know as <em>the bike-shed effect</em><sup class="footnote">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup> says
+that groups spend a disproportionate amount of their time on menial
+and trivial matters while the important stuff gets unattended.
+For example, when designing a nuclear power plant, a committee might
+spend days debating  the bike sheds but only a few hours discussing
+how to dispose of the spent nuclear fuel rods.</p>
+</div>
+<div class="paragraph">
+<p>As with human discussions, so to with software. Take any software
+system and look into how much of it actually needs to be used (hint: not much):</p>
+</div>
+<table class="tableblock frame-all grid-rows stretch">
+<caption class="title">Table 1. Table Software usually runs  in  a small corner of the total space</caption>
+<colgroup>
+<col style="width: 100%;">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">When Microsoft instrumented their Office
+suite and found that the top 10-most-used buttons
+covered 82% of the command use in that tools
+(and some of the  rest were used vanishingly rarely<sup class="footnote">[<a id="_footnoteref_2" class="footnote" href="#_footnotedef_2" title="View footnote.">2</a>]</sup>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">When Jack
+Diederich carefully rewrote commonly-used
+Python libraries (just focusing on the parts he needed) 10,000 lines of
+code reduced by 99% to  just 135 lines<sup class="footnote">[<a id="_footnoteref_3" class="footnote" href="#_footnotedef_3" title="View footnote.">3</a>]</sup>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">When Marek Druzdel  tracked the used states within his intensive care software
+(which was a system with over 500,000 possible states), he found
+that the top (1,  11,  40) most used states
+where seen (52%, 75%, 91%) of the time<sup class="footnote">[<a id="_footnoteref_4" class="footnote" href="#_footnotedef_4" title="View footnote.">4</a>]</sup>.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Another way to reflect on the effective size of software
+is to
+first collect data from that software then see how much
+that that can be compressed (without loss of signal). The experience to
+date is that those compression rates can be very large:</p>
+</div>
+<table class="tableblock frame-all grid-rows stretch">
+<caption class="title">Table 2. Table Software data can be dramatically compressed</caption>
+<colgroup>
+<col style="width: 100%;">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">For tabular data (where one column is the goal), instance and column ranking
+algorithms can select around 33% (or less) of the columns
+(that are most
+associated with the goal), and around
+10% of the rows (that can serve as representatives for the rest)
+Such column and instance selection
+can shrink tables of software data  to just <em>.33*.1 = 3%</em> of their original size
+<sup class="footnote">[<a id="_footnoteref_5" class="footnote" href="#_footnotedef_5" title="View footnote.">5</a>]</sup> <sup class="footnote">[<a id="_footnoteref_6" class="footnote" href="#_footnotedef_6" title="View footnote.">6</a>]</sup>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The models learned in this tiny corner of the data works just as well
+as anything else. Better yet, this reduced space is better for data sharing since
+anything that was private in 97%   of the data is now removed <sup class="footnote">[<a id="_footnoteref_7" class="footnote" href="#_footnotedef_7" title="View footnote.">7</a>]</sup>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Similar compressions have been seen with support vector
+algorithms.
+Support vectors are the "border guards" that mark out the boundary
+between <em>this</em> kind of stuff and <em>that</em> kind of stuff.
+Once that boundary is known,
+we can forget the rest of the data since (for classification tasks)
+all we need to know is where we stand with
+respect to the border.
+Zhe Yu and his colleagues report that when their tools read 20,000+
+functions from the Firefox blowers, around 200 vectors were enough
+to distinguish the functions with potential security flaws <sup class="footnote">[<a id="_footnoteref_8" class="footnote" href="#_footnotedef_8" title="View footnote.">8</a>]</sup>.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Do you k</p>
+</div>
+</div>
+</div>
 <div class="sect1">
 <h2 id="first"><a class="anchor" href="#first"></a>First Steps with <a href="http://asciidoc.org">AsciiDoc</a></h2>
 <div class="sectionbody">
@@ -479,21 +597,10 @@ that do the most?</p>
 </div>
 <div class="paragraph">
 <p>One big idea, that is often missing is "sampling".
-Sampling has a formal definition(footnote{fn-sample}) but I like to call it
+Sampling has a formal definition(footnote<sup class="footnote">[<a id="_footnoteref_9" class="footnote" href="#_footnotedef_9" title="View footnote.">9</a>]</sup>) but I like to call it
 "not looking at everything". Life is short, the road is long,
 you stop to look at everything or you will never get
 anything done(footnote{fn-maths}).</p>
-</div>
-<div class="paragraph">
-<p>experience, just look at "list of human cognitive biases" in Wikipedia.
-At last count, 125 (and growing). This page lists all the ways humans
-routinely act in non-rational manner.]</p>
-</div>
-<div class="paragraph">
-<p>characteristics relevant to the research question, to be
-representative so that researchers can make inferences
-about the larger population. From the
-<a href="https://www.nlm.nih.gov/nichsr/stats_tutorial/section2/mod1_sampling.html">National Library of Medicine</a>]</p>
 </div>
 <div class="paragraph">
 <p>Say you build software with variables that take four values:
@@ -517,6 +624,13 @@ In a cost-effective way? I say the answer is modeling. I say that
 when faced with somethig u dont understad</p>
 </div>
 <div class="paragraph">
+<p>Now if I tell you I advocate for software-as-models, they can go a little
+crazy on model definition languages. I&#8217;m no fan of massive great
+XML schema definitions, especially when the used bit is such a small
+part of the total bit.For example, anyone remember that 900 pages of XML
+specification proposed by Microsoft? Or</p>
+</div>
+<div class="paragraph text-center">
 <p>artifacct &#8594; notes &#8594; expecation &#8594; test cases &#8594; testing &#8594; issues</p>
 </div>
 <div class="sect2">
@@ -556,18 +670,43 @@ I watched analyss struggling to understand, then add value to, a wide range of
 softwar types built in very many ways by developers with widely
 varying skills. A common theme in that V&amp;V</p>
 </div>
-<div class="imageblock">
-<div class="content">
-<img src="diag-8ac9b322bf3e2e1e7b0df17f6f64d0a6.png" alt="Diagram" width="540" height="280">
 </div>
 </div>
 </div>
 </div>
+<div id="footnotes">
+<hr>
+<div class="footnote" id="_footnotedef_1">
+<a href="#_footnoteref_1">1</a>. <a href="https://en.wikipedia.org/wiki/Law_of_triviality" class="bare">https://en.wikipedia.org/wiki/Law_of_triviality</a>
+</div>
+<div class="footnote" id="_footnotedef_2">
+<a href="#_footnoteref_2">2</a>. <a href="https://www.neowin.net/news/building-windows-8-the-new-ribbon-based-explorer-explained/">Building Windows 8: The new ribbon-based Explorer</a>
+</div>
+<div class="footnote" id="_footnotedef_3">
+<a href="#_footnoteref_3">3</a>. <a href="https://youtu.be/o9pEzgHorH0" class="bare">https://youtu.be/o9pEzgHorH0</a>, Stop Writing Classes, Jack Diederich, Mark 15, 2012
+</div>
+<div class="footnote" id="_footnotedef_4">
+<a href="#_footnoteref_4">4</a>. Druzdzel, Marek J. "Some properties of joint probability distributions." Uncertainty Proceedings 1994. Morgan Kaufmann, 1994. 187-194.
+</div>
+<div class="footnote" id="_footnotedef_5">
+<a href="#_footnoteref_5">5</a>. Olvera-López, J.A., Carrasco-Ochoa, J.A., Martínez-Trinidad, J.F. et al. A review of instance selection methods. Artif Intell Rev 34, 133–143 (2010). <a href="https://doi.org/10.1007/s10462-010-9165-y" class="bare">https://doi.org/10.1007/s10462-010-9165-y</a>
+</div>
+<div class="footnote" id="_footnotedef_6">
+<a href="#_footnoteref_6">6</a>. Mark A. Hall, Geoffrey Holmes: Benchmarking Attribute Selection Techniques for Discrete Class Data Mining. IEEE Trans. Knowl. Data Eng. 15(6): 1437-1447 (2003)
+</div>
+<div class="footnote" id="_footnotedef_7">
+<a href="#_footnoteref_7">7</a>. F. Peters, T. Menzies and L. Layman, "LACE2: Better Privacy-Preserving Data Sharing for Cross Project Defect Prediction," 2015 IEEE/ACM 37th IEEE International Conference on Software Engineering, Florence, Italy, 2015, pp. 801-811, doi: 10.1109/ICSE.2015.92.
+</div>
+<div class="footnote" id="_footnotedef_8">
+<a href="#_footnoteref_8">8</a>. Yu, Z., Theisen, C., Williams, L., &amp; Menzies, T. (2019). Improving vulnerability inspection efficiency using active learning. IEEE Transactions on Software Engineering, 47(11), 2401-2420.
+</div>
+<div class="footnote" id="_footnotedef_9">
+<a href="#_footnoteref_9">9</a>. Approximate a larger population on characteristics relevant to the research question, to be representative so that researchers can make inferences about the larger population. From the <a href="https://www.nlm.nih.gov/nichsr/stats_tutorial/section2/mod1_sampling.html">National Library of Medicine</a>
 </div>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-07-27 20:27:26 -0400
+Last updated 2023-07-27 23:33:20 -0400
 </div>
 </div>
 <script type="text/x-mathjax-config">
