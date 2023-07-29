@@ -69,8 +69,8 @@ class COL(obj):
 #---------------------------------------------------------------
 class SYM(COL):
    def __init__(i,*l,**d):
-      super().__init__(*l,**d)
       i.most,i.mode, i.has = 0, None, {}
+      super().__init__(*l,**d)
    def mid(i): return mode(i.has)
    def div(i): return ent(i.has)
    def add1(i,x):
@@ -81,9 +81,9 @@ class SYM(COL):
 #---------------------------------------------------------------
 class NUM(COL):
    def __init__(i,*l,**d):
+      i.mu, i.m2, i.lo, i.hi = 0,0,big,-big
       super().__init__(*l,**d)
       i.heaven = 0 if i.name[-1] == "-" else 1
-      i.mu, i.m2, i.lo, i.hi = 0,0,big,-big
    def mid(i): return i.mu
    def div(i): return (i.m2/(i.n-1))**.5
    def distance2heaven(i,row): return i.heaven - i.norm(row[i.at])
@@ -125,15 +125,18 @@ class SHEET(obj):
 
    def add(i,row):
       if i.cols:
-         i.rows += [[col.add(row[col.at]) for col in i.cols.all]]
+         i.rows += [col.add(row[col.at]) for col in i.cols.all]
       else:
-         i.names = row
-         i.cols= slots(
-                   x=[], y=[],
-                   all=[(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(row)])
-         [(i.cols.y if col.name[-1] in "+-!" else i.cols.x).append(col) for col in i.cols.all]
+         i.cols  = i._cols(row)
 
-   def stats(i, cols="goal", decimals=None, want="mid"):
+   def _cols(i,row):
+      x,y, all = [],[], [(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(row)]
+      for col in all:
+        if col.name[-1] != "X": 
+           (y if col.name[-1] in "+-!" else x).append(col)
+      return slots(x=x, y=y, names=row, all=all)
+
+   def stats(i, cols="y", decimals=None, want="mid"):
       return slots(N=len(i.rows), **{c.name:show(c.div() if want=="div" else c.mid(),decimals) 
                                    for c in i.cols[cols]})
 
@@ -196,8 +199,8 @@ def run(fun):
    global the
    saved = {k:v for k,v in the.items()}
    random.seed(the.seed)
-   failed = fun() is False
-   print("❌ FAIL" if failed else "✅ OK", fun.__name__)
+   if failed := fun() is False:
+      print("❌ FAIL", fun.__name__)
    for k,v in saved.items(): the[k] = v
    return failed
 
@@ -216,7 +219,7 @@ def alls():
 def syms():
    "test sym"
    s=SYM(a="aaaabbc")
-   print(s)
+   print(s,s.div())
 
 @fun
 def thes(): 
