@@ -13,6 +13,7 @@ OPTIONS:
   -p --p      distance coefficient   = 2
   -s --seed   random number seed     = 1234567891
   -r --rest   the rest               = 4
+  -t --top    only explore top cuts  = 8
   -w --want   plan|avoid|doubt|xplor = plan
 """
 from collections import defaultdict,Counter
@@ -125,20 +126,19 @@ class SHEET(obj):
 
    def add(i,row):
       if i.cols:
-         i.rows += [col.add(row[col.at]) for col in i.cols.all]
+         i.rows += [[col.add(row[col.at]) for col in i.cols.all]]
       else:
-         i.cols  = i._cols(row)
-
-   def _cols(i,row):
-      x,y, all = [],[], [(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(row)]
-      for col in all:
-        if col.name[-1] != "X": 
-           (y if col.name[-1] in "+-!" else x).append(col)
-      return slots(x=x, y=y, names=row, all=all)
+         all = [(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(row)]
+         x,y = [],[]
+         for col in all:
+           if col.name[-1] != "X":
+              (y if col.name[-1] in "+-!" else x).append(col)
+         i.cols = slots(x=x, y=y, names=row, all=all)
 
    def stats(i, cols="y", decimals=None, want="mid"):
-      return slots(N=len(i.rows), **{c.name:show(c.div() if want=="div" else c.mid(),decimals) 
-                                   for c in i.cols[cols]})
+      return slots(N=len(i.rows),
+                   **{c.name:show(c.div() if want=="div" else c.mid(),decimals)
+                      for c in i.cols[cols]})
 
    def distance2heaven(i,row):
       return (sum((col.distance2heaven(row)**the.p for col in i.cols.y))
@@ -146,16 +146,28 @@ class SHEET(obj):
 
    def sorted(i): return sorted(i.rows, key=lambda row: i.distance2heaven(row))
 
-   def clone(i, a=[]): return SHEET( [i.names] + a)
+   def clone(i, a=[]): return SHEET([i.cols.names] + a)
 #---------------------------------------------------------------
 def rules(sheet):
    rows = sheet.sorted()
-   n = int(len(rows)**the.min)
-   d= dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
-   for col in sheet.cols.x:
-      for cut in col.cuts(d):
-         print(score(cuts2Rule([cut]),d),cut)
+   n    = int(len(rows)**the.min)
+   d    = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
+   cuts0 = [cut for col in sheet.cols.x for cut in col.cuts(d)]
+   cuts1 = sorted(cuts0, key=lambda c: score(cuts2Rule([c]),d),reverse=True)[:the.top]
+   def score1(cuts):
+      rule=cuts2Rule(cuts)
+      return score(rule,d)/(len(cuts)/len(cuts1)),rule
+   for z in sorted((score1(cuts) for cuts in powerset(cuts1)), 
+                   key=lambda z:z[0],reverse=True)[:the.top]:
+      print(z)
+
+
 #---------------------------------------------------------------
+def powerset(s):
+  x = len(s)
+  for i in range(1 << x):
+     if tmp :=  [s[j] for j in range(x) if (i & (1 << j))]: yield tmp
+
 def ent(d):   # measures diversity for symbolic distributions
    n = sum(d.values())
    return -sum(m/n * log(m/n,2) for m in d.values() if m>0)
