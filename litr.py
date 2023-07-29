@@ -6,7 +6,7 @@ litr:  little light deling
 
 OPTIONS:
   -c --cuts   initial number of cuts  = 16
-  -C --Cohen  small if C*std         = .35
+  -C --Cohen  small if C*std         = .5
   -e --eg     start up example       = helps
   -f --file   csv data file          = ../data/auto93.csv
   -m --min    min size               = .5
@@ -32,14 +32,6 @@ want = dict(plan  = lambda b,r : b**2/(b+r),
             avoid = lambda b,r: r**2/(b+r),
             doubt = lambda b,r: (b+r)/(abs(b-r) + 1/big),
             xplor = lambda b,r: 1/(b+r + 1/big))
-
-ako = slots(num  = lambda s: s[0].isupper(),
-          goal = lambda s: s[-1] in "+-",
-          skip = lambda s: s[-1] == "X",
-          x    = lambda s: not ako.goal(s),
-          xnum = lambda s: ako.x(s) and ako.num(s),
-          xsym = lambda s: ako.x(s) and not ako.num(s))
-
 #---------------------------------------------------------------
 def cuts2Rule(cuts):
    d = defaultdict(list)
@@ -67,18 +59,18 @@ def ors(x, cuts):
 def true(x, cut): return x=="?" or cut[1]==cut[2]==x or x > cut[1] and x <= cut[2]
 #---------------------------------------------------------------
 class COL(obj):
-   def __init__(i,a=[],name=" ",at=0):
+   def __init__(i,a=[], name=" ", at=0):
       i.n, i.at, i.name = len(a), at, name
       i.adds(a)
    def adds(i,a=[]): [i.add(x) for x in a]; return i
    def add(i,x):
-      if x!="?": i.n += 1; i.add1(x)
+      if x !="?": i.n += 1; i.add1(x)
       return x
 #---------------------------------------------------------------
 class SYM(COL):
-   def __init__(i,a=[],name=" ",at=0):
+   def __init__(i,*l,**d):
+      super().__init__(*l,**d)
       i.most,i.mode, i.has = 0, None, {}
-      super().__init__(a=a,name=name,at=at)
    def mid(i): return mode(i.has)
    def div(i): return ent(i.has)
    def add1(i,x):
@@ -88,8 +80,8 @@ class SYM(COL):
       for k in i.has: yield (i.at, k, k)
 #---------------------------------------------------------------
 class NUM(COL):
-   def __init__(i,a=[],name=" ",at=0):
-      super().__init__(a=a,name=name,at=at)
+   def __init__(i,*l,**d):
+      super().__init__(*l,**d)
       i.heaven = 0 if i.name[-1] == "-" else 1
       i.mu, i.m2, i.lo, i.hi = 0,0,big,-big
    def mid(i): return i.mu
@@ -104,8 +96,8 @@ class NUM(COL):
       i.m2 += d*(x - i.mu)
    def cuts(i,d):
       xys   = sorted([(row[i.at],y) for y,rows in d.items() for row in rows if row[i.at] != "?"])
-      nmin= len(xys)/(the.cuts - 1)
-      xmin = the.Cohen * i.div()
+      nmin  = len(xys)/(the.cuts - 1)
+      xmin  = the.Cohen * i.div()
       now,b4= Counter(), Counter()
       out,lo= [], xys[0][0]
       for n,(x,y) in enumerate(xys):
@@ -136,17 +128,18 @@ class SHEET(obj):
          i.rows += [[col.add(row[col.at]) for col in i.cols.all]]
       else:
          i.names = row
-         i.cols= slots(all= [(NUM if ako.num(s) else SYM)(at=n,name=s) for n,s in enumerate(i.names)])
-         for k,fun in ako.items():
-            i.cols[k] = [col for col in i.cols.all if not ako.skip(col.name) and fun(col.name)]
+         i.cols= slots(
+                   x=[], y=[],
+                   all=[(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(row)])
+         [(i.cols.y if col.name[-1] in "+-!" else i.cols.x).append(col) for col in i.cols.all]
 
    def stats(i, cols="goal", decimals=None, want="mid"):
       return slots(N=len(i.rows), **{c.name:show(c.div() if want=="div" else c.mid(),decimals) 
                                    for c in i.cols[cols]})
 
    def distance2heaven(i,row):
-      return (sum((col.distance2heaven(row)**the.p for col in i.cols.goal))
-              / len(i.cols.goal))**(1/the.p)
+      return (sum((col.distance2heaven(row)**the.p for col in i.cols.y))
+              / len(i.cols.y))**(1/the.p)
 
    def sorted(i): return sorted(i.rows, key=lambda row: i.distance2heaven(row))
 
