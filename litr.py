@@ -148,19 +148,18 @@ class SHEET(obj):
 
    def clone(i, a=[]): return SHEET([i.cols.names] + a)
 #---------------------------------------------------------------
-def rules(sheet):
-   rows = sheet.sorted()
-   n    = int(len(rows)**the.min)
-   d    = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
-   cuts0 = [cut for col in sheet.cols.x for cut in col.cuts(d)]
-   cuts1 = sorted(cuts0, key=lambda c: score(cuts2Rule([c]),d),reverse=True)[:the.top]
-   def score1(cuts):
-      rule=cuts2Rule(cuts)
-      return score(rule,d)/(len(cuts)/len(cuts1)),rule
-   for z in sorted((score1(cuts) for cuts in powerset(cuts1)), 
-                   key=lambda z:z[0],reverse=True)[:the.top]:
-      print(z)
+def top(a,*l,**d): return sorted(a,*l,reverse=True,**d)[:the.top]
 
+def rules(sheet):
+   rows  = sheet.sorted()
+   n     = int(len(rows)**the.min)
+   d     = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
+   every = [cut for col in sheet.cols.x for cut in col.cuts(d)]
+   good  = top(every, key=lambda c: score(cuts2Rule([c]),d))
+   rules = top((cuts2Rule(cuts) for good in powerset(cuts1)), 
+               key=lambda rule: score(rule,d))
+   for rule in rules:
+      print(show(score(rule,d)), rule)
 
 #---------------------------------------------------------------
 def powerset(s):
