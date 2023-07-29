@@ -19,6 +19,13 @@ from collections import defaultdict,Counter
 from math import pi, log, cos, sin, sqrt, inf
 import fileinput, random, time,ast, sys, re
 #---------------------------------------------------------------
+class obj(object):
+   __repr__    = lambda i: showd(i.__dict__,i.__class__.__name__)
+
+class slots(dict): 
+   __getattr__ = dict.get
+   __repr__ = lambda i:showd(i)
+
 big  = 1E100
 
 want = dict(plan  = lambda b,r : b**2/(b+r),
@@ -33,12 +40,6 @@ ako = slots(num  = lambda s: s[0].isupper(),
           xnum = lambda s: ako.x(s) and ako.num(s),
           xsym = lambda s: ako.x(s) and not ako.num(s))
 
-class slots(dict): 
-   __getattr__ = dict.get
-   __repr__ = lambda i:showd(i)
-
-class obj(object):
-   __repr__    = lambda i: showd(i.__dict__,i.__class__.__name__)
 #---------------------------------------------------------------
 def cuts2Rule(cuts):
    d = defaultdict(list)
@@ -49,7 +50,6 @@ def score(rule, d):
    got = selects(rule,d)
    b = len(got["best"]) / (len(d["best"]) + 1/big)
    r = len(got["rest"]) / (len(d["rest"]) + 1/big)
-   print(rule,b,r,want[the.want](b,r))
    return want[the.want](b,r)
 
 def selects(rule, d)  : return {k: select(rule,rows) for k,rows in d.items()}
@@ -104,13 +104,13 @@ class NUM(COL):
       i.m2 += d*(x - i.mu)
    def cuts(i,d):
       xys   = sorted([(row[i.at],y) for y,rows in d.items() for row in rows if row[i.at] != "?"])
-      enough= len(xys)/(the.cuts - 1)
-      small = the.Cohen * i.div()
+      nmin= len(xys)/(the.cuts - 1)
+      xmin = the.Cohen * i.div()
       now,b4= Counter(), Counter()
       out,lo= [], xys[0][0]
       for n,(x,y) in enumerate(xys):
          now[y] += 1
-         if n < len(xys) - enough and x != xys[n+1][0] and sum(now.values()) >= enough and x-lo >= small:
+         if n < len(xys) - nmin and x != xys[n+1][0] and sum(now.values()) >= nmin and x-lo >= xmin:
             both = now + b4
             if out and ent(both) <= (ent(now)*now.total() + ent(b4)*b4.total()) / both.total():
                b4 = both
