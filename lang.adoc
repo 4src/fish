@@ -23,6 +23,12 @@
 :fn-unit:        footnote:[https://en.wikipedia.org/wiki/Unit_sphere]
 :fn-yu:          footnote:[Yu, Z., Theisen, C., Williams, L., & Menzies, T. (2019). Improving vulnerability inspection efficiency using active learning. IEEE Transactions on Software Engineering, 47(11), 2401-2420.]
 
+testing, not so much reporting as measuring and mitigating
+
+test fdixing usially genetic repair. but before we get into
+the complexity of that, there is a much simpler (and under-expplored)
+approach. config tweaking. 30% of cloud errors config errors. config gap.
+
 == Cut the Crap
 
 [quote,Michelangelo di Lodovico Buonarroti Simoni]
