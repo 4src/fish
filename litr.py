@@ -161,26 +161,18 @@ class SHEET(obj):
 
    def dist(i,row1,row2):
       return (sum(c.dist(row1[c.at],row2[c.at])**the.p for c in i.cols.x )/len(i.cols.x))**(1/the.p)
-
 #---------------------------------------------------------------
 def top(a,**d): return sorted(a,reverse=True,**d)[:the.top]
 
 def rules(sheet):
    val  = lambda cuts: score(cuts2Rule(cuts),d)
-   size = lambda cuts: len(cuts)/len(some)
+   balance = lambda cuts: ((0-val(cuts))**2 + (1-len(cuts)/len(some))**2)**.5
    rows = sheet.sorted()
    n    = int(len(rows)**the.min)
    d    = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
    all  = [cut for col in sheet.cols.x for cut in col.cuts(d)]
    some = top(all, key=lambda c: val([c]))
-   rules= top((cuts for cuts in powerset(some)),
-               key=lambda z: val(z)/size(z))
-   ds=[]
-   for n,cuts in enumerate(rules):
-      rule = cuts2Rule(cuts); print(rule)
-      ds += [sheet.clone(select(rule,rows)).stats()]
-   printd(sheet.stats(),*ds)
-
+   return top((cuts for cuts in powerset(some)), key=lambda z: balance(z))
 #---------------------------------------------
 class TREE:
    def __init__(i, sheet):
@@ -204,23 +196,13 @@ class TREE:
       return a,b,half1, half2
 
    def tree(i,verbose=False):
-      def _grow(rows,lvl=0):
+      def _grow(rows):
          here = i.sheet.clone(rows)
          here.lefts, here.rights = None,None
-         if verbose:
-            s = here.stats()
-            if lvl==0: print(f"{' '*25}",end="");prints(*s.keys())
-            print(f"{'|.. '*lvl:25}",end="")
-            if lvl==0: prints(*here.stats().values(),end="")
          if len(rows) >= 2*i.stop:
-            if verbose: print("")
             _,__,lefts,rights = i._halve(rows)
-            here.lefts  = _grow(lefts,lvl+1)
-            here.rights = _grow(rights,lvl+1)
-            #if len(lefts)  != len(rows): here.lefts  = _grow(lefts,lvl+1)
-            #if len(rights) != len(rows): here.rights = _grow(rights,lvl+1)
-         else:
-            if verbose: prints(*here.stats().values())
+            here.lefts  = _grow(lefts)
+            here.rights = _grow(rights)
          return here
       return _grow(i.sheet.rows)
 
@@ -237,6 +219,19 @@ class TREE:
          return i.sheet.clone(rows), i.sheet.clone(rest), evals
       return _grow(i.sheet.rows, [], 0)
 
+   def showTree(i,here,lvl=0):
+      if here:
+         s = here.stats()
+         if lvl==0: 
+            print(f"{' '*25}",end="");prints(*s.keys())
+            print(f"{' '*25}",end="");prints(*s.values(),end="")
+         print(f"{'|.. '*lvl:25}",end="")
+         if not here.lefts and not here.rights: 
+            prints(*s.values())
+         else:
+            print("")
+            i.showTree(here.lefts,lvl+1)
+            i.showTree(here.rights,lvl+1)
 #---------------------------------------------------------------
 def different(x,y):
   return cliffsDelta(x,y) and bootstrap(x,y)
@@ -376,7 +371,13 @@ def sheets():
 
 @fun
 def rulings():
-   rules(SHEET(csv(the.file)))
+   s= SHEET(csv(the.file))
+   stats=s.stats()
+   prints(*stats.keys())
+   prints(*stats.values())
+   for n,cuts in enumerate(rules(s)):
+      rule = cuts2Rule(cuts)
+      prints(*s.clone(select(rule,s.rows)).stats().values(),rule)
 
 @fun
 def dists():
@@ -397,7 +398,8 @@ def trees():
    "can we divide the data into best and rest?"
    sheet= SHEET(csv(the.file))
    rows = sheet.rows
-   TREE(sheet).tree(verbose=True)
+   t = TREE(sheet)
+   t.showTree(t.tree())
 
 @fun
 def branches():
