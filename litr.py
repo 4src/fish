@@ -219,19 +219,18 @@ class TREE:
          return i.sheet.clone(rows), i.sheet.clone(rest), evals
       return _grow(i.sheet.rows, [], 0)
 
-   def showTree(i,here,lvl=0):
-      if here:
-         s = here.stats()
-         if lvl==0: 
-            print(f"{' '*25}",end="");prints(*s.keys())
-            print(f"{' '*25}",end="");prints(*s.values(),end="")
-         print(f"{'|.. '*lvl:25}",end="")
-         if not here.lefts and not here.rights: 
-            prints(*s.values())
-         else:
-            print("")
-            i.showTree(here.lefts,lvl+1)
-            i.showTree(here.rights,lvl+1)
+   def showTree(i, here, lvl=0):
+      if not here: return
+      s = here.stats()
+      if lvl==0: prints(' '*23,*s.keys())
+      print(f"{'|.. '*lvl:24}",end="")
+      if lvl==0: prints(*s.values(),end="")
+      if not here.lefts and not here.rights:
+         prints(*s.values())
+      else:
+         print("")
+         i.showTree(here.lefts, lvl+1)
+         i.showTree(here.rights,lvl+1)
 #---------------------------------------------------------------
 def different(x,y):
   return cliffsDelta(x,y) and bootstrap(x,y)
