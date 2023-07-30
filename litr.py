@@ -5,10 +5,15 @@ litr:  little light deling
 (c) Tim Menzies <timm@ieee.org>, BSD-2 license
 
 OPTIONS:
-  -c --cuts   initial number of cuts  = 16
+  -B --Bootstraps number of bootstraps    = 256
+  -b --bins   initial number of bins  = 16
+  -c --cliffs  Cliff's delta          = 0.2385 
   -C --Cohen  small if C*std         = .5
   -e --eg     start up example       = helps
   -f --file   csv data file          = ../data/auto93.csv
+  -F --Far    how far to look        = .925
+  -h --help   show help              = False
+  -H --Halves search for far in Halves = 512
   -m --min    min size               = .5
   -p --p      distance coefficient   = 2
   -s --seed   random number seed     = 1234567891
@@ -21,18 +26,17 @@ from math import pi, log, cos, sin, sqrt, inf
 import fileinput, random, time,ast, sys, re
 #---------------------------------------------------------------
 class obj(object):
-   __repr__    = lambda i: showd(i.__dict__,i.__class__.__name__)
+   __repr__  = lambda i: showd(i.__dict__,i.__class__.__name__)
 
 class slots(dict): 
    __getattr__ = dict.get
    __repr__ = lambda i:showd(i)
 
 big  = 1E100
-
-want = dict(plan  = lambda b,r : b**2/(b+r),
-            avoid = lambda b,r: r**2/(b+r),
-            doubt = lambda b,r: (b+r)/(abs(b-r) + 1/big),
-            xplor = lambda b,r: 1/(b+r + 1/big))
+want = dict(plan  = lambda b,r : b**2  / (b + r    + 1/big),
+            avoid = lambda b,r : r**2  / (b + r    + 1/big),
+            doubt = lambda b,r : (b+r) / (abs(b-r) + 1/big),
+            xplor = lambda b,r : 1     / (b+r      + 1/big))
 #---------------------------------------------------------------
 def cuts2Rule(cuts):
    d = defaultdict(list)
@@ -67,6 +71,8 @@ class COL(obj):
    def add(i,x):
       if x !="?": i.n += 1; i.add1(x)
       return x
+   def dist(i,x,y):
+     return 1 if x=="?" and y=="?" else i.dist1(x,y)
 #---------------------------------------------------------------
 class SYM(COL):
    def __init__(i,*l,**d):
@@ -74,6 +80,7 @@ class SYM(COL):
       super().__init__(*l,**d)
    def mid(i): return mode(i.has)
    def div(i): return ent(i.has)
+   def dist1(i,x,y): return 0 if x==y else 1
    def add1(i,x):
       new= i.has[x] = i.has.get(x,0) + 1
       if new > i.most: i.most,i.mode = new,x
@@ -89,6 +96,11 @@ class NUM(COL):
    def div(i): return (i.m2/(i.n-1))**.5
    def distance2heaven(i,row): return i.heaven - i.norm(row[i.at])
    def norm(i,x): return "?" if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
+   def dist1(i,x,y):
+      x,y = i.norm(x), i.norm(y)
+      if x=="?": x= 0 if y > .5 else 1
+      if y=="?": y= 0 if x > .5 else 1
+      return abs(x - y)
    def add1(i,x):
       i.lo  = min(x, i.lo)
       i.hi  = max(x, i.hi)
@@ -97,7 +109,7 @@ class NUM(COL):
       i.m2 += d*(x - i.mu)
    def cuts(i,d):
       xys   = sorted([(row[i.at],y) for y,rows in d.items() for row in rows if row[i.at] != "?"])
-      nmin  = len(xys)/(the.cuts - 1)
+      nmin  = len(xys)/(the.bins - 1)
       xmin  = the.Cohen * i.div()
       now,b4= Counter(), Counter()
       out,lo= [], xys[0][0]
@@ -145,23 +157,116 @@ class SHEET(obj):
               / len(i.cols.y))**(1/the.p)
 
    def sorted(i): return sorted(i.rows, key=lambda row: i.distance2heaven(row))
-
    def clone(i, a=[]): return SHEET([i.cols.names] + a)
+
+   def dist(i,row1,row2):
+      return (sum(c.dist(row1[c.at],row2[c.at])**the.p for c in i.cols.x )/len(i.cols.x))**(1/the.p)
+
 #---------------------------------------------------------------
-def top(a,*l,**d): return sorted(a,*l,reverse=True,**d)[:the.top]
+def top(a,**d): return sorted(a,reverse=True,**d)[:the.top]
 
 def rules(sheet):
-   rows  = sheet.sorted()
-   n     = int(len(rows)**the.min)
-   d     = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
-   every = [cut for col in sheet.cols.x for cut in col.cuts(d)]
-   good  = top(every, key=lambda c: score(cuts2Rule([c]),d))
-   rules = top((cuts2Rule(cuts) for good in powerset(cuts1)), 
-               key=lambda rule: score(rule,d))
-   for rule in rules:
-      print(show(score(rule,d)), rule)
+   val  = lambda cuts: score(cuts2Rule(cuts),d)
+   size = lambda cuts: len(cuts)/len(some)
+   rows = sheet.sorted()
+   n    = int(len(rows)**the.min)
+   d    = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
+   all  = [cut for col in sheet.cols.x for cut in col.cuts(d)]
+   some = top(all, key=lambda c: val([c]))
+   rules= top((cuts for cuts in powerset(some)),
+               key=lambda z: val(z)/size(z))
+   ds=[]
+   for n,cuts in enumerate(rules):
+      rule = cuts2Rule(cuts); print(rule)
+      ds += [sheet.clone(select(rule,rows)).stats()]
+   printd(sheet.stats(),*ds)
+
+#---------------------------------------------
+class TREE:
+   def __init__(i, sheet):
+      i.sheet = sheet
+      i.stop  = int(len(sheet.rows)**the.min)
+
+   def _far(i,rows,row1):
+      _dist = lambda row2: i.sheet.dist(row1,row2)
+      return sorted(rows, key=_dist)[int(len(rows)*the.Far)]
+
+   def _halve(i,rows):
+      some = rows if len(rows) <= the.Halves else random.sample(rows,k=the.Halves)
+      D    = lambda row1,row2: i.sheet.dist(row1,row2)
+      anywhere = random.choice(some)
+      a    = i._far(some, random.choice(some))
+      b    = i._far(some, a)
+      C    = D(a,b)
+      half1, half2 = [],[]
+      for n,row in enumerate(sorted(rows, key=lambda r: (D(r,a)**2 + C**2 - D(r,b)**2)/(2*C))):
+         (half1 if n <= len(rows)/2 else half2).append(row)
+      return a,b,half1, half2
+
+   def tree(i,verbose=False):
+      def _grow(rows,lvl=0):
+         here = i.sheet.clone(rows)
+         here.lefts, here.rights = None,None
+         if verbose:
+            s = here.stats()
+            if lvl==0: prints(*s.keys())
+            prints(*s.values(), "|.."*lvl)
+         if len(rows) >= 2*i.stop:
+            _,__,lefts,rights = i._halve(rows)
+            if len(lefts)  != len(rows): here.lefts  = _grow(lefts,lvl+1)
+            if len(rights) != len(rows): here.rights = _grow(rights,lvl+1)
+         return here
+      return _grow(i.sheet.rows)
+
+   def branch(i):
+      def _grow(rows,rest,evals):
+         if len(rows) >= 2*i.stop:
+            left,right,lefts,rights = i._halve(rows)
+            if  i.sheet.distance2heaven(right) < i.sheet.distance2heaven(left):
+                left,right,lefts,rights = right,left,rights,lefts
+            evals += 2
+            if len(lefts)  != len(rows):
+                rest += rights
+                return _grow(lefts, rest, evals)
+         return i.sheet.clone(rows), i.sheet.clone(rest), evals
+      return _grow(i.sheet.rows, [], 0)
 
 #---------------------------------------------------------------
+def different(x,y):
+  return cliffsDelta(x,y) and bootstrap(x,y)
+
+def cliffsDelta(x,y):
+   if len(x) > 10*len(y) : return cliffsDelta(random.choices(x,10*len(y)),y)
+   if len(y) > 10*len(x) : return cliffsDelta(x, random.choices(y,10*len(x)))
+   n,lt,gt = 0,0,0
+   for x1 in x:
+      for y1 in y:
+         n = n + 1
+         if x1 > y1: gt = gt + 1
+         if x1 < y1: lt = lt + 1
+   return abs(lt - gt)/n > the.cliffs # true if different
+
+def bootstrap(y0,z0,conf=.05):
+   obs= lambda x,y: abs(x.mid()-y.mid()) / ((x.div()**2/x.n + y.div()**2/y.n)**.5 + 1/big)
+   x, y, z = NUM(y0+z0), NUM(y0), NUM(z0)
+   d = obs(y,z)
+   yhat = [y1 - y.mid() + x.mid() for y1 in y0]
+   zhat = [z1 - z.mid() + x.mid() for z1 in z0]
+   n      = 0
+   for _ in range(the.Bootstraps):
+      ynum = NUM(random.choices(yhat,k=len(yhat)))
+      znum = NUM(random.choices(zhat,k=len(zhat)))
+      if obs(ynum, znum) > d:
+         n += 1
+   return n / the.Bootstraps < conf # true if different
+#---------------------------------------------------------------
+R=random.random
+def printd(*d):
+   prints(*list(d[0].keys()))
+   [prints(*d1.values()) for d1 in d]
+
+def prints(*l): print(*[show(x,2) for x in l],sep="\t")
+
 def powerset(s):
   x = len(s)
   for i in range(1 << x):
@@ -238,6 +343,21 @@ def thes():
    print(the)
 
 @fun
+def boots():
+   normal= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
+   mu,sd = 10,1
+   a = [normal(mu,sd) for _ in range(64)]
+   yn = lambda x: "y" if x else "."
+   seed=the.seed
+   r = 0
+   prints("a.mu","b.mu","cliffs","boot","c+b")
+   while r <= 3:
+      b = [normal(mu+r,3*sd) for _ in range(64)]
+      prints(mu,f"{mu+r}", yn(cliffsDelta(a,b)),yn(bootstrap(a,b)),yn(different(a,b)))
+      r += .25 
+   print(seed)
+
+@fun
 def csvs(): 
    "print a csv file"
    [print(row) for row in csv(the.file)]
@@ -251,6 +371,37 @@ def sheets():
 @fun
 def rulings():
    rules(SHEET(csv(the.file)))
+
+@fun
+def dists():
+   "check distances between random cols in random rows"
+   sheet= SHEET(csv(the.file))
+   rows=sheet.rows
+   c= random.choice
+   a=[]
+   for _ in range(30):
+       col = c(sheet.cols.x + sheet.cols.y)
+       z1  = c(rows)[col.at]
+       z2  = c(rows)[col.at]
+       a  += [(show(col.dist(z1, z2),3), z1,z2,col.name)]
+   [prints(*x) for x in sorted(a)]
+
+@fun
+def trees():
+   "can we divide the data into best and rest?"
+   sheet= SHEET(csv(the.file))
+   rows = sheet.rows
+   TREE(sheet).tree(verbose=True)
+
+@fun
+def branches():
+   "can we divide the data into best and rest?"
+   sheet= SHEET(csv(the.file))
+   best,rest,evals = TREE(sheet).branch()
+   printd(sheet.stats(),
+          best.stats(),
+          rest.stats())
+
 #---------------------------------------------------------------
 the=settings(__doc__)
 if __name__ == "__main__":
