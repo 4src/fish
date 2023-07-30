@@ -209,12 +209,18 @@ class TREE:
          here.lefts, here.rights = None,None
          if verbose:
             s = here.stats()
-            if lvl==0: prints(*s.keys())
-            prints(*s.values(), "|.."*lvl)
+            if lvl==0: print(f"{' '*25}",end="");prints(*s.keys())
+            print(f"{'|.. '*lvl:25}",end="")
+            if lvl==0: prints(*here.stats().values(),end="")
          if len(rows) >= 2*i.stop:
+            if verbose: print("")
             _,__,lefts,rights = i._halve(rows)
-            if len(lefts)  != len(rows): here.lefts  = _grow(lefts,lvl+1)
-            if len(rights) != len(rows): here.rights = _grow(rights,lvl+1)
+            here.lefts  = _grow(lefts,lvl+1)
+            here.rights = _grow(rights,lvl+1)
+            #if len(lefts)  != len(rows): here.lefts  = _grow(lefts,lvl+1)
+            #if len(rights) != len(rows): here.rights = _grow(rights,lvl+1)
+         else:
+            if verbose: prints(*here.stats().values())
          return here
       return _grow(i.sheet.rows)
 
@@ -261,11 +267,11 @@ def bootstrap(y0,z0,conf=.05):
    return n / the.Bootstraps < conf # true if different
 #---------------------------------------------------------------
 R=random.random
-def printd(*d):
-   prints(*list(d[0].keys()))
-   [prints(*d1.values()) for d1 in d]
+def printd(*d,**key):
+   prints(*list(d[0].keys()),**key)
+   [prints(*d1.values(),**key) for d1 in d]
 
-def prints(*l): print(*[show(x,2) for x in l],sep="\t")
+def prints(*l,**key): print(*[show(x,2) for x in l],sep="\t",**key)
 
 def powerset(s):
   x = len(s)
