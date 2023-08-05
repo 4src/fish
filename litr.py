@@ -76,14 +76,14 @@ class COL(obj):
 #---------------------------------------------------------------
 class SYM(COL):
    def __init__(i,*l,**d):
-      i.most,i.mode, i.has = 0, None, {}
+      i.most,i.mode, i.has = 0, None, Counter()
       super().__init__(*l,**d)
    def mid(i): return mode(i.has)
    def div(i): return ent(i.has)
    def dist1(i,x,y): return 0 if x==y else 1
    def add1(i,x):
-      new= i.has[x] = i.has.get(x,0) + 1
-      if new > i.most: i.most,i.mode = new,x
+      i.has[x] += 1
+      if i.has[x] > i.most: i.most,i.mode = i.has[x],x
    def cuts(i,_):
       for k in i.has: yield (i.at, k, k)
 #---------------------------------------------------------------
@@ -307,43 +307,34 @@ def cli(d):
             d[k] = coerce("True" if s=="False" else ("False" if s=="True" else sys.argv[j+1]))
    return d
 #---------------------------------------------------------------
-funs=slots()
-
-def fun(f):  funs[f.__name__] = f; return f
-
 def run(fun):
    global the
    saved = {k:v for k,v in the.items()}
    random.seed(the.seed)
    if failed := fun() is False:
-      print("❌ FAIL", fun.__name__)
+      print("❌ FAIL", fun.__name__[3:])
    for k,v in saved.items(): the[k] = v
    return failed
 
-@fun
-def helps():
+def eg_helps():
    "show help"
    print(__doc__,"\nACTIONS:")
-   [print(f"  -e  {fun.__name__:7} {fun.__doc__}") for fun in funs.values()]
+   [print(f"  -e  {fun.__name__[3:]:7} {fun.__doc__}") for fun in egs.values()]
 
-@fun
-def alls():
+def eg_alls():
    "run all"
-   sys.exit(sum(map(run,[fun for s,fun in funs.items() if s != "alls"])))
+   sys.exit(sum(map(run,[fun for s,fun in egs.items() if s != "alls"])))
 
-@fun
-def syms():
+def eg_syms():
    "test sym"
    s=SYM(a="aaaabbc")
    print(s,s.div())
 
-@fun
-def thes(): 
+def eg_thes(): 
    "print settings"
    print(the)
 
-@fun
-def boots():
+def eg_boots():
    normal= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
    mu,sd = 10,1
    a = [normal(mu,sd) for _ in range(64)]
@@ -357,19 +348,16 @@ def boots():
       r += .25 
    print(seed)
 
-@fun
-def csvs(): 
+def eg_csvs(): 
    "print a csv file"
    [print(row) for row in csv(the.file)]
 
-@fun
-def sheets(): 
+def eg_sheets(): 
    "load a csv file"
    s=SHEET(csv(the.file))
    print(s.stats())
 
-@fun
-def rulings():
+def eg_rulings():
    s= SHEET(csv(the.file))
    stats=s.stats()
    prints(*stats.keys())
@@ -378,8 +366,7 @@ def rulings():
       rule = cuts2Rule(cuts)
       prints(*s.clone(select(rule,s.rows)).stats().values(),rule)
 
-@fun
-def dists():
+def eg_dists():
    "check distances between random cols in random rows"
    sheet= SHEET(csv(the.file))
    rows=sheet.rows
@@ -392,16 +379,14 @@ def dists():
        a  += [(show(col.dist(z1, z2),3), z1,z2,col.name)]
    [prints(*x) for x in sorted(a)]
 
-@fun
-def trees():
+def eg_trees():
    "can we divide the data into best and rest?"
    sheet= SHEET(csv(the.file))
    rows = sheet.rows
    t = TREE(sheet)
    t.showTree(t.tree())
 
-@fun
-def branches():
+def eg_branches():
    "can we divide the data into best and rest?"
    sheet= SHEET(csv(the.file))
    best,rest,evals = TREE(sheet).branch()
@@ -410,7 +395,9 @@ def branches():
           rest.stats())
 
 #---------------------------------------------------------------
+egs = {k[3:]:fun for k,fun in locals().items() if k[:3]=="eg_"}
 the=settings(__doc__)
+#---------------------------------------------------------------
 if __name__ == "__main__":
    the=cli(the)
-   helps() if the.help else run(funs.get(the.eg,helps))
+   eg_helps() if the.help else run(egs.get(the.eg,eg_helps))
