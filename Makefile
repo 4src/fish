@@ -16,11 +16,12 @@ install: ## load python3 packages (requires `pip3`)
 ../config:
 	(cd ..; git clone https://github.com/4src/config config)
 
+############################
+Data= auto2 nasa93dem auto93 china coc1000 healthCloseIsses12mths0001-hard \
+      healthCloseIsses12mths0011-easy coc10000 pom SSN SSM
+
 tests: ## run test suite
-	if ./fish.py -g ok;\
-		then cp docs/pass.png docs/results.png; \
-		else cp docs/fail.png docs/results.png; \
-  fi
+	$(foreach f,$(Data), ./l4.py -f ../data/${f}.csv -e bests;)
 
 docs/%.html: %.py
 	python3 -Bm pdoc -c sort_identifiers=False  -c  show_inherited_members=False \

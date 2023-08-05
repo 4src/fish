@@ -1,26 +1,27 @@
 #!/usr/bin/env python3 -B
 # <!--- vim: set et sts=3 sw=3 ts=3 : --->
 """
-litr:  little light deling
+l4: a little light learning laboratory
 (c) Tim Menzies <timm@ieee.org>, BSD-2 license
 
 OPTIONS:
-  -B --Bootstraps number of bootstraps    = 256
-  -b --bins   initial number of bins  = 16
-  -c --cliffs  Cliff's delta          = 0.2385 
-  -C --Cohen  small if C*std         = .5
-  -e --eg     start up example       = helps
-  -f --file   csv data file          = ../data/auto93.csv
-  -F --Far    how far to look        = .925
-  -h --help   show help              = False
-  -H --Halves search for far in Halves = 512
-  -m --min    min size               = .5
-  -p --p      distance coefficient   = 2
-  -s --seed   random number seed     = 1234567891
-  -r --rest   the rest               = 4
-  -t --top    only explore top cuts  = 8
-  -w --want   plan|avoid|doubt|xplor = plan
+  -B --Bootstraps  number of bootstraps   = 256
+  -b --bins        initial number of bins = 16
+  -c --cliffs      Cliff's delta          = 0.147
+  -C --Cohen       small if C*std         = .35
+  -e --eg          start up example       = helps
+  -f --file        csv data file          = ../data/auto93.csv
+  -F --Far         how far to look        = .925
+  -h --help        show help              = False
+  -H --Halves      where to find for far  = 512
+  -m --min         min size               = .5
+  -p --p           distance coefficient   = 2
+  -s --seed        random number seed     = 1234567891
+  -r --rest        the rest               = 3
+  -t --top         only explore top cuts  = 8
+  -w --want        plan|avoid|doubt|xplor = plan
 """
+#  -c --cliffs      Cliff's delta          = 0.2385
 from collections import defaultdict,Counter
 from math import pi, log, cos, sin, sqrt, inf
 import fileinput, random, time,ast, sys, re
@@ -62,6 +63,12 @@ def ors(x, cuts):
       if true(x, cut): return cut
 
 def true(x, cut): return x=="?" or cut[1]==cut[2]==x or x > cut[1] and x <= cut[2]
+
+def showRule(names,rule):
+   def show(a,b):
+      return f"{a}" if a==b else f"({a} .. {b}]"
+   return ' and '.join([f"{names[cuts[0][0]]}: ({' or '.join([show(cut[1],cut[2])  for cut in cuts])})" 
+           for cuts in rule]) 
 #---------------------------------------------------------------
 class COL(obj):
    def __init__(i,a=[], name=" ", at=0):
@@ -161,12 +168,25 @@ class SHEET(obj):
 
    def dist(i,row1,row2):
       return (sum(c.dist(row1[c.at],row2[c.at])**the.p for c in i.cols.x )/len(i.cols.x))**(1/the.p)
+
+   def differences(i,j):
+      nums = lambda col,x: [row[col.at] for row in x.rows if row[col.at] != "?"]
+      def report(col):
+                a1 = nums(col,i)
+                a2 = nums(col,j)
+                if different(a1, a2):
+                   mu1 = NUM(a1).mu
+                   mu2 = NUM(a2).mu
+                   return int(100*((mu1 - mu2) if col.heaven == 0 else (mu2 - mu1))/mu1)
+                else: return 0
+      return slots(N = len(i.rows)+len(j.rows), **{col.name: report(col) for col in i.cols.y})
+
 #---------------------------------------------------------------
 def top(a,**d): return sorted(a,reverse=True,**d)[:the.top]
 
 def rules(sheet):
    val  = lambda cuts: score(cuts2Rule(cuts),d)
-   balance = lambda cuts: ((0-val(cuts))**2 + (1-len(cuts)/len(some))**2)**.5
+   balance = lambda cuts: val(cuts) #((0-val(cuts))**2 + (1-len(cuts)/len(some))**2)**.5
    rows = sheet.sorted()
    n    = int(len(rows)**the.min)
    d    = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
@@ -233,11 +253,13 @@ class TREE:
          i.showTree(here.rights,lvl+1)
 #---------------------------------------------------------------
 def different(x,y):
+  if len(x) > 1000: x = random.choices(x, k=1000)
+  if len(y) > 1000: y = random.choices(y, k=1000)
   return cliffsDelta(x,y) and bootstrap(x,y)
 
 def cliffsDelta(x,y):
-   if len(x) > 10*len(y) : return cliffsDelta(random.choices(x,10*len(y)),y)
-   if len(y) > 10*len(x) : return cliffsDelta(x, random.choices(y,10*len(x)))
+   if len(x) > 10*len(y) : return cliffsDelta(random.choices(x,k=10*len(y)),y)
+   if len(y) > 10*len(x) : return cliffsDelta(x, random.choices(y,k=10*len(x)))
    n,lt,gt = 0,0,0
    for x1 in x:
       for y1 in y:
@@ -319,7 +341,7 @@ def run(fun):
 def eg_helps():
    "show help"
    print(__doc__,"\nACTIONS:")
-   [print(f"  -e  {fun.__name__[3:]:7} {fun.__doc__}") for fun in egs.values()]
+   [print(f"  -e  {fun.__name__[3:]:12} {fun.__doc__}") for fun in egs.values()]
 
 def eg_alls():
    "run all"
@@ -330,7 +352,7 @@ def eg_syms():
    s=SYM(a="aaaabbc")
    print(s,s.div())
 
-def eg_thes(): 
+def eg_thes():
    "print settings"
    print(the)
 
@@ -345,26 +367,45 @@ def eg_boots():
    while r <= 3:
       b = [normal(mu+r,3*sd) for _ in range(64)]
       prints(mu,f"{mu+r}", yn(cliffsDelta(a,b)),yn(bootstrap(a,b)),yn(different(a,b)))
-      r += .25 
+      r += .25
    print(seed)
 
-def eg_csvs(): 
+def eg_csvs():
    "print a csv file"
    [print(row) for row in csv(the.file)]
 
-def eg_sheets(): 
+def eg_sheets():
    "load a csv file"
    s=SHEET(csv(the.file))
    print(s.stats())
 
-def eg_rulings():
+def eg_rulings(): 
    s= SHEET(csv(the.file))
    stats=s.stats()
    prints(*stats.keys())
    prints(*stats.values())
    for n,cuts in enumerate(rules(s)):
       rule = cuts2Rule(cuts)
-      prints(*s.clone(select(rule,s.rows)).stats().values(),rule)
+      prints(*s.clone(select(rule,s.rows)).stats().values(),showRule(s.cols.names,rule))
+
+def eg_bests():  
+   print("\n",the.file)
+   s1 = SHEET(csv(the.file))
+   stats1 = s1.stats()
+   prints(*stats1.keys())
+   prints(*stats1.values(),end="")
+   out=[]
+   for i in range(20):
+     out += _egbests(i)
+   print("")
+   s2 = s1.clone(out)
+   prints(*s2.stats().values())
+   prints(*s1.differences(s2).values())
+
+def _egbests(i):
+   print(f".", end="",flush=True)
+   s = SHEET(csv(the.file))
+   return select( cuts2Rule(rules(s)[0]), s.rows)
 
 def eg_dists():
    "check distances between random cols in random rows"
@@ -393,11 +434,10 @@ def eg_branches():
    printd(sheet.stats(),
           best.stats(),
           rest.stats())
-
 #---------------------------------------------------------------
 egs = {k[3:]:fun for k,fun in locals().items() if k[:3]=="eg_"}
 the=settings(__doc__)
 #---------------------------------------------------------------
 if __name__ == "__main__":
    the=cli(the)
-   eg_helps() if the.help else run(egs.get(the.eg,eg_helps))
+   eg_helps() if the.help else run(egs.get(the.eg, eg_helps))
