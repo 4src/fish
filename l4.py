@@ -139,7 +139,7 @@ class NUM(COL):
 #---------------------------------------------------------------
 class SHEET(obj):
    def __init__(i, src):
-     i.rows, i.names, i.cols = [], None, None
+     i.rows, i.cols = [],  None
      [i.add(row) for row in src]
 
    def add(i,row):
