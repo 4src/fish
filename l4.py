@@ -192,10 +192,9 @@ def rules(sheet,every=True):
    if every:
       rows = sheet.sorted()
       d    = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
-      #d    = dict(best=rows[:n], rest=rows[-n*the.rest:])
    else:
       best,rest,evals = TREE(sheet).branch()
-      d  = dict(best=best.rows, rest=random.sample(rest.rows,n*the.rest))
+      d  = dict(best=best.rows, rest=random.sample(rest.rows, n*the.rest))
    all  = [cut for col in sheet.cols.x for cut in col.cuts(d)]
    some = top(all, key=lambda c: val([c]))
    return top((cuts for cuts in powerset(some)), key=lambda z: balance(z))
@@ -339,6 +338,7 @@ def run(fun):
    global the
    saved = {k:v for k,v in the.items()}
    random.seed(the.seed)
+   print("\n\n=====|", fun.__name__[3:],"|===================================")
    if failed := fun() is False:
       print("❌ FAIL", fun.__name__[3:])
    for k,v in saved.items(): the[k] = v
@@ -447,6 +447,7 @@ def eg_dists():
        z1  = c(rows)[col.at]
        z2  = c(rows)[col.at]
        a  += [(show(col.dist(z1, z2),3), z1,z2,col.name)]
+   prints("dist","x1","x2","what")
    [prints(*x) for x in sorted(a)]
 
 def eg_trees():
