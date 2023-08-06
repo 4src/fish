@@ -8,10 +8,10 @@ OPTIONS:
   -B --Bootstraps  number of bootstraps   = 256
   -b --bins        initial number of bins = 16
   -c --cliffs      Cliff's delta          = 0.147
-  -C --Cohen       small if C*std         = .35
+  -C --Cohen       small if C*std         = .2
   -e --eg          start up example       = helps
   -f --file        csv data file          = ../data/auto93.csv
-  -F --Far         how far to look        = .925
+  -F --Far         how far to look        = .95
   -h --help        show help              = False
   -H --Halves      where to find for far  = 512
   -m --min         min size               = .5
@@ -159,7 +159,7 @@ class SHEET(obj):
                       for c in i.cols[cols]})
 
    def distance2heaven(i,row):
-      return (sum((col.distance2heaven(row)**the.p for col in i.cols.y))
+      return (sum((abs(col.distance2heaven(row))**the.p for col in i.cols.y))
               / len(i.cols.y))**(1/the.p)
 
    def sorted(i): return sorted(i.rows, key=lambda row: i.distance2heaven(row))
@@ -186,14 +186,16 @@ def top(a,**d): return sorted(a,reverse=True,**d)[:the.top]
 
 def rules(sheet,every=True):
    val  = lambda cuts: score(cuts2Rule(cuts),d)
-   balance = lambda cuts: val(cuts) #((0-val(cuts))**2 + (1-len(cuts)/len(some))**2)**.5
+   balance = lambda cuts: val(cuts)
+   #balance = lambda cuts: ((0-val(cuts))**2 + (1-len(cuts)/len(some))**2)**.5
+   n    = int(len(sheet.rows)**the.min)
    if every:
       rows = sheet.sorted()
-      n    = int(len(rows)**the.min)
       d    = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
+      #d    = dict(best=rows[:n], rest=rows[-n*the.rest:])
    else:
       best,rest,evals = TREE(sheet).branch()
-      d  = dict(best=best.rows, rest=rest.rows)
+      d  = dict(best=best.rows, rest=random.sample(rest.rows,n*the.rest))
    all  = [cut for col in sheet.cols.x for cut in col.cuts(d)]
    some = top(all, key=lambda c: val([c]))
    return top((cuts for cuts in powerset(some)), key=lambda z: balance(z))
@@ -382,6 +384,8 @@ def eg_sheets():
    "load a csv file"
    s=SHEET(csv(the.file))
    print(s.stats())
+   rows = s.sorted()
+   for i in range(1,len(rows),10): print(rows[i])
 
 def eg_rulings(): 
    s= SHEET(csv(the.file))

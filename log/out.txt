@@ -1,6 +1,6 @@
 
- ../data/auto2.csv
-	N	CityMPG+	HighwayMPG+	Weight-	Class-
+auto2
+RX	N	CityMPG+	HighwayMPG+	Weight-	Class-
 a=base	93	22.37	29.09	3072.9	19.51
 b=raw	9	34.78	40.0	2122.78	9.39
 c=all	297	30.51	36.07	2274.98	10.4
@@ -9,8 +9,8 @@ b/c	306	0	0	0	0
 b/d	410	-0.58	0	-0.29	-0.15
 c/d	698	-0.2	-0.19	-0.16	-0.1
 
- ../data/nasa93dem.csv
-	N	Kloc+	Effort-	Defects-	Months-
+nasa93dem
+RX	N	Kloc+	Effort-	Defects-	Months-
 a=base	93	94.02	624.41	3761.76	24.18
 b=raw	9	311.09	1208.67	10728.33	39.01
 c=all	1740	94.16	624.7	3753.64	24.17
@@ -19,8 +19,8 @@ b/c	1749	-0.81	0	0.57	0.57
 b/d	434	-0.87	0.37	0.64	0.7
 c/d	2165	0	0.12	0	0.13
 
- ../data/auto93.csv
-	N	Lbs-	Acc+	Mpg+
+auto93
+RX	N	Lbs-	Acc+	Mpg+
 a=base	398	2970.42	15.57	23.84
 b=raw	19	2043.0	19.58	39.47
 c=all	2286	2079.0	16.82	31.85
@@ -29,8 +29,8 @@ b/c	2305	0	-0.5	-0.46
 b/d	1048	-0.15	-0.57	-0.59
 c/d	3315	-0.12	0	-0.13
 
- ../data/china.csv
-	N	N_effort-
+china
+RX	N	N_effort-
 a=base	499	4277.64
 b=raw	22	167.18
 c=all	1811	729.52
@@ -39,8 +39,8 @@ b/c	1833	-0.04
 b/d	2716	-0.11
 c/d	4505	-0.07
 
- ../data/coc1000.csv
-	N	LOC+	AEXP-	PLEX-	RISK-	EFFORT-
+coc1000
+RX	N	LOC+	AEXP-	PLEX-	RISK-	EFFORT-
 a=base	1000	1013.05	2.97	3.05	6.68	30807.5
 b=raw	31	1582.55	1.74	1.48	5.39	39311.68
 c=all	8743	1040.83	2.95	3.0	5.81	27364.69
@@ -49,8 +49,8 @@ b/c	8774	-0.47	-0.51	-0.61	0	0.18
 b/d	8439	-0.49	-0.51	-0.63	0	0
 c/d	17151	0	0	0	0	0
 
- ../data/healthCloseIsses12mths0001-hard.csv
-	N	MRE-	ACC+	PRED40+
+health-hard
+RX	N	MRE-	ACC+	PRED40+
 a=base	10000	82.32	5.15	22.1
 b=raw	100	65.74	13.42	27.0
 c=all	128231	73.73	7.66	18.67
@@ -59,8 +59,8 @@ b/c	128331	-0.32	-0.75	-0.31
 b/d	33151	-0.41	-0.84	-0.26
 c/d	161282	0	0	0
 
- ../data/healthCloseIsses12mths0011-easy.csv
-	N	MRE-	ACC+	PRED40+
+health-easy
+RX	N	MRE-	ACC+	PRED40+
 a=base	10000	92.29	-8.53	17.79
 b=raw	100	0.0	0.0	83.33
 c=all	66040	35.96	-0.46	53.85
@@ -69,8 +69,8 @@ b/c	66140	-0.37	-0.04	-0.43
 b/d	35016	-0.35	-0.04	-0.41
 c/d	100956	0	0	0
 
- ../data/coc10000.csv
-	N	Loc+	Risk-	Effort-
+coc10000
+RX	N	Loc+	Risk-	Effort-
 a=base	10000	1009.04	6.59	30506.37
 b=raw	100	1933.47	0.71	19663.01
 c=all	86350	1011.04	5.02	26651.16
@@ -79,8 +79,8 @@ b/c	86450	-0.8	-0.36	0
 b/d	92427	-0.8	-0.51	0
 c/d	178677	0	-0.15	0
 
- ../data/pom.csv
-	N	Cost-	Completion+	Idle-
+pom
+RX	N	Cost-	Completion+	Idle-
 a=base	10000	369.99	0.87	0.24
 b=raw	100	133.85	0.94	0.01
 c=all	66140	196.79	0.86	0.24
@@ -89,8 +89,8 @@ b/c	66240	-0.15	-0.28	-0.6
 b/d	114753	-0.55	-0.27	-0.6
 c/d	180793	-0.39	0	0
 
- ../data/SSN.csv
-	N	PSNR-	Energy-
+SSN
+RX	N	PSNR-	Energy-
 a=base	53662	44.53	1658.0
 b=raw	231	25.59	710.49
 c=all	52800	39.71	2027.35
@@ -99,8 +99,8 @@ b/c	53031	-1.09	-0.41
 b/d	171518	-1.45	-0.17
 c/d	224087	-0.36	0.24
 
- ../data/SSM.csv
-	N	NUMBERITERATIONS-	TIMETOSOLUTION-
+SSM
+RX	N	NUMBERITERATIONS-	TIMETOSOLUTION-
 a=base	239360	30.94	506.07
 b=raw	489	3.79	59.36
 c=all	572220	14.8	168.68
