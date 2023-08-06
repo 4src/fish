@@ -7,14 +7,14 @@ import fileinput,random,sys,re
 class obj(object):
    def __repr__(i): return showd(i.__dict__,i.__class__.__name__)
 
-class slots(dict): 
+class slots(dict):
    def __repr__(i): return showd(i)
    __getattr__ = dict.get
 
 the=slots(
-      eg="usage",
-      file="../data/auto93.csv",
-      seed=1234567891, 
+      eg   = "usage",
+      file = "../data/auto93.csv",
+      seed = 1234567891
       )
 #---------------------------------------------------------------
 class COL(obj):
@@ -79,11 +79,11 @@ class SHEET(obj):
       return SHEET([ROW(i.cols.name)] + rows)
 
 #-------------------------------------------
-big  = 1E100
+big = 1E100
 def prints(*l,**key): print(*[show(x,2) for x in l],sep="\t",**key)
 
 def showd(d,pre=""):
-   return pre +"{"+ " ".join([f":{k} {show(v,3)}" for k,v in d.items() if k[0] != "_"]) +"}"
+   return pre+"{"+(" ".join([f":{k} {show(v,3)}" for k,v in d.items() if k[0] != "_"]))+"}"
 
 def show(x,decimals=None):
    if decimals and isinstance(x,float): return round(x,decimals)
@@ -107,24 +107,24 @@ def cli(d):
             d[k] = coerce("True" if s=="False" else ("False" if s=="True" else sys.argv[j+1]))
    return d
 #-------------------------------------------
-def run(settings,pre,funs,name):
-   if name=="all":
-      return sum((run(the, pre,funs,s[len(pre):]) for s in funs if s[:len(pre)]==pre))
-   fun = funs[pre+name]
-   saved = {k:v for k,v in settings.items()}
-   random.seed(the.seed)
-   print(name.upper(),end=": ")
-   if failed := fun() is False:
-      print("❌ FAIL", name.upper())
-   for k,v in saved.items(): settings[k] = v
-   return failed
+def run(settings, funs):
+   todo = settings.eg
+   funs = {s:fun for s,fun in funs.items() if s[:3]=="eg_"}
+   def one(todo):
+      if fun := funs.get("eg_"+todo, None):
+         saved = {k:v for k,v in settings.items()}
+         random.seed(the.seed)
+         print(todo.upper(),end=": ")
+         if failed := fun() is False: print("❌ FAIL", todo.upper())
+         for k,v in saved.items(): settings[k] = v
+         return failed
+   return sum((one(s[3:]) for s in funs)) if todo=="all" else one(todo)
 
 def eg_usage(): print(__doc__)
-def eg_the()  : print(the)
-def eg_csv()  : 
+def eg_the(): print(the)
+def eg_csv():
    print("")
    for row in csv(the.file): prints(*row.cells)
 #-------------------------------------------
 the = cli(the)
-sys.exit(run(the,"eg_",locals(), the.eg))
-
+sys.exit(run(the,locals()))
