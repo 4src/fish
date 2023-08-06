@@ -20,8 +20,12 @@ install: ## load python3 packages (requires `pip3`)
 Data= auto2 nasa93dem auto93 china coc1000 healthCloseIsses12mths0001-hard \
       healthCloseIsses12mths0011-easy coc10000 pom SSN SSM
 
-tests: ## run test suite
-	$(foreach f,$(Data), ./l4.py -f ../data/${f}.csv -e bests;)
+bests: 
+	$(foreach f,$(Data), ./l4.py -s $$RANDOM -f ../data/${f}.csv -e bests;)
+trees: 
+	$(foreach f,$(Data), (echo $f; ./l4.py -s $$RANDOM -f ../data/${f}.csv -e trees;);)
+branches: 
+	$(foreach f,$(Data), (echo $f; ./l4.py -s $$RANDOM -f ../data/${f}.csv -e branches;);)
 
 docs/%.html: %.py
 	python3 -Bm pdoc -c sort_identifiers=False  -c  show_inherited_members=False \

@@ -21,7 +21,6 @@ OPTIONS:
   -t --top         only explore top cuts  = 8
   -w --want        plan|avoid|doubt|xplor = plan
 """
-#  -c --cliffs      Cliff's delta          = 0.2385
 from collections import defaultdict,Counter
 from math import pi, log, cos, sin, sqrt, inf
 import fileinput, random, time,ast, sys, re
@@ -137,7 +136,7 @@ class NUM(COL):
       out[-1][2] = inf
       for cut in out:
          yield tuple(cut)
-#---------------------------------------------------------------
+#---------------------------------------------------------------
 class SHEET(obj):
    def __init__(i, src):
      i.rows, i.names, i.cols = [], None, None
@@ -169,7 +168,7 @@ class SHEET(obj):
    def dist(i,row1,row2):
       return (sum(c.dist(row1[c.at],row2[c.at])**the.p for c in i.cols.x )/len(i.cols.x))**(1/the.p)
 
-   def differences(i,j):
+   def differences(i,j,k):
       nums = lambda col,x: [row[col.at] for row in x.rows if row[col.at] != "?"]
       def report(col):
                 a1 = nums(col,i)
@@ -177,19 +176,24 @@ class SHEET(obj):
                 if different(a1, a2):
                    mu1 = NUM(a1).mu
                    mu2 = NUM(a2).mu
-                   return int(100*((mu1 - mu2) if col.heaven == 0 else (mu2 - mu1))/mu1)
+                   x =  ((mu1 - mu2) if col.heaven == 0 else (mu2 - mu1))/(col.div())
+                   return x
                 else: return 0
-      return slots(N = len(i.rows)+len(j.rows), **{col.name: report(col) for col in i.cols.y})
+      return slots(N = len(i.rows)+len(j.rows), **{col.name: show(report(col),2) for col in k.cols.y})
 
 #---------------------------------------------------------------
 def top(a,**d): return sorted(a,reverse=True,**d)[:the.top]
 
-def rules(sheet):
+def rules(sheet,every=True):
    val  = lambda cuts: score(cuts2Rule(cuts),d)
    balance = lambda cuts: val(cuts) #((0-val(cuts))**2 + (1-len(cuts)/len(some))**2)**.5
-   rows = sheet.sorted()
-   n    = int(len(rows)**the.min)
-   d    = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
+   if every:
+      rows = sheet.sorted()
+      n    = int(len(rows)**the.min)
+      d    = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
+   else:
+      best,rest,evals = TREE(sheet).branch()
+      d  = dict(best=best.rows, rest=rest.rows)
    all  = [cut for col in sheet.cols.x for cut in col.cuts(d)]
    some = top(all, key=lambda c: val([c]))
    return top((cuts for cuts in powerset(some)), key=lambda z: balance(z))
@@ -251,7 +255,7 @@ class TREE:
          print("")
          i.showTree(here.lefts, lvl+1)
          i.showTree(here.rights,lvl+1)
-#---------------------------------------------------------------
+#---------------------------------------------------------------
 def different(x,y):
   if len(x) > 1000: x = random.choices(x, k=1000)
   if len(y) > 1000: y = random.choices(y, k=1000)
@@ -328,7 +332,7 @@ def cli(d):
          if ("-"+k[0])==x or ("--"+k)==x:
             d[k] = coerce("True" if s=="False" else ("False" if s=="True" else sys.argv[j+1]))
    return d
-#---------------------------------------------------------------
+#---------------------------------------------------------------
 def run(fun):
    global the
    saved = {k:v for k,v in the.items()}
@@ -388,24 +392,45 @@ def eg_rulings():
       rule = cuts2Rule(cuts)
       prints(*s.clone(select(rule,s.rows)).stats().values(),showRule(s.cols.names,rule))
 
-def eg_bests():  
-   print("\n",the.file)
-   s1 = SHEET(csv(the.file))
-   stats1 = s1.stats()
-   prints(*stats1.keys())
-   prints(*stats1.values(),end="")
-   out=[]
-   for i in range(20):
-     out += _egbests(i)
-   print("")
-   s2 = s1.clone(out)
-   prints(*s2.stats().values())
-   prints(*s1.differences(s2).values())
+def eg_treeings(): 
+   s= SHEET(csv(the.file))
+   stats=s.stats()
+   prints(*stats.keys())
+   prints(*stats.values())
+   for n,cuts in enumerate(rules(s,every=True)):
+      rule = cuts2Rule(cuts)
+      prints(*s.clone(select(rule,s.rows)).stats().values(),
+             showRule(s.cols.names,rule))
 
-def _egbests(i):
-   print(f".", end="",flush=True)
+def eg_bests():
+   print("\n",the.file)
+   s_base = SHEET(csv(the.file))
+   stats_base = s_base.stats()
+   prints("",*stats_base.keys())
+   prints("a=base",*stats_base.values())
+   rows     = s_base.sorted()
+   n        = int(len(rows)**the.min)
+   with_raw = rows[:n]
+   s_raw    = s_base.clone(with_raw)
+   prints("b=raw",*s_raw.stats().values(),end="")
+   with_all=[]
+   with_some=[]
+   for i in range(20):
+     with_all += _egbests(i,True)     # instance based
+     with_some += _egbests(i,False)
+   print("")
+   s_all = s_base.clone(with_all)
+   s_some = s_base.clone(with_some)
+   prints("c=all",*s_all.stats().values())
+   prints("d=some",*s_some.stats().values())
+   prints("b/c",*s_raw.differences(s_all,s_base).values())
+   prints("b/d",*s_raw.differences(s_some,s_base).values())
+   prints("c/d",*s_all.differences(s_some,s_base).values())
+
+def _egbests(i,every=True):
+   print(str(chr(97+i)), end="",flush=True)
    s = SHEET(csv(the.file))
-   return select( cuts2Rule(rules(s)[0]), s.rows)
+   return select( cuts2Rule(rules(s,every)[0]), s.rows)
 
 def eg_dists():
    "check distances between random cols in random rows"
