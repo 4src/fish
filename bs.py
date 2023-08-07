@@ -2,23 +2,23 @@
 # <!--- vim: set et sts=3 sw=3 ts=3 : --->
 """
 BS: broomstick optimization
-(c)2023 Tim Menzies <timm@ieee.org> BSD-2
+(c) 2023 Tim Menzies <timm@ieee.org> BSD-2
 
 USAGE:
   ./bs.py -h [OPTIONS] -e [ACTIONS]
 
 OPTIONS:
-  -e --eg     start-up example    =  "help"
-  -f --file   file of data        = "../data/auto93.csv"
-  -h --help   show help           = False
-  -m --min    smallest lead       = .5
-  -p --p      distance coeffcient = 2
-  -r --rest   ratio rest:best     = 3
-  -s --seed   random seed         = 1234567891
-"""
-from ast import literal_eval as of
-import fileinput,random,sys,re
+  -e --eg       start-up example     =  "nothing"
+  -f --file     file of data         = "../data/auto93.csv"
+  -h --help     show help            = False
+  -m --min      smallest lead        = .5
+  -p --p        distance coefficient = 2
+  -r --rest     ratio rest:best      = 3
+  -s --seed     random seed          = 1234567891 """
+#--------------------------------------------------
+from ast import literal_eval as thing
 from collections import Counter
+import fileinput,random,sys,re
 from math import log
 
 class obj(object):
@@ -29,8 +29,7 @@ class slots(dict):
    def __repr__(i): return showd(i)
    __getattr__ = dict.get
 
-the = slots(**{m[1]:of(m[2]) for m in re.finditer(r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
-
+the= slots(**{m[1]:thing(m[2]) for m in re.finditer(r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #---------------------------------------------------------------
 class COL(obj):
    def __init__(i,a=[], name=" ", at=0):
@@ -110,7 +109,6 @@ class SHEET(obj):
    def dist(i,row1,row2):
       return (sum(c.dist(row1.cells[c.at],row2.cells[c.at])**the.p for c in i.cols.x)
               / len(i.cols.x))**(1/the.p)
-
 #-------------------------------------------
 def broomstick(sheet,budget=20):
    used={}
@@ -135,7 +133,6 @@ def broomstick(sheet,budget=20):
      policy =  max if policy==min else min
    print(len(used))
    return sorted(sheet.rows, key=cosine, reverse=True)
-
 #-------------------------------------------
 big = 1E100
 def ent(d):   # measures diversity for symbolic distributions
@@ -159,7 +156,7 @@ def show(x,decimals=None):
    return x.__name__ if callable(x) else x
 
 def coerce(x):
-   try : return of(x)
+   try : return thing(x)
    except Exception: return x.strip()
 
 def csv(file="-",filter=ROW):
@@ -177,7 +174,6 @@ def cli(d):
    return d
 #-------------------------------------------
 def run(settings, funs, pre="eg_", all="all"):
-   if settings.help: sys.exit(print(__doc__))
    n    = len(pre)
    todo = settings.eg
    funs = {s:fun for s,fun in funs.items() if s[:n]==pre}
@@ -185,28 +181,42 @@ def run(settings, funs, pre="eg_", all="all"):
       if fun := funs.get(pre+todo, None):
          saved = {k:v for k,v in settings.items()}
          random.seed(the.seed)
-         print(todo.upper(), end=": ")
          if failed := fun() is False: print("❌ FAIL", todo.upper())
          for k,v in saved.items(): settings[k] = v
          return failed
       else:
          print(f"Unknown; [{todo}]")
-   sys.exit(sum((one(s[n:]) for s in funs)) if todo==all else one(todo))
+   if settings.help:
+      print(__doc__+"\n\nACTIONS:\n  -e all\trun all actions")
+      [print(f"  -e {s[n:]}\t{fun.__doc__}") for s,fun in funs.items() if fun.__doc__]
+   else: 
+      sys.exit(sum((one(s[n:]) for s in funs)) if todo==all else one(todo))
 
-def eg_help(): print(__doc__)
-def eg_the(): print(the)
+def eg_nothing(): ...
+def eg_the():
+   "show settings"
+   print(the)
+
+def eg_csv():
+   "show rows"
+   print("")
+   for n,row in enumerate(csv(the.file)): 
+      if n % 32 == 0: prints(*row.cells)
 
 def eg_cols():
+   "show columns"
    print("")
    [print(col) for col in SHEET(csv(the.file)).cols.x]
 
 def eg_clone():
+   "duplicate a SHEET structure"
    print("")
    s = SHEET(csv(the.file))
    print( s.cols.y[1])
    print( s.clone(s.rows).cols.y[1])
 
 def eg_sheet():
+   "print stats on best and other rows"
    print("")
    s    = SHEET(csv(the.file))
    rows = s.sorted()
@@ -215,6 +225,7 @@ def eg_sheet():
    printd(all= s.stats(), bests=bests.stats(), rests=rests.stats())
 
 def eg_broomstick():
+   "try broomstick optimizer"
    print("")
    s = SHEET(csv(the.file))
    rows = broomstick(s)
@@ -222,10 +233,5 @@ def eg_broomstick():
    bests, rests = s.clone(rows[:n]), s.clone(rows[-n*the.rest:])
    printd(all= s.stats(), bests=bests.stats(), rests=rests.stats())
 
-def eg_csv():
-   print("")
-   for n,row in enumerate(csv(the.file)): 
-      if n % 32 == 0: prints(*row.cells)
 #-------------------------------------------
 run(cli(the),locals())
-
