@@ -1,24 +1,36 @@
-#!/usr/bin/env python3 -B
+#!/usr/bin/env python3
 # <!--- vim: set et sts=3 sw=3 ts=3 : --->
-"./bs.py -h [OPTIONS] -e [ACTIONS]"
-import fileinput,random,ast,sys,re
+"""
+BS: broomstick optimization
+(c)2023 Tim Menzies <timm@ieee.org> BSD-2
+
+USAGE:
+  ./bs.py -h [OPTIONS] -e [ACTIONS]
+
+OPTIONS:
+  -e --eg     start-up example    =  "help"
+  -f --file   file of data        = "../data/auto93.csv"
+  -h --help   show help           = False
+  -m --min    smallest lead       = .5
+  -p --p      distance coeffcient = 2
+  -r --rest   ratio rest:best     = 3
+  -s --seed   random seed         = 1234567891
+"""
+from ast import literal_eval as of
+import fileinput,random,sys,re
 from collections import Counter
 from math import log
 
 class obj(object):
-   def __repr__(i): return showd(i.__dict__,i.__class__.__name__)
+   __repr__ = lambda i: showd(i.__dict__,i.__class__.__name__)
 
 class slots(dict):
    "For dictionaries where we access slots via (e.g.) `x.slot`."
    def __repr__(i): return showd(i)
    __getattr__ = dict.get
 
-the=slots(eg   = "usage",
-          file = "../data/auto93.csv",
-          min  = .5,
-          p    = 2,
-          rest = 3,
-          seed = 1234567891)
+the = slots(**{m[1]:of(m[2]) for m in re.finditer(r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
+
 #---------------------------------------------------------------
 class COL(obj):
    def __init__(i,a=[], name=" ", at=0):
@@ -147,7 +159,7 @@ def show(x,decimals=None):
    return x.__name__ if callable(x) else x
 
 def coerce(x):
-   try : return ast.literal_eval(x)
+   try : return of(x)
    except Exception: return x.strip()
 
 def csv(file="-",filter=ROW):
@@ -165,6 +177,7 @@ def cli(d):
    return d
 #-------------------------------------------
 def run(settings, funs, pre="eg_", all="all"):
+   if settings.help: sys.exit(print(__doc__))
    n    = len(pre)
    todo = settings.eg
    funs = {s:fun for s,fun in funs.items() if s[:n]==pre}
@@ -180,7 +193,7 @@ def run(settings, funs, pre="eg_", all="all"):
          print(f"Unknown; [{todo}]")
    sys.exit(sum((one(s[n:]) for s in funs)) if todo==all else one(todo))
 
-def eg_usage(): print(__doc__)
+def eg_help(): print(__doc__)
 def eg_the(): print(the)
 
 def eg_cols():
