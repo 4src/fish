@@ -76,7 +76,7 @@ class SHEET(obj):
    def add(i,row):
       if not i.cols: i.cols = COLS(row.cells) 
       else:
-         i.cols: [col.add(row.cells[col.at]) for col in i.cols.all]
+         [col.add(row.cells[col.at]) for col in i.cols.all]
          i.rows += [row]
 
    def clone(i,rows=[]): return SHEET([ROW(i.cols.name)] + rows)
@@ -111,24 +111,27 @@ def cli(d):
          if ("-"+k[0])==x or ("--"+k)==x:
             d[k] = coerce("True" if s=="False" else ("False" if s=="True" else sys.argv[j+1]))
    return d
-#-------------------------------------------
-def run(settings, funs):
+#-------------------------------------------
+def run(settings, funs, pre="eg_", all="all"):
+   n    = len(pre)
+   todo = settings.eg
+   funs = {s:fun for s,fun in funs.items() if s[:n]==pre}
    def one(todo):
-      if fun := funs.get("eg_"+todo, None):
+      if fun := funs.get(pre+todo, None):
          saved = {k:v for k,v in settings.items()}
          random.seed(the.seed)
-         print(todo.upper(),end=": ")
-         if failed := fun() is False: print("❌ FAIL", todo.upper())
+         print(todo.upper(), end=": ")
+         if failed := fun() is False: 
+            print("❌ FAIL", todo.upper())
          for k,v in saved.items(): settings[k] = v
          return failed
-   todo = settings.eg
-   funs = {s:fun for s,fun in funs.items() if s[:3]=="eg_"}
-   return sum((one(s[3:]) for s in funs)) if todo=="all" else one(todo)
+   sys.exit(sum((one(s[n:]) for s in funs)) if todo==all else one(todo))
 
 def eg_usage(): print(__doc__)
 def eg_the(): print(the)
 
-def eg_sheet():
+def eg_cols():
+   print("")
    [print(col) for col in SHEET(csv(the.file)).cols.x]
 
 def eg_sheet():
@@ -136,8 +139,7 @@ def eg_sheet():
    s = SHEET(csv(the.file))
    rows = s.sorted()
    prints(*s.cols.names)
-   [prints(*row.cells) for row in rows[:8]]
-   print("")
+   [prints(*row.cells) for row in rows[:8]]; print("")
    [prints(*row.cells) for row in rows[-8:]]
 
 def eg_csv():
@@ -145,5 +147,5 @@ def eg_csv():
    for n,row in enumerate(csv(the.file)): 
       if n % 32 == 0: prints(*row.cells)
 #-------------------------------------------
-the = cli(the)
-sys.exit(run(the,locals()))
+run(cli(the),locals())
+
