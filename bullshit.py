@@ -2,20 +2,20 @@
 # <!--- vim: set et sts=3 sw=3 ts=3 : --->
 "./bullshit.py -h [OPTIONS] -e [ACTIONS]"
 from collections import Counter
-import fileinput,random,sys,re
+import fileinput,random,ast,sys,re
 
 class obj(object):
    def __repr__(i): return showd(i.__dict__,i.__class__.__name__)
 
 class slots(dict):
+   "For dictionaries where we access slots via (e.g.) `x.slot`."
    def __repr__(i): return showd(i)
    __getattr__ = dict.get
 
-the=slots(
-      eg   = "usage",
-      file = "../data/auto93.csv",
-      seed = 1234567891
-      )
+the=slots(eg   = "usage",
+          file = "../data/auto93.csv",
+          p    = 2,
+          seed = 1234567891)
 #---------------------------------------------------------------
 class COL(obj):
    def __init__(i,a=[], name=" ", at=0):
@@ -42,7 +42,7 @@ class NUM(COL):
       i.mu, i.m2, i.lo, i.hi = 0,0,big,-big
       super().__init__(*l,**d)
       i.heaven = 0 if i.name[-1] == "-" else 1
-   def distance2heaven(i,row): return i.heaven - i.norm(row[i.at])
+   def fromHeaven(i,row): return i.heaven - i.norm(row.cells[i.at])
    def norm(i,x): return "?" if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
    def dist1(i,x,y):
       x,y = i.norm(x), i.norm(y)
@@ -59,6 +59,8 @@ class NUM(COL):
 class ROW(obj):
    id=0
    def __init__(i,a): ROW.id +=1; i.oid = ROW.id; i.cells=a
+   def fromHeaven(i,cols):
+      return (sum((col.fromHeaven(i)**the.p for col in cols)) / len(cols))**(1/the.p)
 #---------------------------------------------------------------
 def COLS(a):
    x,y,all = [],[],[(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(a)]
@@ -68,16 +70,19 @@ def COLS(a):
 #---------------------------------------------------------------
 class SHEET(obj):
    def __init__(i, src):
-      i.rows, i.cols = [],  None
+      i.rows, i.cols = [], None
       [i.add(row) for row in src]
 
    def add(i,row):
-      if    i.cols: i.rows += [[col.add(row.cells[col.at]) for col in i.cols.all]] 
-      else: i.cols = COLS(row.cells)
+      if not i.cols: i.cols = COLS(row.cells) 
+      else:
+         i.cols: [col.add(row.cells[col.at]) for col in i.cols.all]
+         i.rows += [row]
 
-   def clone(i,rows=[]):
-      return SHEET([ROW(i.cols.name)] + rows)
+   def clone(i,rows=[]): return SHEET([ROW(i.cols.name)] + rows)
 
+   def sorted(i):
+      return sorted(i.rows,key=lambda row: row.fromHeaven(i.cols.y) )
 #-------------------------------------------
 big = 1E100
 def prints(*l,**key): print(*[show(x,2) for x in l],sep="\t",**key)
@@ -108,8 +113,6 @@ def cli(d):
    return d
 #-------------------------------------------
 def run(settings, funs):
-   todo = settings.eg
-   funs = {s:fun for s,fun in funs.items() if s[:3]=="eg_"}
    def one(todo):
       if fun := funs.get("eg_"+todo, None):
          saved = {k:v for k,v in settings.items()}
@@ -118,13 +121,29 @@ def run(settings, funs):
          if failed := fun() is False: print("❌ FAIL", todo.upper())
          for k,v in saved.items(): settings[k] = v
          return failed
+   todo = settings.eg
+   funs = {s:fun for s,fun in funs.items() if s[:3]=="eg_"}
    return sum((one(s[3:]) for s in funs)) if todo=="all" else one(todo)
 
 def eg_usage(): print(__doc__)
 def eg_the(): print(the)
+
+def eg_sheet():
+   [print(col) for col in SHEET(csv(the.file)).cols.x]
+
+def eg_sheet():
+   print("")
+   s = SHEET(csv(the.file))
+   rows = s.sorted()
+   prints(*s.cols.names)
+   [prints(*row.cells) for row in rows[:8]]
+   print("")
+   [prints(*row.cells) for row in rows[-8:]]
+
 def eg_csv():
    print("")
-   for row in csv(the.file): prints(*row.cells)
+   for n,row in enumerate(csv(the.file)): 
+      if n % 32 == 0: prints(*row.cells)
 #-------------------------------------------
 the = cli(the)
 sys.exit(run(the,locals()))
