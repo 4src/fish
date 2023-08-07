@@ -100,7 +100,7 @@ class NUM(COL):
       i.heaven = 0 if i.name[-1] == "-" else 1
    def mid(i): return i.mu
    def div(i): return (i.m2/(i.n-1))**.5
-   def distance2heaven(i,row): return i.heaven - i.norm(row[i.at])
+   def distance2heaven(i,row): return abs(i.heaven - i.norm(row[i.at]))
    def norm(i,x): return "?" if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
    def dist1(i,x,y):
       x,y = i.norm(x), i.norm(y)

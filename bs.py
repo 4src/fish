@@ -32,28 +32,24 @@ class COL(obj):
      return 1 if x=="?" and y=="?" else i.dist1(x,y)
 #---------------------------------------------------------------
 class SYM(COL):
-   def __init__(i,*l,**d):
-      i.most,i.mode, i.has = 0, None, Counter()
-      super().__init__(*l,**d)
-   def mid(i): return i.mode
-   def div(i): return ent(i.has)
-   def dist1(i,x,y): return 0 if x==y else 1
-   def add1(i,x):
-      i.has[x] += 1
-      if i.has[x] > i.most: i.most,i.mode = i.has[x],x
+   def __init__(i,*l,**d) : i.has =  Counter(); super().__init__(*l,**d)
+   def mid(i)             : return i.has.most_common(1)[0][0]
+   def div(i)             : return ent(i.has)
+   def dist1(i,x,y)       : return 0 if x==y else 1
+   def add1(i,x)          : i.has[x] += 1
 #---------------------------------------------------------------
 class NUM(COL):
    def __init__(i,*l,**d):
       i.mu, i.m2, i.lo, i.hi = 0,0,big,-big
       super().__init__(*l,**d)
       i.heaven = 0 if i.name[-1] == "-" else 1
-   def mid(i): return i.mu
-   def div(i): return (i.m2/(i.n-1))**.5
-   def toHeaven(i,row): return i.heaven - i.norm(row.cells[i.at])
-   def norm(i,x): return "?" if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
+   def mid(i)         : return i.mu
+   def div(i)         : return (i.m2/(i.n-1))**.5
+   def toHeaven(i,row): return abs(i.heaven - i.norm(row.cells[i.at]))
+   def norm(i,x)      : return "?" if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
    def dist1(i,x,y):
       x,y = i.norm(x), i.norm(y)
-      if x=="?": x= 0 if y > .5 else 1
+      if x=="?": x= 0 if y > .5 else 1 # for unknowns, assume max distance
       if y=="?": y= 0 if x > .5 else 1
       return abs(x - y)
    def add1(i,x):
@@ -112,10 +108,11 @@ def broomstick(sheet,budget=20):
    def better(r1,r2):
       used[r1.oid] = used[r2.oid] = True
       return r1.toHeaven(sheet.cols.y) < r2.toHeaven(sheet.cols.y)
+   def cosine(r): return (D(r,worst)**2  + c**2 - D(r,best)**2)/ (2*c + 1/big)
    random.shuffle(sheet.rows)
    best,worst = sheet.rows[:2]
    policy = max
-   def cosine(r): return (D(r,worst)**2  + c**2 - D(r,best)**2)/ (2*c + 1/big)
+   c= None
    for _ in range(budget):
      if better(worst,best):
         best,worst = worst,best
