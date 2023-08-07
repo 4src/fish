@@ -1,9 +1,9 @@
 #!/usr/bin/env python3 -B
 # <!--- vim: set et sts=3 sw=3 ts=3 : --->
-"./bullshit.py -h [OPTIONS] -e [ACTIONS]"
+"./bs.py -h [OPTIONS] -e [ACTIONS]"
+import fileinput,random,ast,sys,re
 from collections import Counter
 from math import log
-import fileinput,random,ast,sys,re
 
 class obj(object):
    def __repr__(i): return showd(i.__dict__,i.__class__.__name__)
@@ -104,7 +104,7 @@ class SHEET(obj):
               / len(i.cols.x))**(1/the.p)
 
 #-------------------------------------------
-def poles(sheet,budget=20):
+def broomstick(sheet,budget=20):
    used={}
    def some(a) : return random.sample(a,k=len(a)//2)
    def D(r1,r2): return sheet.dist(r1,r2)
@@ -115,19 +115,17 @@ def poles(sheet,budget=20):
    random.shuffle(sheet.rows)
    best,worst = sheet.rows[:2]
    policy = max
-   lives = 5
    def cosine(r): return (D(r,worst)**2  + c**2 - D(r,best)**2)/ (2*c + 1/big)
    for _ in range(budget):
-     lives -= 1
      if better(worst,best):
         best,worst = worst,best
      c  = D(best,worst)
      tmp = policy(some(sheet.rows),  key=cosine)
-     if better(tmp,best) : say("+"); lives=5; best=tmp
-     if better(worst,tmp): say("-"); lives=5; worst=tmp
+     if better(tmp,best) : say("+"); best=tmp
+     if better(worst,tmp): say("-"); worst=tmp
      policy =  max if policy==min else min
    print(len(used))
-   return sorted(sheet.rows, key=cosine,reverse=True)
+   return sorted(sheet.rows, key=cosine, reverse=True)
 
 #-------------------------------------------
 big = 1E100
@@ -181,6 +179,8 @@ def run(settings, funs, pre="eg_", all="all"):
          if failed := fun() is False: print("❌ FAIL", todo.upper())
          for k,v in saved.items(): settings[k] = v
          return failed
+      else:
+         print(f"Unknown; [{todo}]")
    sys.exit(sum((one(s[n:]) for s in funs)) if todo==all else one(todo))
 
 def eg_usage(): print(__doc__)
@@ -204,14 +204,13 @@ def eg_sheet():
    bests, rests = s.clone(rows[:n]), s.clone(rows[-n*the.rest:])
    printd(all= s.stats(), bests=bests.stats(), rests=rests.stats())
 
-def eg_stagger():
+def eg_broomstick():
    print("")
    s = SHEET(csv(the.file))
-   rows = poles(s)
+   rows = broomstick(s)
    n    = int(len(rows)**the.min)
    bests, rests = s.clone(rows[:n]), s.clone(rows[-n*the.rest:])
    printd(all= s.stats(), bests=bests.stats(), rests=rests.stats())
-
 
 def eg_csv():
    print("")
