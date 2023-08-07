@@ -84,7 +84,7 @@ class SYM(COL):
    def __init__(i,*l,**d):
       i.most,i.mode, i.has = 0, None, Counter()
       super().__init__(*l,**d)
-   def mid(i): return mode(i.has)
+   def mid(i): return i.mode
    def div(i): return ent(i.has)
    def dist1(i,x,y): return 0 if x==y else 1
    def add1(i,x):
@@ -163,6 +163,7 @@ class SHEET(obj):
               / len(i.cols.y))**(1/the.p)
 
    def sorted(i): return sorted(i.rows, key=lambda row: i.distance2heaven(row))
+
    def clone(i, a=[]): return SHEET([i.cols.names] + a)
 
    def dist(i,row1,row2):

@@ -2,6 +2,7 @@
 # <!--- vim: set et sts=3 sw=3 ts=3 : --->
 "./bullshit.py -h [OPTIONS] -e [ACTIONS]"
 from collections import Counter
+from math import log
 import fileinput,random,ast,sys,re
 
 class obj(object):
@@ -14,7 +15,9 @@ class slots(dict):
 
 the=slots(eg   = "usage",
           file = "../data/auto93.csv",
+          min  = .5,
           p    = 2,
+          rest = 3,
           seed = 1234567891)
 #---------------------------------------------------------------
 class COL(obj):
@@ -32,6 +35,8 @@ class SYM(COL):
    def __init__(i,*l,**d):
       i.most,i.mode, i.has = 0, None, Counter()
       super().__init__(*l,**d)
+   def mid(i): return i.mode
+   def div(i): return ent(i.has)
    def dist1(i,x,y): return 0 if x==y else 1
    def add1(i,x):
       i.has[x] += 1
@@ -42,7 +47,9 @@ class NUM(COL):
       i.mu, i.m2, i.lo, i.hi = 0,0,big,-big
       super().__init__(*l,**d)
       i.heaven = 0 if i.name[-1] == "-" else 1
-   def fromHeaven(i,row): return i.heaven - i.norm(row.cells[i.at])
+   def mid(i): return i.mu
+   def div(i): return (i.m2/(i.n-1))**.5
+   def toHeaven(i,row): return i.heaven - i.norm(row.cells[i.at])
    def norm(i,x): return "?" if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
    def dist1(i,x,y):
       x,y = i.norm(x), i.norm(y)
@@ -58,12 +65,15 @@ class NUM(COL):
 #---------------------------------------------------------------
 class ROW(obj):
    id=0
-   def __init__(i,a): ROW.id +=1; i.oid = ROW.id; i.cells=a
-   def fromHeaven(i,cols):
-      return (sum((col.fromHeaven(i)**the.p for col in cols)) / len(cols))**(1/the.p)
+   def __init__(i,a):
+      ROW.id +=1
+      i.oid, i.cells = ROW.id, a
+   def toHeaven(i,cols):
+      return (sum((col.toHeaven(i)**the.p for col in cols)) / len(cols))**(1/the.p)
 #---------------------------------------------------------------
 def COLS(a):
-   x,y,all = [],[],[(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(a)]
+   x,y = [],[]
+   all = [(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(a)]
    for col in all:
       if col.name[-1] != "X": (y if col.name[-1] in "+-" else x).append(col)
    return slots(x=x, y=y, names=a, all=all)
@@ -74,18 +84,65 @@ class SHEET(obj):
       [i.add(row) for row in src]
 
    def add(i,row):
-      if not i.cols: i.cols = COLS(row.cells) 
-      else:
+      if i.cols:
          [col.add(row.cells[col.at]) for col in i.cols.all]
          i.rows += [row]
+      else:
+         i.cols = COLS(row.cells)
 
-   def clone(i,rows=[]): return SHEET([ROW(i.cols.name)] + rows)
+   def clone(i,rows=[]): return SHEET([ROW(i.cols.names)] + rows)
 
    def sorted(i):
-      return sorted(i.rows,key=lambda row: row.fromHeaven(i.cols.y) )
+      return sorted(i.rows,key=lambda row: row.toHeaven(i.cols.y) )
+
+   def stats(i, cols="y", decimals=None, want="mid"):
+      return slots(N=len(i.rows), **{c.name:show(c.mid() if want=="mid" else c.div(),decimals)
+                                     for c in i.cols[cols]})
+
+   def dist(i,row1,row2):
+      return (sum(c.dist(row1.cells[c.at],row2.cells[c.at])**the.p for c in i.cols.x)
+              / len(i.cols.x))**(1/the.p)
+
 #-------------------------------------------
+def poles(sheet,budget=20):
+   used={}
+   def some(a) : return random.sample(a,k=len(a)//2)
+   def D(r1,r2): return sheet.dist(r1,r2)
+   def say(x): print(x,end="",flush=True)
+   def better(r1,r2):
+      used[r1.oid] = used[r2.oid] = True
+      return r1.toHeaven(sheet.cols.y) < r2.toHeaven(sheet.cols.y)
+   random.shuffle(sheet.rows)
+   best,worst = sheet.rows[:2]
+   policy = max
+   lives = 5
+   def cosine(r): return (D(r,worst)**2  + c**2 - D(r,best)**2)/ (2*c + 1/big)
+   for _ in range(budget):
+     lives -= 1
+     if better(worst,best):
+        best,worst = worst,best
+     c  = D(best,worst)
+     tmp = policy(some(sheet.rows),  key=cosine)
+     if better(tmp,best) : say("+"); lives=5; best=tmp
+     if better(worst,tmp): say("-"); lives=5; worst=tmp
+     policy =  max if policy==min else min
+   print(len(used))
+   return sorted(sheet.rows, key=cosine,reverse=True)
+
+#-------------------------------------------
 big = 1E100
+def ent(d):   # measures diversity for symbolic distributions
+   n = sum(d.values())
+   return -sum(m/n * log(m/n,2) for m in d.values() if m>0)
+
 def prints(*l,**key): print(*[show(x,2) for x in l],sep="\t",**key)
+
+def printd(**ds):
+   first = True
+   for k,d in ds.items(): 
+      if first: prints("",*d.keys())
+      first=False
+      prints(k,*d.values())
 
 def showd(d,pre=""):
    return pre+"{"+(" ".join([f":{k} {show(v,3)}" for k,v in d.items() if k[0] != "_"]))+"}"
@@ -121,8 +178,7 @@ def run(settings, funs, pre="eg_", all="all"):
          saved = {k:v for k,v in settings.items()}
          random.seed(the.seed)
          print(todo.upper(), end=": ")
-         if failed := fun() is False: 
-            print("❌ FAIL", todo.upper())
+         if failed := fun() is False: print("❌ FAIL", todo.upper())
          for k,v in saved.items(): settings[k] = v
          return failed
    sys.exit(sum((one(s[n:]) for s in funs)) if todo==all else one(todo))
@@ -134,13 +190,28 @@ def eg_cols():
    print("")
    [print(col) for col in SHEET(csv(the.file)).cols.x]
 
-def eg_sheet():
+def eg_clone():
    print("")
    s = SHEET(csv(the.file))
+   print( s.cols.y[1])
+   print( s.clone(s.rows).cols.y[1])
+
+def eg_sheet():
+   print("")
+   s    = SHEET(csv(the.file))
    rows = s.sorted()
-   prints(*s.cols.names)
-   [prints(*row.cells) for row in rows[:8]]; print("")
-   [prints(*row.cells) for row in rows[-8:]]
+   n    = int(len(rows)**the.min)
+   bests, rests = s.clone(rows[:n]), s.clone(rows[-n*the.rest:])
+   printd(all= s.stats(), bests=bests.stats(), rests=rests.stats())
+
+def eg_stagger():
+   print("")
+   s = SHEET(csv(the.file))
+   rows = poles(s)
+   n    = int(len(rows)**the.min)
+   bests, rests = s.clone(rows[:n]), s.clone(rows[-n*the.rest:])
+   printd(all= s.stats(), bests=bests.stats(), rests=rests.stats())
+
 
 def eg_csv():
    print("")
