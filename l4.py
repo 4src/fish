@@ -35,12 +35,12 @@ want = dict(plan  = lambda b,r : b**2  / (b + r    + 1/big),
             xplor = lambda b,r : 1     / (b+r      + 1/big))
 #---------------------------------------------------------------
 def cuts2Rule(cuts):
-   d = defaultdict(list)
-   [d[cut[0]].append(cut) for cut in cuts]
-   return tuple(sorted([tuple(sorted(set(x))) for x in d.values()]))
+   d = defaultdict(set)
+   [d[cut[0]].add(cut) for cut in cuts]
+   return tuple(sorted([tuple(sorted(x)) for x in d.values()]))
 
-def rules2Rule(*rules):
-   return cuts2Rule((cut for rule in rules for cut s in rule for cut in cuts))
+def rules2Rule(rules):
+   return cuts2Rule((cut for rule in rules for cuts in rule for cut in cuts))
 
 def score(rule, d):
    got = selects(rule,d)
