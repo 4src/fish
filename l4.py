@@ -25,12 +25,8 @@ from collections import defaultdict,Counter
 from math import pi, log, cos, sin, sqrt, inf
 import fileinput, random, time,ast, sys, re
 #---------------------------------------------------------------
-class obj(object):
-   __repr__  = lambda i: showd(i.__dict__,i.__class__.__name__)
-
-class slots(dict): 
-   __getattr__ = dict.get
-   __repr__ = lambda i:showd(i)
+class slots(dict): __getattr__ =dict.get; __repr__ =lambda i:showd(i)
+class obj(object):                        __repr__ =lambda i:showd(i.__dict__, i.__class__.__name__)
 
 big  = 1E100
 want = dict(plan  = lambda b,r : b**2  / (b + r    + 1/big),
@@ -81,15 +77,13 @@ class COL(obj):
      return 1 if x=="?" and y=="?" else i.dist1(x,y)
 #---------------------------------------------------------------
 class SYM(COL):
-   def __init__(i,*l,**d):
-      i.most,i.mode, i.has = 0, None, Counter()
+   def __init__(i,*l,**d): 
+      i.has =  Counter()
       super().__init__(*l,**d)
-   def mid(i): return i.mode
-   def div(i): return ent(i.has)
-   def dist1(i,x,y): return 0 if x==y else 1
-   def add1(i,x):
-      i.has[x] += 1
-      if i.has[x] > i.most: i.most,i.mode = i.has[x],x
+   def mid(i)       : return max(i.has, key=i.has.d)
+   def div(i)       : return ent(i.has)
+   def dist1(i,x,y) : return 0 if x==y else 1
+   def add1(i,x)    : i.has[x] += 1
    def cuts(i,_):
       for k in i.has: yield (i.at, k, k)
 #---------------------------------------------------------------
@@ -137,22 +131,23 @@ class NUM(COL):
       for cut in out:
          yield tuple(cut)
 #---------------------------------------------------------------
+def COLS(a):
+   all = [(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(a)]
+   x,y = [],[]
+   for col in all:
+      if col.name[-1] != "X":
+        (y if col.name[-1] in "+-!" else x).append(col)
+   return slots(x=x, y=y, names=a, all=all)
+
 class SHEET(obj):
    def __init__(i, src):
      i.rows, i.cols = [],  None
      [i.add(row) for row in src]
 
    def add(i,row):
-      if i.cols:
-         i.rows += [[col.add(row[col.at]) for col in i.cols.all]]
-      else:
-         all = [(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(row)]
-         x,y = [],[]
-         for col in all:
-           if col.name[-1] != "X":
-              (y if col.name[-1] in "+-!" else x).append(col)
-         i.cols = slots(x=x, y=y, names=row, all=all)
-
+      if    i.cols: i.rows += [[col.add(row[col.at]) for col in i.cols.all]]
+      else: i.cols = COLS(row)
+          
    def stats(i, cols="y", decimals=None, want="mid"):
       return slots(N=len(i.rows),
                    **{c.name:show(c.div() if want=="div" else c.mid(),decimals)
