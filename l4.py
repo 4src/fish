@@ -8,7 +8,7 @@ OPTIONS:
   -B --Bootstraps  number of bootstraps   = 256
   -b --bins        initial number of bins = 16
   -c --cliffs      Cliff's delta          = 0.147
-  -C --Cohen       small if C*std         = .2
+  -C --Cohen       small if C*std         = .35
   -e --eg          start up example       = helps
   -f --file        csv data file          = ../data/auto93.csv
   -F --Far         how far to look        = .85
@@ -169,18 +169,28 @@ class SHEET(obj):
    def dist(i,row1,row2):
       return (sum(c.dist(row1[c.at],row2[c.at])**the.p for c in i.cols.x )/len(i.cols.x))**(1/the.p)
 
-   def differences(i,j,k):
+   def cohen(rx0,rx): # k is based
       nums = lambda col,x: [row[col.at] for row in x.rows if row[col.at] != "?"]
-      def report(col):
-                a1 = nums(col,i)
-                a2 = nums(col,j)
-                if different(a1, a2):
-                   mu1 = NUM(a1).mu
-                   mu2 = NUM(a2).mu
-                   x =  ((mu1 - mu2) if col.heaven == 0 else (mu2 - mu1))/(col.div())
-                   return x
-                else: return 0
-      return slots(N = len(i.rows)+len(j.rows), **{col.name: show(report(col),2) for col in k.cols.y})
+      def report(col0,col):
+         n0 = nums(col0,rx0)
+         n = nums(col0,rx)
+         mu0 = NUM(n0).mu
+         mu = NUM(n).mu
+         sd  = sqrt( ((col0.n-1)*col0.div()**2  + (col.n-1)*col.div()**2)/(col0.n + col.n - 2))
+         return   ((mu0 - mu) if col.heaven == 0 else (mu - mu0))/sd
+      return slots(N = len(rx0.rows)+len(rx.rows), 
+                   **{col0.name: show(report(col0,col),2)
+                      for col0,col in zip(rx0.cols.y,rx.cols.y)})
+
+   def different(rx0,rx): # k is based
+      nums = lambda col,x: [row[col.at] for row in x.rows if row[col.at] != "?"]
+      def report(col0,col):
+         n0 = nums(col0,rx0)
+         n = nums(col0,rx)
+         return different(n0,n)
+      return slots(N = len(rx0.rows)+len(rx.rows), 
+                   **{col0.name: report(col0,col)
+                      for col0,col in zip(rx0.cols.y,rx.cols.y)})
 
 #---------------------------------------------------------------
 def top(a,**d): return sorted(a,reverse=True,**d)[:the.top]
@@ -420,17 +430,24 @@ def eg_bests():
    prints("b=raw",*s_raw.stats().values(),end="")
    with_all=[]
    with_some=[]
+   with_any=[]
    for i in range(20):
+     with_any += random.sample(s_base.rows,k=n)
      with_all += _egbests(i,True)     # instance based
-     with_some += _egbests(i,False)
+     with_some += _egbests(i,False) # rilebased
    print("")
    s_all = s_base.clone(with_all)
+   s_any  = s_base.clone(with_any)
    s_some = s_base.clone(with_some)
-   prints("c=all",*s_all.stats().values())
-   prints("d=some",*s_some.stats().values())
-   prints("b/c",*s_raw.differences(s_all,s_base).values())
-   prints("b/d",*s_raw.differences(s_some,s_base).values())
-   prints("c/d",*s_all.differences(s_some,s_base).values())
+   prints("c=all",  *s_all.stats().values())
+   prints("d=any",  *s_any.stats().values())
+   prints("e=some", *s_some.stats().values())
+   prints("(b-a)/s",*s_base.cohen(s_raw).values())
+   prints("(c-a)/s",*s_base.cohen(s_all).values())
+   prints("(d-a)/s",*s_base.cohen(s_any).values())
+   prints("(e-a)/s",*s_base.cohen(s_some).values())
+   prints("(e-d)/s",*s_some.cohen(s_all).values())
+   prints("d!=e?",  *s_some.different(s_all).values())
 
 def _egbests(i,every=True):
    print(str(chr(97+i)), end="",flush=True)
