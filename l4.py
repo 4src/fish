@@ -39,6 +39,9 @@ def cuts2Rule(cuts):
    [d[cut[0]].append(cut) for cut in cuts]
    return tuple(sorted([tuple(sorted(set(x))) for x in d.values()]))
 
+def rules2Rule(*rules):
+   return cuts2Rule((cut for rule in rules for cut s in rule for cut in cuts))
+
 def score(rule, d):
    got = selects(rule,d)
    b = len(got["best"]) / (len(d["best"]) + 1/big)
@@ -441,8 +444,8 @@ def eg_bests():
    prints("(c-a)/s",*s_base.cohen(s_all).values())
    prints("(d-a)/s",*s_base.cohen(s_any).values())
    prints("(e-a)/s",*s_base.cohen(s_some).values())
-   prints("(e-d)/s",*s_some.cohen(s_all).values())
-   prints("d!=e?",  *s_some.different(s_all).values())
+   prints("(e-c)/s",*s_some.cohen(s_all).values())
+   prints("e!=c?",  *s_some.different(s_all).values())
 
 def _egbests(i,every=True):
    print(str(chr(97+i)), end="",flush=True)
