@@ -39,9 +39,6 @@ def cuts2Rule(cuts):
    [d[cut[0]].add(cut) for cut in cuts]
    return tuple(sorted([tuple(sorted(x)) for x in d.values()]))
 
-def rules2Rule(rules):
-   return cuts2Rule((cut for rule in rules for cuts in rule for cut in cuts))
-
 def score(rule, d):
    got = selects(rule,d)
    b = len(got["best"]) / (len(d["best"]) + 1/big)
@@ -63,10 +60,13 @@ def ors(x, cuts):
 def true(x, cut): return x=="?" or cut[1]==cut[2]==x or x > cut[1] and x <= cut[2]
 
 def showRule(names,rule):
-   def show(a,b):
-      return f"{a}" if a==b else f"({a} .. {b}]"
-   return ' and '.join([f"{names[cuts[0][0]]}: ({' or '.join([show(cut[1],cut[2])  for cut in cuts])})" 
-           for cuts in rule]) 
+   def show(a,b): return f"{a}" if a==b else f"({a} .. {b}]"
+   return ' and '.join([f"{names[cuts[0][0]]}: ({' or '.join([show(cut[1],cut[2])  
+                                                for cut in cuts])})"
+           for cuts in rule])
+
+def combineRules(rules):
+   return cuts2Rule((cut for rule in rules for cuts in rule for cut in cuts))
 #---------------------------------------------------------------
 class COL(obj):
    def __init__(i,a=[], name=" ", at=0):
