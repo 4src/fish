@@ -80,7 +80,7 @@ class SYM(COL):
    def __init__(i,*l,**d): 
       i.has =  Counter()
       super().__init__(*l,**d)
-   def mid(i)       : return max(i.has, key=i.has.d)
+   def mid(i)       : return max(i.has, key=i.has.get)
    def div(i)       : return ent(i.has)
    def dist1(i,x,y) : return 0 if x==y else 1
    def add1(i,x)    : i.has[x] += 1
