@@ -11,7 +11,7 @@ OPTIONS:
   -C --Cohen       small if C*std         = .2
   -e --eg          start up example       = helps
   -f --file        csv data file          = ../data/auto93.csv
-  -F --Far         how far to look        = .95
+  -F --Far         how far to look        = .90
   -h --help        show help              = False
   -H --Halves      where to find for far  = 512
   -m --min         min size               = .5
