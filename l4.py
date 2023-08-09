@@ -22,6 +22,7 @@ OPTIONS:
   -w --want        plan|avoid|doubt|xplor = plan
 """
 from collections import defaultdict,Counter
+from termcolor import colored
 from math import pi, log, cos, sin, sqrt, inf
 import fileinput, random, time,ast, sys, re
 #---------------------------------------------------------------
@@ -33,7 +34,7 @@ want = dict(plan  = lambda b,r : b**2  / (b + r    + 1/big),
             avoid = lambda b,r : r**2  / (b + r    + 1/big),
             doubt = lambda b,r : (b+r) / (abs(b-r) + 1/big),
             xplor = lambda b,r : 1     / (b+r      + 1/big))
-#---------------------------------------------------------------
+#---------------------------------------G------------------------
 def cuts2Rule(cuts):
    d = defaultdict(set)
    [d[cut[0]].add(cut) for cut in cuts]
@@ -74,8 +75,6 @@ class COL(obj):
    def adds(i,a=[]): [i.add(x) for x in a]; return i
    def add(i,x):
       if x !="?": i.n += 1; i.add1(x)
-   def sub(i,x):
-      if x !="?": i.n -= 1; i.sub1(x)
    def dist(i,x,y):
      return 1 if x=="?" and y=="?" else i.dist1(x,y)
 #---------------------------------------------------------------
@@ -111,10 +110,6 @@ class NUM(COL):
       d     = x - i.mu
       i.mu += d/i.n
       i.m2 += d*(x - i.mu)
-   def sub1(i,x):
-      d     = x - i.mu
-      i.mu -= d/i.n
-      i.m2 -= d*(x- i.mu)
    def cuts(i,d,supervised=True):
       xys   = sorted([(row.cells[i.at],y) for y,rows in d.items()
                       for row in rows if row.cells[i.at] != "?"])
@@ -166,10 +161,6 @@ class SHEET(obj):
               i.rows += [row]
               [col.add(row.cells[col.at]) for col in i.cols.all]
       else: i.cols = COLS(row.cells)
-
-   def subs(i,rows):
-       [col.sub(row.cells[col.at]) for col in i.cols.all for row in rows]
-       i.rows = list(set(i.rows) - set(rows))
 
    def stats(i, cols="y", decimals=None, want="mid"):
       return slots(N=len(i.rows),
@@ -337,8 +328,10 @@ def ent(d):   # measures diversity for symbolic distributions
    return -sum(m/n * log(m/n,2) for m in d.values() if m>0)
 
 def showd(d,pre=""):
-   s = " ".join([f":{k} {show(v,3)}" for k,v in d.items() if k[0] != "_"])
-   return pre + "{" + s + "}"
+   bold = lambda **d: colored(list(d.values())[0],list(d.keys())[0],attrs=['bold'])
+   pre  = bold(white=pre)
+   s = " ".join([f"{bold(red=':'+str(k))} {show(v,3)}" for k,v in d.items() if k[0] != "_"])
+   return pre + bold(red="{") + s + bold(red="}")
 
 def show(x,decimals=None):
   if callable(x): return x.__name__
