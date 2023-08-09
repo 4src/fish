@@ -86,7 +86,7 @@ class SYM(COL):
    def div(i)       : return ent(i.has)
    def dist1(i,x,y) : return 0 if x==y else 1
    def add1(i,x)    : i.has[x] += 1
-   def cuts(i,_):
+   def cuts(i,_,supervised=None):
       for k in i.has: yield (i.at, k, k)
 #---------------------------------------------------------------
 class NUM(COL):
@@ -109,7 +109,7 @@ class NUM(COL):
       d     = x - i.mu
       i.mu += d/i.n
       i.m2 += d*(x - i.mu)
-   def cuts(i,d):
+   def cuts(i,d,supervised=True):
       xys   = sorted([(row.cells[i.at],y) for y,rows in d.items()
                       for row in rows if row.cells[i.at] != "?"])
       nmin  = len(xys)/(the.bins - 1)
@@ -120,9 +120,10 @@ class NUM(COL):
          now[y] += 1
          if n < len(xys) - nmin and x != xys[n+1][0] and sum(now.values()) >= nmin and x-lo >= xmin:
             both = now + b4
-            if out and ent(both) <= (ent(now)*now.total() + ent(b4)*b4.total()) / both.total():
-               b4 = both
-               out[-1][2] = x
+            if supervised and out:
+               if ent(both) <= (ent(now)*now.total() + ent(b4)*b4.total()) / both.total():
+                  b4 = both
+                  out[-1][2] = x
             else:
                b4 = now
                out += [[i.at, lo, x]]
@@ -210,9 +211,10 @@ def rules(sheet,every=True):
    n    = int(len(sheet.rows)**the.min)
    if every:
       rows = sheet.sorted()
-      d    = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
+      d = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
    else:
       best,rest,evals = TREE(sheet).branch()
+      #d  = dict(best=best.rows, rest=rest.rows) #random.sample(rest.rows, n*the.rest))
       d  = dict(best=best.rows, rest=random.sample(rest.rows, n*the.rest))
    all  = [cut for col in sheet.cols.x for cut in col.cuts(d)]
    some = top(all, key=lambda c: val([c]))
@@ -227,41 +229,42 @@ class TREE:
       _dist = lambda row2: i.sheet.dist(row1,row2)
       return sorted(rows, key=_dist)[int(len(rows)*the.Far)]
 
-   def _halve(i,rows,assess):
+   def _halve(i,rows,assess=False):
       some = rows if len(rows) <= the.Halves else random.sample(rows,k=the.Halves)
       D    = lambda row1,row2: i.sheet.dist(row1,row2)
       anywhere = random.choice(some)
-      a    = i._far(some, random.choice(some))
-      b    = i._far(some, a)
-      C    = D(a,b)
+      a = i._far(some, random.choice(some))
+      b = i._far(some, a)
+      C = D(a,b)
       half1, half2 = [],[]
-      for n,row in enumerate(sorted(rows, key=lambda r: (D(r,a)**2 + C**2 - D(r,b)**2)/(2*C))):
-         (half1 if n <= len(rows)/2 else half2).append(row)
-      return a,b,half1, half2
+      if  assess and i.sheet.distance2heaven(b) < i.sheet.distance2heaven(a):
+        a,b=b,a
+      rows = sorted(rows, key=lambda r: (D(r,a)**2 + C**2 - D(r,b)**2)/(2*C))
+      mid  = len(rows)//2
+      return a,b,rows[:mid],rows[mid:]
 
    def tree(i,verbose=False,assess=False):
       def _grow(rows):
          here = i.sheet.clone(rows)
          here.lefts, here.rights = None,None
          if len(rows) >= 2*i.stop:
-            _,__,lefts,rights = i._halve(rows,assess)
+            _,__,lefts,rights = i._halve(rows,assess=True)
             here.lefts  = _grow(lefts)
             here.rights = _grow(rights)
          return here
       return _grow(i.sheet.rows)
 
    def branch(i):
-      def _grow(rows,rest,evals):
+      used,rest = {},[]
+      def _grow(rows):
          if len(rows) >= 2*i.stop:
-            left,right,lefts,rights = i._halve(rows,False)
-            if  i.sheet.distance2heaven(right) < i.sheet.distance2heaven(left):
-                left,right,lefts,rights = right,left,rights,lefts
-            evals += 2
+            left,right,lefts,rights = i._halve(rows,assess=True)
+            used[left.oid] = used[right.oid] = True
             if len(lefts)  != len(rows):
-                rest += rights
-                return _grow(lefts, rest, evals)
-         return i.sheet.clone(rows), i.sheet.clone(rest), evals
-      return _grow(i.sheet.rows, [], 0)
+               while rights: rest.append( rights.pop())
+               return _grow(lefts)
+         return i.sheet.clone(rows), i.sheet.clone(rest), used
+      return _grow(i.sheet.rows)
 
    def showTree(i, here, lvl=0):
       if not here: return
@@ -357,7 +360,7 @@ def run(fun):
    global the
    saved = {k:v for k,v in the.items()}
    random.seed(the.seed)
-   print("\n\n=====|", fun.__name__[3:],"|===================================")
+   #print("\n\n=====|", fun.__name__[3:],"|===================================")
    if failed := fun() is False:
       print("❌ FAIL", fun.__name__[3:])
    for k,v in saved.items(): the[k] = v
@@ -490,6 +493,27 @@ def eg_branches():
    printd(sheet.stats(),
           best.stats(),
           rest.stats())
+
+def eg_xy():
+   s = SHEET(csv(the.file))
+   xs = [(row.oid,n) for n,row in enumerate(s.sorted()[::-1])]
+   best,rest,evals = TREE(s).branch()
+   ys = {row.oid:n for n,row in enumerate(best.rows + rest.rows)}
+   for  r,x in xs:
+      print(x,ys[r],sep=",")
+
+def eg_ents():
+  s = SHEET(csv(the.file))
+  e = 0
+  for col in s.cols.x:
+     cuts = list(col.cuts(slots(all=s.rows),False))
+     seen = Counter()
+     for row in s.rows:
+       x = row.cells[col.at]
+       if x != "?": seen[ ors(x, cuts) ] += 1
+     e += ent(seen)
+  print(e)
+
 #---------------------------------------------------------------
 egs = {k[3:]:fun for k,fun in locals().items() if k[:3]=="eg_"}
 the=settings(__doc__)
