@@ -50,7 +50,7 @@ def select(rule, rows): return [row for row in rows if ands(rule,row)]
 
 def ands(rule,row):
    for cuts in rule:
-      if not ors(row[cuts[0][0]], cuts): return False
+      if not ors(row.cells[cuts[0][0]], cuts): return False
    return True
 
 def ors(x, cuts):
@@ -61,9 +61,8 @@ def true(x, cut): return x=="?" or cut[1]==cut[2]==x or x > cut[1] and x <= cut[
 
 def showRule(names,rule):
    def show(a,b): return f"{a}" if a==b else f"({a} .. {b}]"
-   return ' and '.join([f"{names[cuts[0][0]]}: ({' or '.join([show(cut[1],cut[2])  
-                                                for cut in cuts])})"
-           for cuts in rule])
+   str = lambda cuts: ' or '.join([show(cut[1],cut[2]) for cut in cuts])
+   return ' and '.join([f"{names[cuts[0][0]]}: ({str(cuts)})" for cuts in rule])
 
 def combineRules(rules):
    return cuts2Rule((cut for rule in rules for cuts in rule for cut in cuts))
@@ -97,7 +96,7 @@ class NUM(COL):
       i.heaven = 0 if i.name[-1] == "-" else 1
    def mid(i): return i.mu
    def div(i): return (i.m2/(i.n-1))**.5
-   def distance2heaven(i,row): return abs(i.heaven - i.norm(row[i.at]))
+   def distance2heaven(i,row): return abs(i.heaven - i.norm(row.cells[i.at]))
    def norm(i,x): return "?" if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
    def dist1(i,x,y):
       x,y = i.norm(x), i.norm(y)
@@ -111,7 +110,8 @@ class NUM(COL):
       i.mu += d/i.n
       i.m2 += d*(x - i.mu)
    def cuts(i,d):
-      xys   = sorted([(row[i.at],y) for y,rows in d.items() for row in rows if row[i.at] != "?"])
+      xys   = sorted([(row.cells[i.at],y) for y,rows in d.items() 
+                      for row in rows if row.cells[i.at] != "?"])
       nmin  = len(xys)/(the.bins - 1)
       xmin  = the.Cohen * i.div()
       now,b4= Counter(), Counter()
@@ -134,6 +134,12 @@ class NUM(COL):
       for cut in out:
          yield tuple(cut)
 #---------------------------------------------------------------
+class ROW(obj):
+   id = 0
+   def __init__(i,a): 
+      ROW.id += 1
+      i.oid, i.cells = ROW.id, a
+
 def COLS(a):
    all = [(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(a)]
    x,y = [],[]
@@ -148,9 +154,11 @@ class SHEET(obj):
      [i.add(row) for row in src]
 
    def add(i,row):
-      if    i.cols: i.rows += [[col.add(row[col.at]) for col in i.cols.all]]
-      else: i.cols = COLS(row)
-          
+      if    i.cols:
+              i.rows += [row]
+              [col.add(row.cells[col.at]) for col in i.cols.all]
+      else: i.cols = COLS(row.cells)
+
    def stats(i, cols="y", decimals=None, want="mid"):
       return slots(N=len(i.rows),
                    **{c.name:show(c.div() if want=="div" else c.mid(),decimals)
@@ -162,13 +170,15 @@ class SHEET(obj):
 
    def sorted(i): return sorted(i.rows, key=lambda row: i.distance2heaven(row))
 
-   def clone(i, a=[]): return SHEET([i.cols.names] + a)
+   def clone(i, a=[]): return SHEET([ROW(i.cols.names)] + a)
 
    def dist(i,row1,row2):
-      return (sum(c.dist(row1[c.at],row2[c.at])**the.p for c in i.cols.x )/len(i.cols.x))**(1/the.p)
+      return (sum(c.dist(row1.cells[c.at],row2.cells[c.at])**the.p 
+                  for c in i.cols.x )/len(i.cols.x))**(1/the.p)
 
    def cohen(rx0,rx): # k is based
-      nums = lambda col,x: [row[col.at] for row in x.rows if row[col.at] != "?"]
+      nums = lambda col,x: [row.cells[col.at] 
+                            for row in x.rows if row.cells[col.at] != "?"]
       def report(col0,col):
          n0 = nums(col0,rx0)
          n = nums(col0,rx)
@@ -181,7 +191,7 @@ class SHEET(obj):
                       for col0,col in zip(rx0.cols.y,rx.cols.y)})
 
    def different(rx0,rx): # k is based
-      nums = lambda col,x: [row[col.at] for row in x.rows if row[col.at] != "?"]
+      nums = lambda col,x: [row.cells[col.at] for row in x.rows if row.cells[col.at] != "?"]
       def report(col0,col):
          n0 = nums(col0,rx0)
          n = nums(col0,rx)
@@ -325,11 +335,11 @@ def coerce(x):
    try : return ast.literal_eval(x)
    except Exception: return x.strip()
 
-def csv(file="-"):
+def csv(file="-", filter=ROW):
    with  fileinput.FileInput(file) as src:
       for line in src:
          line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
-         if line: yield [coerce(x) for x in line.split(",")]
+         if line: yield filter([coerce(x) for x in line.split(",")])
 
 def settings(s):
   return slots(**{m[1]:coerce(m[2])
@@ -460,8 +470,8 @@ def eg_dists():
    a=[]
    for _ in range(30):
        col = c(sheet.cols.x + sheet.cols.y)
-       z1  = c(rows)[col.at]
-       z2  = c(rows)[col.at]
+       z1  = c(rows).cells[col.at]
+       z2  = c(rows).cells[col.at]
        a  += [(show(col.dist(z1, z2),3), z1,z2,col.name)]
    prints("dist","x1","x2","what")
    [prints(*x) for x in sorted(a)]
