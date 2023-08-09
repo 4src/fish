@@ -227,7 +227,7 @@ class TREE:
       _dist = lambda row2: i.sheet.dist(row1,row2)
       return sorted(rows, key=_dist)[int(len(rows)*the.Far)]
 
-   def _halve(i,rows):
+   def _halve(i,rows,assess):
       some = rows if len(rows) <= the.Halves else random.sample(rows,k=the.Halves)
       D    = lambda row1,row2: i.sheet.dist(row1,row2)
       anywhere = random.choice(some)
@@ -239,12 +239,12 @@ class TREE:
          (half1 if n <= len(rows)/2 else half2).append(row)
       return a,b,half1, half2
 
-   def tree(i,verbose=False):
+   def tree(i,verbose=False,assess=False):
       def _grow(rows):
          here = i.sheet.clone(rows)
          here.lefts, here.rights = None,None
          if len(rows) >= 2*i.stop:
-            _,__,lefts,rights = i._halve(rows)
+            _,__,lefts,rights = i._halve(rows,assess)
             here.lefts  = _grow(lefts)
             here.rights = _grow(rights)
          return here
@@ -253,7 +253,7 @@ class TREE:
    def branch(i):
       def _grow(rows,rest,evals):
          if len(rows) >= 2*i.stop:
-            left,right,lefts,rights = i._halve(rows)
+            left,right,lefts,rights = i._halve(rows,False)
             if  i.sheet.distance2heaven(right) < i.sheet.distance2heaven(left):
                 left,right,lefts,rights = right,left,rights,lefts
             evals += 2
