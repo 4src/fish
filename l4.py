@@ -110,7 +110,7 @@ class NUM(COL):
       i.mu += d/i.n
       i.m2 += d*(x - i.mu)
    def cuts(i,d):
-      xys   = sorted([(row.cells[i.at],y) for y,rows in d.items() 
+      xys   = sorted([(row.cells[i.at],y) for y,rows in d.items()
                       for row in rows if row.cells[i.at] != "?"])
       nmin  = len(xys)/(the.bins - 1)
       xmin  = the.Cohen * i.div()
