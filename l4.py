@@ -74,7 +74,8 @@ class COL(obj):
    def adds(i,a=[]): [i.add(x) for x in a]; return i
    def add(i,x):
       if x !="?": i.n += 1; i.add1(x)
-      return x
+   def sub(i,x):
+      if x !="?": i.n -= 1; i.sub1(x)
    def dist(i,x,y):
      return 1 if x=="?" and y=="?" else i.dist1(x,y)
 #---------------------------------------------------------------
@@ -86,6 +87,7 @@ class SYM(COL):
    def div(i)       : return ent(i.has)
    def dist1(i,x,y) : return 0 if x==y else 1
    def add1(i,x)    : i.has[x] += 1
+   def sub1(i,x)    : i.has[x] -= 1
    def cuts(i,_,supervised=None):
       for k in i.has: yield (i.at, k, k)
 #---------------------------------------------------------------
@@ -109,6 +111,10 @@ class NUM(COL):
       d     = x - i.mu
       i.mu += d/i.n
       i.m2 += d*(x - i.mu)
+   def sub1(i,x):
+      d     = x - i.mu
+      i.mu -= d/i.n
+      i.m2 -= d*(x- i.mu)
    def cuts(i,d,supervised=True):
       xys   = sorted([(row.cells[i.at],y) for y,rows in d.items()
                       for row in rows if row.cells[i.at] != "?"])
@@ -140,6 +146,7 @@ class ROW(obj):
    def __init__(i,a): 
       ROW.id += 1
       i.oid, i.cells = ROW.id, a
+   def __hash__(i): return i.oid
 
 def COLS(a):
    all = [(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(a)]
@@ -159,6 +166,10 @@ class SHEET(obj):
               i.rows += [row]
               [col.add(row.cells[col.at]) for col in i.cols.all]
       else: i.cols = COLS(row.cells)
+
+   def subs(i,rows):
+       [col.sub(row.cells[col.at]) for col in i.cols.all for row in rows]
+       i.rows = list(set(i.rows) - set(rows))
 
    def stats(i, cols="y", decimals=None, want="mid"):
       return slots(N=len(i.rows),
