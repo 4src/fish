@@ -506,7 +506,7 @@ def eg_ents():
   s = SHEET(csv(the.file))
   e = 0
   for col in s.cols.x:
-     cuts = list(col.cuts(slots(all=s.rows),False))
+     cuts = list(col.cuts(slots(all=s.rows),supervised=False))
      seen = Counter()
      for row in s.rows:
        x = row.cells[col.at]
