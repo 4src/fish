@@ -226,6 +226,7 @@ class TREE:
    def __init__(i, sheet):
       i.sheet = sheet
       i.stop  = int(len(sheet.rows)**the.min)
+      i.lefts = i.rights = None
 
    def _far(i,rows,row1):
       _dist = lambda row2: i.sheet.dist(row1,row2)
@@ -280,6 +281,13 @@ class TREE:
          print("")
          i.showTree(here.lefts, lvl+1)
          i.showTree(here.rights,lvl+1)
+
+   def nodes(i,here,depth=1):
+      if here:
+         yield here,depth
+         i.nodes(here.lefts,  depth+1)
+         i.nodes(here.rights, depth+1)
+
 #---------------------------------------------------------------
 def different(x,y):
   if len(x) > 1000: x = random.choices(x, k=1000)
@@ -518,6 +526,13 @@ def eg_ents():
      e += ent(seen)
   print(e)
 
+def eg_treewalk():
+   sheet = SHEET(csv(the.file))
+   t = TREE(sheet)
+   for a,b in t.nodes(t):
+      print(a,b)
+
+
 #---------------------------------------------------------------
 egs = {k[3:]:fun for k,fun in locals().items() if k[:3]=="eg_"}
 the=settings(__doc__)
@@ -525,3 +540,14 @@ the=settings(__doc__)
 if __name__ == "__main__":
    the=cli(the)
    eg_helps() if the.help else run(egs.get(the.eg, eg_helps))
+
+"""
+todo:
+run over all nodes: for all with  kids depth
+v(x) of all rows
+delete rows subset from rowss
+mode of each cluster
+any difference
+dead,alive
+depth
+"""
