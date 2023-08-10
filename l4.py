@@ -9,7 +9,7 @@ OPTIONS:
   -b --bins        initial number of bins = 16
   -c --cliffs      Cliff's delta          = 0.147
   -C --Cohen       small if C*std         = .35
-  -e --eg          start up example       = helps
+  -e --eg          start up example       = nothing
   -f --file        csv data file          = ../data/auto93.csv
   -F --Far         how far to look        = .85
   -h --help        show help              = False
@@ -70,11 +70,13 @@ def combineRules(rules):
 #---------------------------------------------------------------
 class COL(obj):
    def __init__(i,a=[], name=" ", at=0):
-      i.n, i.at, i.name = len(a), at, name
+      i.n, i.at, i.name = 0, at, name
       i.adds(a)
    def adds(i,a=[]): [i.add(x) for x in a]; return i
    def add(i,x):
-      if x !="?": i.n += 1; i.add1(x)
+      if x !="?":
+          i.n += 1
+          i.add1(x)
    def dist(i,x,y):
      return 1 if x=="?" and y=="?" else i.dist1(x,y)
 #---------------------------------------------------------------
@@ -105,11 +107,13 @@ class NUM(COL):
       if y=="?": y= 0 if x > .5 else 1
       return abs(x - y)
    def add1(i,x):
-      i.lo  = min(x, i.lo)
-      i.hi  = max(x, i.hi)
-      d     = x - i.mu
+      i.lo = min(x, i.lo)
+      i.hi = max(x, i.hi)
+      d    = x - i.mu
       i.mu += d/i.n
       i.m2 += d*(x - i.mu)
+   def pooled(i,j):
+      return sqrt( ((i.n-1)*i.div()**2  + (j.n-1)*j.div()**2)/(i.n + j.n - 2))
    def cuts(i,d,supervised=True):
       xys   = sorted([(row.cells[i.at],y) for y,rows in d.items()
                       for row in rows if row.cells[i.at] != "?"])
@@ -187,7 +191,7 @@ class SHEET(obj):
          n = nums(col0,rx)
          mu0 = NUM(n0).mu
          mu = NUM(n).mu
-         sd  = sqrt( ((col0.n-1)*col0.div()**2  + (col.n-1)*col.div()**2)/(col0.n + col.n - 2))
+         sd  = col0.pooled(col)
          return   ((mu0 - mu) if col.heaven == 0 else (mu - mu0))/sd
       return slots(N = len(rx0.rows)+len(rx.rows), 
                    **{col0.name: show(report(col0,col),2)
@@ -368,29 +372,40 @@ def cli(d):
             d[k] = coerce("True" if s=="False" else ("False" if s=="True" else sys.argv[j+1]))
    return d
 #---------------------------------------------------------------
-def run(fun):
-   global the
+def egs(the,doc,funs):
+   funs =  {k[3:]: fun for k,fun in funs.items() if callable(fun) and k[:3] == "eg_"}
+   if   the.help                     : eg_Help(doc,funs)
+   elif the.eg=="nothing"            : ...
+   elif the.eg=="All"                : sys.exit(eg_All(funs))
+   elif fun := funs.get(the.eg,None) : sys.exit(eg(the.eg, fun))
+   else                              : print(f"❌ FAIL : [{the.eg}] unknown action")
+
+def eg(name,fun):
    saved = {k:v for k,v in the.items()}
    random.seed(the.seed)
-   #print("\n\n=====|", fun.__name__[3:],"|===================================")
-   if failed := fun() is False:
-      print("❌ FAIL", fun.__name__[3:])
+   if failed := fun() is False: print("❌ FAIL", name)
    for k,v in saved.items(): the[k] = v
    return failed
 
-def eg_helps():
-   "show help"
-   print(__doc__,"\nACTIONS:")
-   [print(f"  -e  {fun.__name__[3:]:12} {fun.__doc__}") for fun in egs.values()]
-
-def eg_alls():
+def eg_All(funs): 
    "run all"
-   sys.exit(sum(map(run,[fun for s,fun in egs.items() if s != "alls"])))
+   return sum([eg(s,f) for s,f in funs.items() if s[0].islower()])
+
+def eg_Help(doc,funs):
+   print(doc,"\nACTIONS:")
+   [print(f"  -e  {fun.__name__[3:]:12} {fun.__doc__}") for fun in funs.values()]
 
 def eg_syms():
    "test sym"
    s=SYM(a="aaaabbc")
    print(s,s.div())
+
+
+def eg_nums():
+   "test nums"
+   normal= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
+   n = NUM([2,1,3,2,4])
+   return  (2.35 < n.mu < 2.45 and 1.14 < n.div() < 1.15)
 
 def eg_thes():
    "print settings"
@@ -400,13 +415,17 @@ def eg_boots():
    normal= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
    mu,sd = 10,1
    a = [normal(mu,sd) for _ in range(64)]
+   numa=NUM(a)
    yn = lambda x: "y" if x else "."
    seed=the.seed
    r = 0
-   prints("a.mu","b.mu","cliffs","boot","c+b")
+   prints("a.mu","b.mu","cliffs","boot","c+b","cohen(.35)")
    while r <= 3:
       b = [normal(mu+r,3*sd) for _ in range(64)]
-      prints(mu,f"{mu+r}", yn(cliffsDelta(a,b)),yn(bootstrap(a,b)),yn(different(a,b)))
+      numb=NUM(b)
+      prints(mu,f"{mu+r}", yn(cliffsDelta(a,b)),yn(bootstrap(a,b)),
+                           yn(different(a,b)),
+                           yn(abs(numb.mu - numa.mu)/numb.pooled(numa) > .35))
       r += .25
    print(seed)
 
@@ -440,7 +459,7 @@ def eg_treeings():
       prints(*s.clone(select(rule,s.rows)).stats().values(),
              showRule(s.cols.names,rule))
 
-def eg_bests():
+def eg_Bests():
    print("\n",the.file)
    s_base = SHEET(csv(the.file))
    stats_base = s_base.stats()
@@ -534,12 +553,10 @@ def eg_treewalk():
 
 
 #---------------------------------------------------------------
-egs = {k[3:]:fun for k,fun in locals().items() if k[:3]=="eg_"}
 the=settings(__doc__)
 #---------------------------------------------------------------
 if __name__ == "__main__":
-   the=cli(the)
-   eg_helps() if the.help else run(egs.get(the.eg, eg_helps))
+   egs( cli(the), __doc__, locals())
 
 """
 todo:
