@@ -74,9 +74,7 @@ class COL(obj):
       i.adds(a)
    def adds(i,a=[]): [i.add(x) for x in a]; return i
    def add(i,x):
-      if x !="?":
-          i.n += 1
-          i.add1(x)
+      if x !="?": i.n += 1; i.add1(x)
    def dist(i,x,y):
      return 1 if x=="?" and y=="?" else i.dist1(x,y)
 #---------------------------------------------------------------
@@ -88,9 +86,10 @@ class SYM(COL):
    def div(i)       : return ent(i.has)
    def dist1(i,x,y) : return 0 if x==y else 1
    def add1(i,x)    : i.has[x] += 1
-   def sub1(i,x)    : i.has[x] -= 1
    def cuts(i,_,supervised=None):
       for k in i.has: yield (i.at, k, k)
+   def diff(i,j,x,y):
+      return False if (x=="?" or y=="?") else x!=y
 #---------------------------------------------------------------
 class NUM(COL):
    def __init__(i,*l,**d):
@@ -101,6 +100,9 @@ class NUM(COL):
    def div(i): return (i.m2/(i.n-1))**.5
    def distance2heaven(i,row): return abs(i.heaven - i.norm(row.cells[i.at]))
    def norm(i,x): return "?" if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
+   def diff(i,j,x,y):
+      if (x=="?" or y=="?"): return False
+      return  abs(x-y)/i.pooled(j) > the.Cohen
    def dist1(i,x,y):
       x,y = i.norm(x), i.norm(y)
       if x=="?": x= 0 if y > .5 else 1
@@ -113,7 +115,7 @@ class NUM(COL):
       i.mu += d/i.n
       i.m2 += d*(x - i.mu)
    def pooled(i,j):
-      return sqrt( ((i.n-1)*i.div()**2  + (j.n-1)*j.div()**2)/(i.n + j.n - 2))
+      return sqrt(((i.n-1)*i.div()**2 + (j.n-1)*j.div()**2)/(i.n + j.n - 2))
    def cuts(i,d,supervised=True):
       xys   = sorted([(row.cells[i.at],y) for y,rows in d.items()
                       for row in rows if row.cells[i.at] != "?"])
@@ -182,6 +184,9 @@ class SHEET(obj):
    def dist(i,row1,row2):
       return (sum(c.dist(row1.cells[c.at],row2.cells[c.at])**the.p 
                   for c in i.cols.x )/len(i.cols.x))**(1/the.p)
+
+   def mode(i,cols=None):
+      return ROW([col.mid() for col in cols or i.cols.all])
 
    def cohen(rx0,rx): # k is based
       nums = lambda col,x: [row.cells[col.at] 
@@ -289,8 +294,9 @@ class TREE:
    def nodes(i,here,depth=1):
       if here:
          yield here,depth
-         i.nodes(here.lefts,  depth+1)
-         i.nodes(here.rights, depth+1)
+         for  t1 in [here.lefts,here.rights]:
+            for here1,depth1 in i.nodes(t1, depth+1):
+               yield here1,depth1
 
 #---------------------------------------------------------------
 def different(x,y):
@@ -373,10 +379,10 @@ def cli(d):
    return d
 #---------------------------------------------------------------
 def egs(the,doc,funs):
-   funs =  {k[3:]: fun for k,fun in funs.items() if callable(fun) and k[:3] == "eg_"}
+   funs = {k[3:]: fun for k,fun in funs.items() if callable(fun) and k[:3] == "eg_"}
    if   the.help                     : eg_Help(doc,funs)
-   elif the.eg=="nothing"            : ...
-   elif the.eg=="All"                : sys.exit(eg_All(funs))
+   elif the.eg == "nothing"          : ...
+   elif the.eg == "All"              : sys.exit(eg_All(funs))
    elif fun := funs.get(the.eg,None) : sys.exit(eg(the.eg, fun))
    else                              : print(f"❌ FAIL : [{the.eg}] unknown action")
 
@@ -400,12 +406,16 @@ def eg_syms():
    s=SYM(a="aaaabbc")
    print(s,s.div())
 
-
-def eg_nums():
+def eg_nums1():
    "test nums"
-   normal= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
    n = NUM([2,1,3,2,4])
    return  (2.35 < n.mu < 2.45 and 1.14 < n.div() < 1.15)
+
+def eg_nums2():
+   "test nums"
+   normal = lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
+   n = NUM([normal(10,2) for _ in range(1000)])
+   return 9.9 <= n.mu <= 10.1 and 1.9 <= n.div() <= 2.1
 
 def eg_thes():
    "print settings"
@@ -413,17 +423,17 @@ def eg_thes():
 
 def eg_boots():
    normal= lambda mu,sd: mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
+   yn    = lambda x: "y" if x else "."
    mu,sd = 10,1
    a = [normal(mu,sd) for _ in range(64)]
    numa=NUM(a)
-   yn = lambda x: "y" if x else "."
    seed=the.seed
    r = 0
-   prints("a.mu","b.mu","cliffs","boot","c+b","cohen(.35)")
+   prints("r","a.mu","b.mu","cliffs","boot","c+b","cohen(.35)")
    while r <= 3:
       b = [normal(mu+r,3*sd) for _ in range(64)]
       numb=NUM(b)
-      prints(mu,f"{mu+r}", yn(cliffsDelta(a,b)),yn(bootstrap(a,b)),
+      prints(r,mu,f"{mu+r}", yn(cliffsDelta(a,b)),yn(bootstrap(a,b)),
                            yn(different(a,b)),
                            yn(abs(numb.mu - numa.mu)/numb.pooled(numa) > .35))
       r += .25
@@ -525,14 +535,6 @@ def eg_branches():
           best.stats(),
           rest.stats())
 
-def eg_xy():
-   s = SHEET(csv(the.file))
-   xs = [(row.oid,n) for n,row in enumerate(s.sorted()[::-1])]
-   best,rest,evals = TREE(s).branch()
-   ys = {row.oid:n for n,row in enumerate(best.rows + rest.rows)}
-   for  r,x in xs:
-      print(x,ys[r],sep=",")
-
 def eg_ents():
   s = SHEET(csv(the.file))
   e = 0
@@ -548,9 +550,29 @@ def eg_ents():
 def eg_treewalk():
    sheet = SHEET(csv(the.file))
    t = TREE(sheet)
-   for a,b in t.nodes(t):
-      print(a,b)
+   for a,b in t.nodes(t.tree()):
+      if a.lefts and a.rights:
+         print(b)
+         for col0,col1,col2 in zip(a.cols.x, a.lefts.cols.x, a.rights.cols.x):
+            mid1, mid2 = col1.mid(), col2.mid()
+            if col1.diff(col2, mid1, mid2):
+               print("\t",col0.at)
 
+def ents(sheet):
+  for col in sheet.cols.x:
+     if isinstance(col,Sym):
+       a = Counter()
+       for row in s.rows:
+         x = row.cells[col.at]; if x != "?": a[x] += 1
+       e = ent(a)
+    else:
+       a = []
+       for row in s.rows:
+         x = row.cells[col.at]; if x != "?": a += [x]
+       a.sort()
+       t  = len(a)//10
+       sd = (a[t*p] - a[t])/2.56
+       e =  .5*log(6.28*sd*sd, math.e) +.5 
 
 #---------------------------------------------------------------
 the=settings(__doc__)
@@ -567,4 +589,20 @@ mode of each cluster
 any difference
 dead,alive
 depth
+
+goal = num,(0|1)
+y = list[goal]
+x = list[num|sym]
+row = [xs,ys]
+rows = [row]+
+
+for c in  cols.c  E[c] = entropy(select column c from rows)
+
+tree = recursive bi-culstering of rows on cols.c
+tree has  node1,node2...
+for  nodes node0 with kids node1,  node2
+
+
+
+
 """
