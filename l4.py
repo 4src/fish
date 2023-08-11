@@ -24,6 +24,7 @@ OPTIONS:
 from collections import defaultdict,Counter
 from termcolor import colored
 from math import pi, log, cos, sin, sqrt, inf
+from math import e as euler
 import fileinput, random, time,ast, sys, re
 #---------------------------------------------------------------
 class slots(dict): __getattr__ =dict.get; __repr__ =lambda i:showd(i)
@@ -561,20 +562,23 @@ def eg_treewalk():
 
 def ents(sheet):
   for col in sheet.cols.x:
-     if isinstance(col,Sym):
+     if isinstance(col,SYM):
        a = Counter()
-       for row in s.rows:
-         x = row.cells[col.at]; if x != "?": a[x] += 1
+       for row in sheet.rows:
+         x = row.cells[col.at]
+         if x != "?": a[x] += 1
        e = ent(a)
-    else:
+     else:
        a = []
-       for row in s.rows:
-         x = row.cells[col.at]; if x != "?": a += [x]
+       for row in sheet.rows:
+         x = row.cells[col.at]
+         if x != "?": a += [x]
        a.sort()
        t  = len(a)//10
-       sd = (a[t*p] - a[t])/2.56
-       e =  .5*log(6.28*sd*sd, math.e) +.5 
-    print(col.at,e)
+       sd = 1/big+(a[int(t*.9)] - a[int(t)])/2.56
+       print(sd)
+       e =  .5*log(6.28*sd*sd, euler) +.5 
+     print(col.at,e)
 
 #---------------------------------------------------------------
 the=settings(__doc__)
