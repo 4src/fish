@@ -36,10 +36,26 @@ want = dict(plan  = lambda b,r : b**2  / (b + r    + 1/big),
             doubt = lambda b,r : (b+r) / (abs(b-r) + 1/big),
             xplor = lambda b,r : 1     / (b+r      + 1/big))
 #---------------------------------------G------------------------
+def dull(cut): return cut[1] == -inf and cut[2] == inf
+
 def cuts2Rule(cuts):
-   d = defaultdict(set)
-   [d[cut[0]].add(cut) for cut in cuts]
-   return tuple(sorted([tuple(sorted(x)) for x in d.values()]))
+   d0 = defaultdict(set)
+   [d0[cut[0]].add(cut) for cut in cuts]
+   return tuple(sorted([tuple(sorted(x)) for x in d0.values()]))
+   # d = {}
+   # for k,v0 in d0.items():
+   #    if v := canonicalCuts(v0): d[k]= v
+   # if d:
+   #    return tuple(sorted([tuple(sorted(x)) for x in d.values()]))
+
+def canonicalCuts(cuts):
+   out=[]
+   for at,lo,hi in sorted(cuts):
+      #print(at,lo,hi)
+      if out and out[-1][-1] == lo: out[-1][-1] == hi
+      else: out +=  [[at,lo,hi]]
+   #print(at,out, dull(out[0]))
+   if not dull(out[0]): return out
 
 def score(rule, d):
    got = selects(rule,d)
@@ -217,7 +233,6 @@ class SHEET(obj):
 def top(a,**d): return sorted(a,reverse=True,**d)[:the.top]
 
 def rules(sheet,every=True):
-   val  = lambda cuts: score(cuts2Rule(cuts),d)
    balance = lambda cuts: val(cuts)
    #balance = lambda cuts: ((0-val(cuts))**2 + (1-len(cuts)/len(some))**2)**.5
    n    = int(len(sheet.rows)**the.min)
@@ -228,6 +243,9 @@ def rules(sheet,every=True):
       best,rest,evals = TREE(sheet).branch()
       #d  = dict(best=best.rows, rest=rest.rows) #random.sample(rest.rows, n*the.rest))
       d  = dict(best=best.rows, rest=random.sample(rest.rows, n*the.rest))
+   def val(cuts): return score(cuts2Rule(cuts),d)
+   #  if rule := cuts2Rule(cuts): return score(rule, d)
+   #  else: return 0
    all  = [cut for col in sheet.cols.x for cut in col.cuts(d)]
    some = top(all, key=lambda c: val([c]))
    return top((cuts for cuts in powerset(some)), key=lambda z: balance(z))
