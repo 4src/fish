@@ -549,6 +549,7 @@ def eg_ents():
 
 def eg_treewalk():
    sheet = SHEET(csv(the.file))
+   ents(sheet)
    t = TREE(sheet)
    for a,b in t.nodes(t.tree()):
       if a.lefts and a.rights:
@@ -573,6 +574,7 @@ def ents(sheet):
        t  = len(a)//10
        sd = (a[t*p] - a[t])/2.56
        e =  .5*log(6.28*sd*sd, math.e) +.5 
+    print(col.at,e)
 
 #---------------------------------------------------------------
 the=settings(__doc__)
