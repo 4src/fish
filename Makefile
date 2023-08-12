@@ -17,8 +17,8 @@ install: ## load python3 packages (requires `pip3`)
 	(cd ..; git clone https://github.com/4src/config config)
 
 ############################
-Data= auto2 nasa93dem auto93 china coc1000 healthCloseIsses12mths0001-hard \
-      healthCloseIsses12mths0011-easy coc10000 pom SSN SSM
+Data= auto2 nasa93dem auto93 china healthCloseIsses12mths0001-hard \
+      healthCloseIsses12mths0011-easy pom SSN SSM
 
 rulings: 
 	$(foreach f,$(Data), (echo ""; echo $f; ./l4.py -s $$RANDOM  -f ../data/${f}.csv -e rulings;);)
