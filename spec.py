@@ -12,14 +12,8 @@ class Spec(object):
   def __init_subclass__(cls): 
     cls._spec = {k:v for c in reversed(cls.__mro__) for k,v in c.__dict__.items() if k[0] != "_"}
 
-def posint20(x=None): within(x,lo=0,hi=20)
 
-def within(x=None, lo=0, hi=1000):
-  if x==None: return random.choce(lo,hi)
-  assert lo <= x <= hi,"out of range"
-  return x
-
-class Col(Spec): at:posint20=0; name:str=" "; n:int=0
+class Col(Spec): at:int=0; name:str=" "; n:int=0
 class Num(Col) : mu:float=0; mu2:float=0; heaven:int=0
 class Sym(Col) : has=Counter()
 
