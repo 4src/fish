@@ -6,7 +6,7 @@ l4: a little light learning laboratory
 
 OPTIONS:
   -B --Bootstraps  number of bootstraps   = 256
-  -b --bins        initial number of bins = 16
+  -b --bins        initial number of bins = 8
   -c --cliffs      Cliff's delta          = 0.147
   -C --Cohen       small if C*std         = .35
   -e --eg          start up example       = nothing
@@ -17,6 +17,7 @@ OPTIONS:
   -m --min         min size               = .5
   -p --p           distance coefficient   = 2
   -s --seed        random number seed     = 1234567891
+  -S --Super       disable supervised discretization = True
   -r --rest        the rest               = 3
   -t --top         only explore top cuts  = 8
   -w --want        plan|avoid|doubt|xplor = plan
@@ -42,19 +43,12 @@ def cuts2Rule(cuts):
    d0 = defaultdict(set)
    [d0[cut[0]].add(cut) for cut in cuts]
    return tuple(sorted([tuple(sorted(x)) for x in d0.values()]))
-   # d = {}
-   # for k,v0 in d0.items():
-   #    if v := canonicalCuts(v0): d[k]= v
-   # if d:
-   #    return tuple(sorted([tuple(sorted(x)) for x in d.values()]))
 
 def canonicalCuts(cuts):
    out=[]
    for at,lo,hi in sorted(cuts):
-      #print(at,lo,hi)
       if out and out[-1][-1] == lo: out[-1][-1] == hi
       else: out +=  [[at,lo,hi]]
-   #print(at,out, dull(out[0]))
    if not dull(out[0]): return out
 
 def score(rule, d):
@@ -103,8 +97,9 @@ class SYM(COL):
    def div(i)       : return ent(i.has)
    def dist1(i,x,y) : return 0 if x==y else 1
    def add1(i,x)    : i.has[x] += 1
-   def cuts(i,_,supervised=None):
-      for k in i.has: yield (i.at, k, k)
+   def cuts(i,_):
+      if len(i.has) > 1:
+        for k in i.has: yield (i.at, k, k)
    def diff(i,j,x,y):
       return False if (x=="?" or y=="?") else x!=y
 #---------------------------------------------------------------
@@ -133,32 +128,34 @@ class NUM(COL):
       i.m2 += d*(x - i.mu)
    def pooled(i,j):
       return sqrt(((i.n-1)*i.div()**2 + (j.n-1)*j.div()**2)/(i.n + j.n - 2))
-   def cuts(i,d,supervised=True):
+   def cuts(i,d):
       xys   = sorted([(row.cells[i.at],y) for y,rows in d.items()
                       for row in rows if row.cells[i.at] != "?"])
       nmin  = len(xys)/(the.bins - 1)
       xmin  = the.Cohen * i.div()
       now,b4= Counter(), Counter()
-      out,lo= [], xys[0][0]
+      lo= xys[0][0]
+      out= [[i.at,lo,lo]]
       for n,(x,y) in enumerate(xys):
-         now[y] += 1
-         if n < len(xys) - nmin and x != xys[n+1][0] and sum(now.values()) >= nmin and x-lo >= xmin:
-            both = now + b4
-            if supervised and out:
-               if ent(both) <= (ent(now)*now.total() + ent(b4)*b4.total()) / both.total():
-                  b4 = both
-                  out[-1][2] = x
+         if n < len(xys) - nmin and x != xys[n+1][0] and now.total() >= nmin and x-lo >= xmin:
+            both  = now + b4
+            n0,n1 = b4.total(),now.total()
+            if the.Super and out and ent(both) <= (ent(b4)*n0 + ent(now)*n1) / (n0+n1):
+               out[-1][2]=x
+               b4 = both
             else:
+               out += [[i.at, hi, x]]
                b4 = now
-               out += [[i.at, lo, x]]
             lo  = x
             now = Counter()
-      out = out or [[i.at,None,None]]
-      out[ 0][1] = -inf
-      out[-1][2] = inf
-      for cut in out:
-         yield tuple(cut)
-#---------------------------------------------------------------
+         hi=x
+         now[y] += 1
+         out[-1][2] = x
+      if len(out) > 1:
+         out[ 0][1] = -inf
+         out[-1][2] = inf
+         for cut in out: yield tuple(cut)
+#---------------------------------------------------------------
 class ROW(obj):
    id = 0
    def __init__(i,a): 
@@ -234,18 +231,14 @@ def top(a,**d): return sorted(a,reverse=True,**d)[:the.top]
 
 def rules(sheet,every=True):
    balance = lambda cuts: val(cuts)
-   #balance = lambda cuts: ((0-val(cuts))**2 + (1-len(cuts)/len(some))**2)**.5
    n    = int(len(sheet.rows)**the.min)
    if every:
       rows = sheet.sorted()
       d = dict(best=rows[:n], rest=random.sample(rows[n:], n*the.rest))
    else:
       best,rest,evals = TREE(sheet).branch()
-      #d  = dict(best=best.rows, rest=rest.rows) #random.sample(rest.rows, n*the.rest))
       d  = dict(best=best.rows, rest=random.sample(rest.rows, n*the.rest))
    def val(cuts): return score(cuts2Rule(cuts),d)
-   #  if rule := cuts2Rule(cuts): return score(rule, d)
-   #  else: return 0
    all  = [cut for col in sheet.cols.x for cut in col.cuts(d)]
    some = top(all, key=lambda c: val([c]))
    return top((cuts for cuts in powerset(some)), key=lambda z: balance(z))
@@ -317,7 +310,7 @@ class TREE:
             for here1,depth1 in i.nodes(t1, depth+1):
                yield here1,depth1
 
-#---------------------------------------------------------------
+#---------------------------------------------------------------
 def different(x,y):
   if len(x) > 1000: x = random.choices(x, k=1000)
   if len(y) > 1000: y = random.choices(y, k=1000)
@@ -469,6 +462,26 @@ def eg_sheets():
    rows = s.sorted()
    for i in range(1,len(rows),10): print(rows[i])
 
+def eg_cuts():
+    rows=[
+    ROW(["sunny",85,85,"FALSE","no"]),
+    ROW(["sunny",80,90,"TRUE","no"]),      # selected
+    ROW(["overcast",83,86,"FALSE","yes"]),
+    ROW(["rainy",70,96,"FALSE","yes"]),
+    ROW(["rainy",68,80,"FALSE","yes"]),
+    ROW(["rainy",65,70,"TRUE","no"]),
+    ROW(["overcast",64,65,"TRUE","yes"]),
+    ROW(["sunny",72,95,"FALSE","no"]),  # selected
+    ROW(["sunny",69,70,"FALSE","yes"]),
+    ROW(["rainy",75,80,"FALSE","yes"]),
+    ROW(["sunny",75,70,"TRUE","yes"]),  #selected
+    ROW(["overcast",72,90,"TRUE","yes"]),
+    ROW(["overcast",81,75,"FALSE","yes"]),
+    ROW(["rainy",71,91,"TRUE","no"]) ]
+    cuts=[(0, "sunny", "sunny"), (1, 70,80),(1,85,90)]
+    rule=cuts2Rule(cuts)
+    return len(select(rule,rows)) == 3
+
 def eg_rulings(): 
    s= SHEET(csv(the.file))
    stats=s.stats()
@@ -517,7 +530,7 @@ def eg_Bests():
    prints("(c-a)/s",*s_base.cohen(s_all).values())
    prints("(d-a)/s",*s_base.cohen(s_any).values())
    prints("(e-a)/s",*s_base.cohen(s_some).values())
-   prints("(e-c)/s",*s_some.cohen(s_all).values())
+   prints("(c-e)/s",*s_some.cohen(s_all).values())
    prints("e!=c?",  *s_some.different(s_all).values())
 
 def _egbests(i,every=True):

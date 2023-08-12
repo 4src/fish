@@ -25,7 +25,7 @@ class Sym(Col) : has=Counter()
 
 class Row(Spec):
   use = True
-  x:[float | int | str | bool]=[]
+  x:[float | int | str | bool | "?"]=[]
   y:[float | int]=[]
 
 class Cols(Spec): x:[Col]=[]; y:[Col]=[]
@@ -34,10 +34,10 @@ class Node(Spec):
   depth=0 # for root of tree
   use=True  # if false, then ignore
   rows:  [Row] = []
-  left:   Row  | None = None
-  right:  Row  | None = None
-  lefts:  Node | None = None
-  rights: Node | None = None
+  left:   Row  = None
+  right:  Row  = None
+  lefts:  Node  = None
+  rights: Node = None
 
 print(Row())
 r1=Row()
