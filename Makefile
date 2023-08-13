@@ -20,8 +20,14 @@ install: ## load python3 packages (requires `pip3`)
 Data= auto2 nasa93dem auto93 china healthCloseIsses12mths0001-hard \
       healthCloseIsses12mths0011-easy pom SSN SSM
 
+
+cuts: 
+	$(foreach f,$(Data), (echo ""; echo $f; ./l4.py -b 16 -s $$RANDOM  -f ../data/${f}.csv -e superCuts;);)
+
 rulings: 
 	$(foreach f,$(Data), (echo ""; echo $f; ./l4.py -s $$RANDOM  -f ../data/${f}.csv -e rulings;);)
+unbests: 
+	$(foreach f,$(Data), ./l4.py -s $$RANDOM  -S -b 8 -f ../data/${f}.csv -e Bests;)
 bests: 
 	$(foreach f,$(Data), ./l4.py -s $$RANDOM  -f ../data/${f}.csv -e Bests;)
 trees: 

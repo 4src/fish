@@ -482,7 +482,19 @@ def eg_cuts():
     rule=cuts2Rule(cuts)
     return len(select(rule,rows)) == 3
 
-def eg_rulings(): 
+def eg_superCuts():
+   sheet= SHEET(csv(the.file))
+   n    = int(len(sheet.rows)**the.min)
+   best,rest,evals = TREE(sheet).branch()
+   d  = dict(best=best.rows, rest=random.sample(rest.rows, n*the.rest))
+   for col in sheet.cols.x:
+      print("\n"+col.name)
+      the.Super=True
+      for cut in col.cuts(d): print("\t","super",cut,sep="\t")
+      the.Super=False
+      for cut in col.cuts(d): print("\t","un",cut,sep="\t")
+
+def eg_rulings():
    s= SHEET(csv(the.file))
    stats=s.stats()
    prints(*stats.keys())
