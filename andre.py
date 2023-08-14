@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import random
-from math import inf
+from math import log,inf
 
 class slots(dict): 
    __getattr__ = dict.get
@@ -20,7 +20,7 @@ def median(a) : return per(a,.5)
 def sd(a)     : return (per(a,.9) - per(a,.1))/2.56
 
 def cuts(rows,at):
-   xs   = sorted([row[at] for row in rows if row[at] != "?"])
+   xs   = sorted([row.cells[at] for row in rows if row.cells[at] != "?"])
    nmin = len(xs)/(the.bins - 1)
    xmin = the.cohen * sd(xs)
    lo   = xs[0]
@@ -49,12 +49,28 @@ def COLS(a):
          (y if col.name[-1] in "+-!" else x).append(col)
    return slots(x=x, y=y, names=a, all=all)
 
-def ents(rows,cols):
-  rows = [row for row in rows if row.use]
+def cook(rows,cols):
+  for col in cols.x:
+    tmp = cuts(rows,col.at)
+    for row in rows:
+       if cut1 := cut(row.raw[col.at],tmp):
+         row.cooked[col.at] = cut1
 
-def ors(x, cuts):
-   for cut in cuts:
-      if true(x, cut): return cut
+def ents(rows,cols):
+   def counts(col)
+      out = Counter()
+      for row in rows:
+        if row.cooked[col.at != "?"]: out[row.cooked[col.at]] += 1
+      return counts
+   return [ent(counts(col)) for col in cols.x]
+
+def ent(d):
+  n = sum(d.values())
+  return - sum(m/n*log(m/n,2) for m in d.values() if m > 0)
+
+def cut(x, cuts):
+   for n,cut1 in enumerate(cuts):
+      if true(x, cut1): return n
 
 def true(x, cut): return x=="?" or cut.lo==cut.hi==x or x > cut.lo and x <= cut.hi
 
