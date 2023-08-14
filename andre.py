@@ -1,70 +1,36 @@
 #!/usr/bin/env python3
 from collections import Counter
 from math import log,inf
-import random
+import fileinput,random,time,ast,re
 
-class obj(dict): 
-   oid = -1
+class obj(object):
+   __repr__ = lambda i:printd(i.__dict__, i.__class__.__name__)
+
+class box(dict):
    __getattr__ = dict.get
    __setattr__ = dict.__setitem__
-   __hash__    = lambda i : i._id
-   __repr__    = lambda i : printd(i,i.__class__.__name__)
-   def __init__(i,*l,**kw): super().__init__(*l,**kw);  obj.oid += 1; i._id = obj.oid
+   __repr__    = lambda i : printd(i)
 
-the=obj(cohen=.35,bins=5)
-
-def printd(d,pre=""):
-   return pre+"{" + " ".join([f":{k} {prin(v,3)}" for k,v in d.items() if k[0] != "_"]) + "}"
-
-def prin(x,d=None):
-  return x.__name__ if callable(x) else (x if d is None or not isinstance(x,float) else round(x,d))
-
-def per(a,p)  : return a[int(p*len(a))]
-def median(a) : return per(a,.5)
-def sd(a)     : return (per(a,.9) - per(a,.1))/2.56
-
-def cuts(rows,at):
-   xs   = sorted([row.cells[at] for row in rows if row.cells[at] != "?"])
-   nmin = len(xs)/(the.bins - 1)
-   xmin = the.cohen * sd(xs)
-   lo   = xs[0]
-   out  = [obj(at=at,lo=lo,hi=lo)]
-   ns   = 0
-   for n,x in enumerate(xs):
-      if n < len(xs) - nmin and x != xs[n+1] and ns >= nmin and x-lo >= xmin:
-         out += [obj(at=at,lo=hi,hi=x)]
-         lo  = x
-         ns  = 0
-      hi  = x
-      ns += 1
-      out[-1].hi = x
-   out[ 0].lo = -inf
-   out[-1].hi = inf
-   return out
-
-R=random.random
-class SOME(obj):
-   def __init__(i): i.n, i.ok, i._all = 0, True, []
-   def add(i,x):
-      i.n += 1
-      s, a = len(i._all), i._all
-      if   s < the.some      : i.ok=False; a += [x]
-      elif R() < the.some/i.n: i.ok=False; a[int(R()*s)] = x
-   @property
-   def all(i):
-      if not i.ok: i._all.sort()
-      i.ok = True
-      return i._all
+the=box(cohen=.35,bins=5,file="../data/auto93.csv",p=2)
 
 class ROW(obj):
-   def __init__(i,a): use=True; i.cells = a; i.cooked=a[:]
+   def __init__(i,a)   : i.cells=a; i.reset()
+   def reset(i)        : i.use, i.evaled = True, False
+   def better(i,j,cols): return i.d2h(cols) < j.d2h(cols)
+   def d2h(i,cols):
+      i.evaled = True
+      denom = len(cols)**(1/the.p)
+      return sum((col.d2h(row))**the.p for col in cols)**(1/the.p) / denom
 
+#---------------------------------------------------------------
 class COL(obj):
    def __init__(i,a=[], name=" ", at=0):
       i.n, i.at, i.name = 0, at, name
       [i.add(x) for x in a]
    def add(i,x):
       if x !="?": i.n += 1; i.add1(x)
+   def dist(i,x,y):
+     return 1 if x=="?" and y=="?" else i.dist1(x,y)
 #---------------------------------------------------------------
 class SYM(COL):
    def __init__(i,*l,**d): 
@@ -74,11 +40,7 @@ class SYM(COL):
    def div(i)       : return ent(i.has)
    def dist1(i,x,y) : return 0 if x==y else 1
    def add1(i,x)    : i.has[x] += 1
-   def cuts(i,_):
-      if len(i.has) > 1:
-        for k in i.has: yield (i.at, k, k)
-   def diff(i,j,x,y):
-      return False if (x=="?" or y=="?") else x!=y
+   def cuts(i,_)    : return [(i.at, k, k) for k in i.has]
 #---------------------------------------------------------------
 class NUM(COL):
    def __init__(i,*l,**d):
@@ -87,66 +49,130 @@ class NUM(COL):
       i.heaven = 0 if i.name[-1] == "-" else 1
    def mid(i): return i.mu
    def div(i): return (i.m2/(i.n-1))**.5
-   def distance2heaven(i,row): return abs(i.heaven - i.norm(row.cells[i.at]))
    def norm(i,x): return "?" if x=="?" else (x- i.lo)/(i.hi - i.lo + 1/big)
-   def diff(i,j,x,y):
-      if (x=="?" or y=="?"): return False
-      return  abs(x-y)/i.pooled(j) > the.Cohen
+   def d2h(i,row): return abs(i.heaven - i.norm(row.cells[i.at]))
    def dist1(i,x,y):
       x,y = i.norm(x), i.norm(y)
       if x=="?": x= 0 if y > .5 else 1
       if y=="?": y= 0 if x > .5 else 1
       return abs(x - y)
    def add1(i,x):
-      i.lo = min(x, i.lo)
-      i.hi = max(x, i.hi)
-      d    = x - i.mu
+      i.lo  = min(x, i.lo)
+      i.hi  = max(x, i.hi)
+      d     = x - i.mu
       i.mu += d/i.n
       i.m2 += d*(x - i.mu)
+   def cuts(i,rows):
+      xs   = sorted([row.cells[i.at] for row in rows if row.cells[i.at] != "?"])
+      nmin = len(xs)/(the.bins - 1)
+      xmin = the.cohen * i.div()
+      lo   = xs[0]
+      tmp  = [[i.at,lo,lo]]
+      ns   = 0
+      for n,x in enumerate(xs):
+         if n < len(xs) - nmin and x != xs[n+1] and ns >= nmin and x-lo >= xmin:
+            tmp += [[i.at,hi,x]]
+            lo  = x
+            ns  = 0
+         hi  = x
+         ns += 1
+         tmp[-1][-1] = x
+      tmp[-1][-1] = inf
+      tmp[ 0][ 1] = -inf
+      return [tuple(x) for x in tmp]
+
 def COLS(a):
    all = [(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(a)]
    x,y = [],[]
    for col in all:
       if col.name[-1] != "X":
          (y if col.name[-1] in "+-!" else x).append(col)
-   return obj(x=x, y=y, names=a, all=all)
+   return box(x=x, y=y, names=a, all=all)
 
 class SHEET(obj):
    def __init__(i, src):
-     i.rows, i.cols = [],  None
+     i.rows, i.cols = [],[]
      [i.add(row) for row in src]
-
    def add(i,row):
       if i.cols:
             i.rows += [row]
             [col.add(row.cells[col.at]) for col in i.cols.all]
       else: i.cols = COLS(row.cells)
+   def dist(i,r1,r2):
+      cs = i.cols.x
+      return (sum(c.dist(r1.cells[c.at],r2.cells[c.at])**the.p for c in cs)/len(cs))**(1/the.p)
+   def mode(i,cols=None):
+      return ROW([col.mid() for col in cols or i.cols.all])
+   def stats(i, cols="y", decs=None, want="mid"):
+      return box(N=len(i.rows),
+                 **{c.name:prin(c.div() if want=="div" else c.mid(),decs) for c in i.cols[cols]})
 
-def cook(rows,cols):
-  for col in cols.x:
-    tmp = cuts(rows,col.at)
-    for row in rows:
-       if cut1 := cut(row.raw[col.at],tmp):
-         row.cooked[col.at] = cut1
+class SNEAK(obj):
+   def __init__(i,sheet):
+     sheet.use  = True
+     sheet.dept = 1
+     sheet.lefts = sheet.rights = None;
+     for row in sheet.rows: row.reset()
+     cuts = {col.at:col.cuts(i.rows) for  col in i.cols.x} 
 
-def ents(rows,cols):
-   def counts(col):
-      out = Counter()
-      for row in rows:
-        if row.cooked[col.at != "?"]: out[row.cooked[col.at]] += 1
-      return counts
-   return [ent(counts(col)) for col in cols.x]
+   def ents(i,rows):
+      "only for the use-able rows"
+      def counts(at):
+         cuts1 = i.cuts[at]
+         count= Counter()
+         for row in rows:
+            if row.use:
+               x = row.cells[at]
+               if x != "?":
+                  count[cut(x,cuts1)] += 1
+         return count
+      return {at:ent(counts(at)) for at in i.cuts}
+
+    def isCandidate(i,sheet):
+       return sheet.use and sheet.lefts  and sheet.lefts.use \
+                        and sheet.rights and sheet.rights.use
+
+   def dontUse(i,sheet=None):
+      if sheet:
+          sheet.use = False
+          for row in sheet.rows: row.use=False
+          i.dontUse(i,sheet.lefts)
+          i.dontUse(i,sheet.rights)
+   #
+   # def loop(i,root,stop=None):
+   #    rows = [row for row in i.rows if row.use]
+   #    row  = root.rows
+   #    stop = len(rows)**the.min
+   #    while len(rows) > stop:
+   #       if candidates :=  [sheet for  root.nodes() if i.isCandidate(sheet)]:
+   #          most = max(canidatates,key=i.score)
+   #          i.dontUse(most.rights) if better(most.left, most.right) else i.dontUse(most.lefts)
+
+
+#-------------------------------------------------------------
+def cut(x, cuts)-> int | None :
+      for cut1 in cuts:
+         if true(x, cut1): return cut1
+
+def true(x, cut): return x=="?" or cut[1]==cut[-1]==x or x > cut[1] and x <= cut[-1]
 
 def ent(d):
   n = sum(d.values())
   return - sum(m/n*log(m/n,2) for m in d.values() if m > 0)
+#-------------------------------------------------------------
+big=1E30
+def prin(x,decs=None):
+  return x.__name__ if callable(x) else (round(x,decs) if decs and isinstance(x,float) else x)
 
-def cut(x, cuts)-> tuple | None :
-   for n,cut1 in enumerate(cuts):
-      if true(x, cut1): return n
+def prints(*lst): print(*[prin(x,2) for x in lst],sep="\t")
 
-def true(x, cut): return x=="?" or cut.lo==cut.hi==x or x > cut.lo and x <= cut.hi
+def printds(*ds):
+    prints(*ds[0].keys())
+    for d in ds: prints(*d.values())
 
+def printd(d,b4=""):
+   return b4+"{" + " ".join([f":{k} {prin(v,3)}" for k,v in d.items() if k[0] != "_"]) + "}"
+#-------------------------------------------------------------
 def coerce(x):
    try : return ast.literal_eval(x)
    except Exception: return x.strip()
@@ -157,6 +183,10 @@ def csv(file="-", filter=ROW):
          line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
          if line: yield filter([coerce(x) for x in line.split(",")])
 
-leventy
-[print(cut) for cut in cuts([ROW([int(100*random.random()**2)]) for _ in range(1000)],0)]
-
+random.seed(int(time.time() % 1 *1E9))
+s= SHEET(csv(the.file))
+[print(col) for col in s.cols.x]
+printds(s.stats())
+s.reset()
+[print(x) for x in s.cuts.items()]
+printds(s.ents())
