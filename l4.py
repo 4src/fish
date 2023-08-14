@@ -28,8 +28,13 @@ from math import pi, log, cos, sin, sqrt, inf
 from math import e as euler
 import fileinput, random, time,ast, sys, re
 #---------------------------------------------------------------
-class slots(dict): __getattr__ =dict.get; __repr__ =lambda i:showd(i)
-class obj(object):                        __repr__ =lambda i:showd(i.__dict__, i.__class__.__name__)
+class slots(dict):
+   __setattr__ = dict.__setitem__
+   __getattr__ = dict.get
+   __repr__    = lambda i:showd(i)
+
+class obj(object):
+   __repr__ =lambda i:showd(i.__dict__, i.__class__.__name__)
 
 big  = 1E100
 want = dict(plan  = lambda b,r : b**2  / (b + r    + 1/big),
@@ -625,6 +630,10 @@ def ents(sheet):
 
 #---------------------------------------------------------------
 the=settings(__doc__)
+x=slots(a=10,b=2)
+x.a += 500
+print(x.a)
+
 #---------------------------------------------------------------
 if __name__ == "__main__":
    egs( cli(the), __doc__, locals())
