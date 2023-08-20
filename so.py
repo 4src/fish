@@ -106,14 +106,14 @@ class SHEET(obj):
 
 def tree(sheet0, assess=False):
   stop = len(sheet0.rows)**the.min
-  def grow(rows):
-     node = box(here=sheet0.clone(rows), lefts=None, rights=None)
-     if len(rows) >= 2*stop:
-        _,__,lefts,rights = sheet0.halve(rows,assess=assess)
-        node.lefts  = grow(lefts)
-        node.rights = grow(rights)
+  def grow(sheet):
+     node = box(here=sheet, lefts=None, rights=None)
+     if len(sheet.rows) >= 2*stop:
+        _,__,lefts,rights = sheet0.halve(sheet.rows,assess=assess)
+        node.lefts  = grow(sheet0.clone(lefts))
+        node.rights = grow(sheet0.clone(rights))
      return node
-  return grow(sheet0.rows)
+  return grow(sheet0)
 
 def isLeaf(node): return not node.lefts and not node.rights
 
