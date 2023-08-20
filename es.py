@@ -23,7 +23,7 @@ import fileinput, random, time, sys, re
 from ast import literal_eval as make
 from collections import Counter
 from copy import deepcopy
-from math import sqrt,log
+from math import sqrt,log,cos,pi
 
 class obj(object):
     def __repr__(i): return showd(i.__dict__,i.__class__.__name__)
@@ -151,13 +151,15 @@ def select(rows,at,use):
 
 def cuts(xs):
    xs = sorted(xs)
+   for  i in range(1,280): print(i, xs[i])
    cut, bins = xs[0], Counter()
-   bins[cut] = n = njump = len(xs)/(the.bins - 1)
+   bins[cut] = n = njump = int(len(xs)/(the.bins - 1))
    small = sd(xs)*the.cohen
+   print(small,njump)
    while n < len(xs):
       if n < len(xs) - njump and xs[n] != xs[n+1] and xs[n]-cut >= small:
          cut = xs[n]
-         bin[cut] = njump
+         bins[cut] = njump
          n += njump
       else:
          bins[cut] += 1
@@ -267,6 +269,11 @@ class EGS:
       for n,d in nodes(tree(s,True)):
          print(('|.. '*d)+str(n.here.stats() if isLeaf(n) else ""))
       print("\n"+('    '*d)+str(s.stats()))
+
+   def cuts():
+      a= [normal(0,.1) + normal(10,.1) for _ in range(1000)]
+      c= cuts(a)
+      [print(k,round(v,2)) for v,k in sorted(c.items())]
 
 def go(): EGS._one(cli(the).eg)
 #-----------------------------------
