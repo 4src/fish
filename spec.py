@@ -12,34 +12,33 @@ class Spec(object):
   def __init_subclass__(cls): 
     cls._spec = {k:v for c in reversed(cls.__mro__) for k,v in c.__dict__.items() if k[0] != "_"}
 
-
 class Col(Spec): at:int=0; name:str=" "; n:int=0
 class Num(Col) : mu:float=0; mu2:float=0; heaven:int=0
-class Sym(Col) : has=Counter()
+class Sym(Col) : has : Counter
 
 class Row(Spec):
   use = True
-  x:[float | int | str | bool | "?"]=[]
-  y:[float | int]=[]
+  x:[float | int | str | bool | "?"] 
+  y:[float | int]
 
-class Cols(Spec): x:[Col]=[]; y:[Col]=[]
+class Cols(Spec): x:[Col]; y:[Col]
 
 class Node(Spec):
   depth=0 # for root of tree
   use=True  # if false, then ignore
-  rows:  [Row] = []
-  left:   Row  = None
-  right:  Row  = None
-  lefts:  Node  = None
-  rights: Node = None
+  rows:  [Row]
+  left:   Row  | None
+  right:  Row  | None
+  lefts:  Node  | None
+  rights: Node | None
 
-print(Row())
-r1=Row()
-r2=Row()
-r1.x += [1]
-print(r1,r2)
-print(Num())
-# -------------------------------------------------------
+# print(Row())
+# r1=Row()
+# r2=Row()
+# r1.x += [1]
+# print(r1,r2)
+# print(Num())
+# # -------------------------------------------------------
 #col = Cols() # define a palce to store our columns
 #descretize all x columns (equal frequency, bins=5)
 
