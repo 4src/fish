@@ -137,16 +137,15 @@ def select(rows,at,use)
       return [row.cells[at] for row in rows if id(row) in use and row.cells[i.at] != "?"]
 
 def cuts(xs):
-   xs   = sorted(xs)
-   nmin = len(xs)/(the.bins - 1)
-   xmin = the.Cohen * sd(xs)
-   cut,bins = xs[0],Counter()
-   n = bins[cut] = nmin
+   xs = sorted(xs)
+   cut, bins = xs[0], Counter()
+   bins[cut] = n = njump = len(xs)/(the.bins - 1)
+   small = sd(xs)*the.Cohen
    while n < len(xs):
-      if n < len(xs) - nmin and xs[n] != xs[n+1] and xs[n]-cut >= xmin:
+      if n < len(xs) - njump and xs[n] != xs[n+1] and xs[n]-cut >= small:
          cut = xs[n]
-         bin[cut] = nmin
-         n = n+nmin
+         bin[cut] = njump
+         n += njump
       else:
          bins[cut] += 1
          n += 1
