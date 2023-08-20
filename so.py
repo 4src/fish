@@ -133,6 +133,20 @@ def nodes(node,depth=1):
          for node1,depth1 in nodes(tmp, depth+1):
             yield node1,depth1
 #---------------------------------------------
+def select(rows,at)
+      return [row.cells[at] for row in rows if row.cells[i.at] != "?"]
+
+def cuts(xs):
+   xs   = sorted(xs)
+   nmin = len(xs)/(the.bins - 1)
+   xmin = the.Cohen * sd(xs)
+   cut,bins = xs[0],Counter()}
+   for n,x in enumerate(xs):
+      if n < len(xs) - nmin and x != xs[n+1] and bins[cut] >= nmin and x-cut >= xmin:
+         cut=x
+      bins[cut] += 1
+   return bins
+
 def cli(d):
    for k, v in d.items():
       s = str(v)
