@@ -24,7 +24,7 @@ the=box(
 )
 #---------------------------------------------
 class COL(obj):
-  def __init__(i,at=0,name=" "): i.at,i.name = at,name
+  def __init__(i,at=0,name=" "): i.at,i.name,i.n = at,name,0
   def adds(i,lst=[]): [i.add(x) for x in lst]; return i
   def dist(i,x,y):
      return 1 if x=="?" and y=="?" else i.dist1(x,y)
@@ -36,7 +36,7 @@ class SYM(COL):
   def mid(i)  : return mode(i._has)
   def ent(i)  : return ent(i._has)
   def add(i,x):
-     if x != "?": i.has[x] += 1
+     if x != "?": i.n+=1 ; i.has[x] += 1
   def dist1(i,x,y) : return 0 if x==y else 1
   #---------------------------------------------
 class NUM(COL):
@@ -47,7 +47,7 @@ class NUM(COL):
    def mid(i)  : return mean(i.has)
    def div(i)  : return sd(i.has)
    def add(i,x):
-      if x != "?": i._has += [x]; i.ok= False
+      if x != "?": i.n += 1; i._has += [x]; i.ok= False
    @property
    def has(i):
       if not i.ok: i._has.sort(); i.ok = True
