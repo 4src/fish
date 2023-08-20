@@ -33,7 +33,7 @@ class SYM(COL):
 class NUM(COL):
    def __init__(i,*l,**kw):
       super().__init__(*l,**kw)
-      i.ok,i._has = True,[]
+      i.ok, i._has = True, []
       i.heaven = 0 if i.name[-1]=="-" else 1
    def mid(i)  : return mean(i.has)
    def div(i)  : return sd(i.has)
