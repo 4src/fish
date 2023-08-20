@@ -2,6 +2,7 @@
 # <!--- vim: set et sts=3 sw=3 ts=3 : --->
 import fileinput, random, time,ast, sys, re
 from collections import Counter
+from copy import deepcopy
 from math import sqrt,log
 
 class box(dict):
@@ -12,7 +13,15 @@ class box(dict):
 class obj(object):
     def __repr__(i): return showd(i.__dict__,i.__class__.__name__)
 
-the=box(p=2, file="../data/auto93.csv", min=.5, Far=.9, Halves=256)
+the=box(
+   Far	=	.9,
+   Halves=	256,
+   eg	   =	"help",
+   file	=	"../data/auto93.csv",
+   min	=	.5,
+   p	   =	2,
+   seed	=	1234567891
+)
 #---------------------------------------------
 class COL(obj):
   def __init__(i,at=0,name=" "): i.at,i.name = at,name
@@ -124,6 +133,14 @@ def nodes(node,depth=1):
          for node1,depth1 in nodes(tmp, depth+1):
             yield node1,depth1
 #---------------------------------------------
+def cli(d):
+   for k, v in d.items():
+      s = str(v)
+      for j, x in enumerate(sys.argv):
+         if ("-"+k[0])==x or ("--"+k)==x:
+            d[k] = coerce("True" if s=="False" else ("False" if s=="True" else sys.argv[j+1]))
+   return d
+
 R=random.random
 def normal(mu=0,sd=1):
    return  mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
@@ -163,18 +180,41 @@ def mean(a):     return sum(a)/len(a)
 def sd(a):       return (per(a,.9) - per(a,.1))/2.56
 #---------------------------------------------
 class EGS:
-   _all = locals()
-   def all():
-      sys.exit(sum((f()==False for k,f in EGS._all.items() if k!="all" and k[0]!="_")))
+   _egs = locals()
+   def All():
+      "run all"
+      sys.exit(sum((EGS._one(k) for k in EGS._egs if k!="all" and k[0].islower())))
+
+   def _one(k):
+      if k in EGS._egs:
+         b4 = deepcopy(the)
+         random.seed(the.seed)
+         status = EGS._egs[k]()
+         for k in b4: the[k] = b4[k]
+         return status==False
+      else:
+         return print("usage: ./so.py -e help")
+
+   def help():
+      "show help"
+      print("\n./so.py -e ACTION\n\nACTIONS:")
+      [print(f"  -e {k:10} {f.__doc__}") for k,f in EGS._egs.items() if k[0] !="_"]
+
+   def the(): 
+      "what do the settings look like?"
+      print(the)
 
    def num():
+      "nums work?"
       n=NUM().adds([2,1,3,2,4])
       print(box(mid=n.mid(), div=n.div()))
 
    def csv():
+      "can I load a csv file?"
       print(SHEET(csv(the.file)).cols.x)
 
    def dist():
+      "do I know distances?"
       s = SHEET(csv(the.file))
       rows = sorted(s.rows, key=s.d2h)
       print(rows[0])
@@ -182,6 +222,7 @@ class EGS:
          print(rows[j], s.dist(rows[1], rows[j]))
 
    def clone():
+      "can i find a best region?"
       s = SHEET(csv(the.file))
       rows = sorted(s.rows, key=s.d2h)
       n = int(len(rows)**the.min)
@@ -189,10 +230,12 @@ class EGS:
              s.clone(rows[-n:]).stats())
 
    def tree():
+      "can i recursively clusters?"
       s = SHEET(csv(the.file))
-      print(s.stats())
       for n,d in nodes(tree(s,True)):
          print(('|.. '*d)+str(n.here.stats() if isLeaf(n) else ""))
+      print("\n"+('    '*d)+str(s.stats()))
 
-random.seed(1234567891)
-EGS.tree()
+def go(): EGS._one(cli(the).eg)
+#-----------------------------------
+if __name__ == "__main__": go()
