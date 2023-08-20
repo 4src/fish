@@ -1,27 +1,40 @@
 #!/usr/bin/env python3 -B
 # <!--- vim: set et sts=3 sw=3 ts=3 : --->
-import fileinput, random, time,ast, sys, re
+"""
+es.py : see it, or glimpse it
+(c) 2023, Tim Menzies <timm@ieee.org>, BSD-2
+
+USAGE:
+  ./es.py [OPTIONS] [-e ACTION]
+
+OPTIONS:
+  -F  --Far     how far to search for poles      = .9
+  -H  --Halves  how many items to search across  = 256
+  -h  --help    show help                        = False
+  -b  --bins    initial number of bin            = 16
+  -c  --cohen   definition of same               = .35
+  -e  --eg      start up action                  = "nothing"
+  -f  --file    data file                        = "../data/auto93.csv"
+  -m  --min     min size of sample               = .5
+  -p  --p       distance calculation coefficient = 2
+  -s  --seed    random number seed               = 11234567891
+"""
+import fileinput, random, time, sys, re
+from ast import literal_eval as make
 from collections import Counter
 from copy import deepcopy
 from math import sqrt,log
+
+class obj(object):
+    def __repr__(i): return showd(i.__dict__,i.__class__.__name__)
 
 class box(dict):
    __setattr__ = dict.__setitem__
    __getattr__ = dict.get
    __repr__    = lambda i:showd(i)
 
-class obj(object):
-    def __repr__(i): return showd(i.__dict__,i.__class__.__name__)
-
-the=box(
-   Far	=	.9,
-   Halves=	256,
-   eg	   =	"help",
-   file	=	"../data/auto93.csv",
-   min	=	.5,
-   p	   =	2,
-   seed	=	1234567891
-)
+the= box(**{m[1]:make(m[2]) for m in
+            re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #---------------------------------------------
 class COL(obj):
   def __init__(i,at=0,name=" "): i.at,i.name,i.n = at,name,0
@@ -133,14 +146,14 @@ def nodes(node,depth=1):
          for node1,depth1 in nodes(tmp, depth+1):
             yield node1,depth1
 #---------------------------------------------
-def select(rows,at,use)
-      return [row.cells[at] for row in rows if id(row) in use and row.cells[i.at] != "?"]
+def select(rows,at,use):
+    return [row.cells[at] for row in rows if id(row) in use and row.cells[i.at] != "?"]
 
 def cuts(xs):
    xs = sorted(xs)
    cut, bins = xs[0], Counter()
    bins[cut] = n = njump = len(xs)/(the.bins - 1)
-   small = sd(xs)*the.Cohen
+   small = sd(xs)*the.cohen
    while n < len(xs):
       if n < len(xs) - njump and xs[n] != xs[n+1] and xs[n]-cut >= small:
          cut = xs[n]
@@ -164,7 +177,7 @@ def normal(mu=0,sd=1):
    return  mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
 
 def coerce(x):
-   try : return ast.literal_eval(x)
+   try : return make(x)
    except Exception: return x.strip()
 
 def csv(file="-"):
@@ -204,18 +217,19 @@ class EGS:
       sys.exit(sum((EGS._one(k) for k in EGS._egs if k!="all" and k[0].islower())))
 
    def _one(k):
-      if k in EGS._egs:
+      if the.help: EGS._help()
+      elif k in EGS._egs:
          b4 = deepcopy(the)
          random.seed(the.seed)
          status = EGS._egs[k]()
          for k in b4: the[k] = b4[k]
          return status==False
       else:
-         return print("usage: ./so.py -e help")
+         print("usage: ./es.py -e help")
 
-   def help():
+   def _help():
       "show help"
-      print("\n./so.py -e ACTION\n\nACTIONS:")
+      print(__doc__+"\nACTIONS:")
       [print(f"  -e {k:10} {f.__doc__}") for k,f in EGS._egs.items() if k[0] !="_"]
 
    def the(): 
