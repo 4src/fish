@@ -140,11 +140,16 @@ def cuts(xs):
    xs   = sorted(xs)
    nmin = len(xs)/(the.bins - 1)
    xmin = the.Cohen * sd(xs)
-   cut,bins = xs[0],Counter()}
-   for n,x in enumerate(xs):
-      if n < len(xs) - nmin and xs[n] != xs[n+1] and bins[cut] >= nmin and xs[x]-cut >= xmin:
-         cut=x
-      bins[cut] += 1
+   cut,bins = xs[0],Counter()
+   n = bins[cut] = nmin
+   while n < len(xs):
+      if n < len(xs) - nmin and xs[n] != xs[n+1] and xs[n]-cut >= xmin:
+         cut = xs[n]
+         bin[cut] = nmin
+         n = n+nmin
+      else:
+         bins[cut] += 1
+         n += 1
    return bins
 
 def cli(d):
