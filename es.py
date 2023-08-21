@@ -149,13 +149,12 @@ def nodes(node,depth=1):
 def select(rows,at,use):
     return [row.cells[at] for row in rows if id(row) in use and row.cells[i.at] != "?"]
 
-def cuts(xs):
-   xs = sorted(xs)
-   for  i in range(1,280): print(i, xs[i])
+def cuts(xs, ordered=False):
+   "fast discretizer: leaps across sorted data, once per bin"
+   if not ordered: xs = sorted(xs)
    cut, bins = xs[0], Counter()
    bins[cut] = n = njump = int(len(xs)/(the.bins - 1))
    small = sd(xs)*the.cohen
-   print(small,njump)
    while n < len(xs):
       if n < len(xs) - njump and xs[n] != xs[n+1] and xs[n]-cut >= small:
          cut = xs[n]
@@ -175,8 +174,8 @@ def cli(d):
    return d
 
 R=random.random
-def normal(mu=0,sd=1):
-   return  mu+sd*sqrt(-2*log(R())) * cos(2*pi*R())
+def normal(mu=0, sd=1):
+   return mu + sd*sqrt(-2*log(R())) * cos(2*pi*R())
 
 def coerce(x):
    try : return make(x)
@@ -271,7 +270,7 @@ class EGS:
       print("\n"+('    '*d)+str(s.stats()))
 
    def cuts():
-      a= [normal(0,.1) + normal(10,.1) for _ in range(1000)]
+      a= [normal(5,1) + normal(15,1) for _ in range(1000)]
       c= cuts(a)
       [print(k,round(v,2)) for v,k in sorted(c.items())]
 
