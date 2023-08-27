@@ -14,13 +14,13 @@ class box(dict):
 the = box(p     =  2,  # coeffecient on distance calculation 
           cohen = .35) # "difference" means more than .35*std 
 
-def csv(file="-", filter=lambda a:ROW(a)):
+def csv(file="-"):
   with fileinput.FileInput(file) as src:
     for line in src:
       line = re.sub(r'([\t\r"\' ]|#.*)', '', line) # delete spaces and comments
-      if line: yield filter([str2thing(x) for x in line.split(",")])
+      if line: yield [coerce(x) for x in line.split(",")]
 
-def str2thing(x):
+def coerce(x):
   try : return ast.literal_eval(x)
   except Exception: return x.strip()
 #--------------------------------------------------------------------------------------------------
@@ -71,12 +71,13 @@ class COLS(obj):
 #--------------------------------------------------------------------------------------------------
 class ROW(obj):
   def __init__(i,a,data): 
-      i.raw         = a    # raw values
-      i.discretized = a[:] # discretized values, to be found late
-      i._data       = data # source table
-      i.alive       = True
+    i.raw   = a    # raw values
+    i.bins  = a[:] # discretized values, to be found later
+    i._data = data # source table
+    i.alive = True
+    i.evalled = False
 
-  def __lt__(i,j):
+  def __sub__(i,j):
     def dist1(n,col):
       x,y = i.raw[n],j.raw[n]
       if   x=="?" and y=="?" : return 1
@@ -88,9 +89,13 @@ class ROW(obj):
         return abs(x-y)
     return dist(i._data.cols.x, dist1)
 
+  def __lt__(i,j):
+    return i.height() < j.height()
+
   def height(i):
     def heaven(n): return 0 if lessString(i._data.cols.names[n]) else 1
     def dist1(n,col): abs(heaven(n) - norm(col,i.raw[n]))
+    i.evalled = True
     return dist(i._data.cols.y, dist1)
 #--------------------------------------------------------------------------------------------------
 class DATA(obj):
@@ -116,9 +121,6 @@ class DATA(obj):
 
   def clone(i,rows=[]):
     return DATA([i.cols.names] + rows)
-
-  def heights(i):
-    return sorted(i.rows, key=lambda row: row.height())
 #--------------------------------------------------------------------------------------------------
 def pretty(x, dec=2): 
   return x.__name__+'()' if callable(x) else (round(x,dec) if dec and isinstance(x,float) else x)
