@@ -1,6 +1,9 @@
 #!/usr/bin/env python3 -B
 #vim: set et sts=2 sw=2 ts=2 : 
 """
+<img src="https://online.stat.psu.edu/stat555/sites/onlinecourses.science.psu.edu.stat555/files/classification/recursive_part_process/index.png". align=right width=500>
+
+# Recrusive Bi-Clustering (why,how)
 Humans have difficulty accurately assessing complex models. This can
 lead to unreliable and sometimes dangerous results (e.g.  
 Green[^Green22] warns that incomplete review can mean "the legitimizing of faulty and
