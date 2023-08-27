@@ -46,10 +46,10 @@ def isNum(x)        : return isinstance(x,list)
 
 def per(lst, p=.5): return lst[int(p*len(lst))]
 
-def mid(col): 
+def mid(col):
   return per(col,.5) if isNum(col) else max(col, key=a.get)
 
-def div(col): 
+def div(col):
   return (per(col,.9) - per(col,.1))/2.56 if isNum(col) else ent(col)
 
 def ent(d):
@@ -60,7 +60,8 @@ def merged(a,b):
   if a and b:
     n1,n2 = a.total(),b.total)
     c = a+b
-    if ent(c) <= (ent(a)*n1 + ent(b)*n2)/(n1+n2): return c
+    if ent(c) <= (ent(a)*n1 + ent(b)*n2)/(n1+n2): 
+      return c
 
 def norm(col,x):
   lo,hi = col[0],col[-1]
@@ -94,7 +95,7 @@ def cuts(n,klasses,supervised=False):
         out[cut] = b4 = now
     return out
   #-----------
-  xys = sorted([(row.raw[n],y) for y,rows in klasses.items() for row in rows if row.raw[n] !="?"])
+  xys = sorted([(row.raw[n],y) for y,row in klasses.items() for row in rows if row.raw[n] !="?"])
   sd  = (per(xys,.9)[0] - per(xys,.1)[0])/2.56
   xcounts,ycounts = _unsuper(xys, len(xys)//(the.bins -1),sd *the.cohen)
   return sorted((_merge(ycounts) if supervised else xcounts).keys())
@@ -122,7 +123,7 @@ class COLS(obj):
 class ROW(obj):
   def __init__(i,a,data): 
     i.raw   = a    # raw values
-    i.bins  = a[:] # discretized values, to be found later
+    i.bins  = a[:] # discretized values, to be calculated later
     i._data = data # source table
     i.alive = True
     i.evalled = False
@@ -151,7 +152,7 @@ class ROW(obj):
   def far(i,rows):
     return sorted(rows,key=lambda j: j - i)[int(the.Far*len(rows))]
 
-  def faraway(i,rows):
+  def twoFar(i,rows):
     x = i.far(rows)
     y = x.far(rows)
     return x,y, x - y
@@ -163,7 +164,7 @@ class DATA(obj):
     i.cols.sorted()
 
   def adds(i,src):
-    if isinstance(src,str): [i.add(Row(a,i)) for a in csv(src)]
+    if isinstance(src,str): [i.add(Row(a,i)) for a in csv(src)]; self.discretize()
     else:                   [i.add(row)      for row in src]
 
   def add(i,row):
@@ -181,12 +182,27 @@ class DATA(obj):
     return DATA([i.cols.names] + rows)
 
   def bicluster(i,rows,sort=False):
-    some  = rows if len(rows) <= the.Halves else random.sample(rows,k=the.Halves)
-    a,b,C = random.choice(some).faraway(some)
+    n = len(rows)
+    some  = rows if n <= the.Halves else random.sample(rows, k=the.Halves)
+    a,b,C = random.choice(some).twoFar(some)
     if sort and b < a:  a,b=b,a
-    rows  = sorted(rows, key= lambda r: ((r-a)**2 + C**2 - (r-b)**2)/(2*C))
-    mid   = len(rows)//2
-    return a,b,rows[:mid], rows[mid:]
+    rows = sorted(rows, key= lambda r: ((r-a)**2 + C**2 - (r-b)**2)/(2*C))
+    return a,b,rows[:n//2], rows[n//2:]
+
+  def discretize(i):
+    for n,s in enumerate(i.cols.names):
+      if numericString(s):
+        lst = cuts(n,dist(all=i.rows))
+        for row in i.rows:
+          old = row.bins[n]
+          row.bins[n] = old if old=="?" else discretize(lst,old)
+
+def discretize(cuts,x):
+  lo = -inf
+  for n,hi in enumerate(cuts):
+    if lo <= x < hi: return n
+    lo=hi
+  return n+1
 #--------------------------------------------------------------------------------------------------
 def pretty(x, dec=2):
   return x.__name__+'()' if callable(x) else (round(x,dec) if dec and isinstance(x,float) else x)
