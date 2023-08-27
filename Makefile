@@ -65,3 +65,6 @@ pdf: $(HOME)/tmp/cutr.pdf
 
 docs/%.html : %.adoc
 	asciidoctor -D docs -r asciidoctor-diagram $^
+
+docs/%.md : %.py
+	gawk -f py2md.awk $^ > $@; git add $@
