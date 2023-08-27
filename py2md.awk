@@ -1,7 +1,11 @@
 #!/usr/bin/env gawk -f
-BEGIN                       { First =1;Code=1 }
-/usr.bin.env/               { next }
-/vim:.*set/                 { next }
-sub(/^"""/,"")              { if (!First) print "```\n\n"; First=0; next; Code=0}
-sub(/"""$/,"\n\n```python") { print $0 ; next; Code=1}
-                            { print $0 }
+NR==1{ next}
+NR==2{ next }
+NR==3{ RS="^$"; next }
+     { print prep($0) }
+
+function prep(s) {
+	sub(/\n#[^\n]*\n/,"")
+	gsub(/\n\n"""/,"\n```\n\n",s)
+	gsub(/"""\n\n/,"\n\n```python\n",s)
+	return s}

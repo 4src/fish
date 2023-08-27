@@ -1,5 +1,5 @@
 #!/usr/bin/env python3 -B
-# vim: set et sts=2 sw=2 ts=2 : 
+#vim: set et sts=2 sw=2 ts=2 : 
 """
 Humans have difficulty accurately assessing complex models. This can
 lead to unreliable and sometimes dangerous results (e.g.  
@@ -47,6 +47,7 @@ AI.
 ### Preliminaries 
 To begin, we need some set up (load some libraries, improve printing
 of instances, simplify dictionary access."""
+
 from math import log,inf,sqrt 
 import fileinput,random,time,ast,re
 
@@ -60,19 +61,21 @@ def prettyd(d, pre="", dec=2):
 
 class obj(object): 
   "fix Python's weak presentation of instances"
-  __repr__= lambda i:prettyd(i.__dict__, i.__class__.__name__)
+  __repr__ = lambda i:prettyd(i.__dict__, i.__class__.__name__)
 
 class box(dict):
   "simplify dictionary access, improve dictionary printing"
-  __repr__= lambda i:printd(i)
-  __getattr__=dict.get
-  __setattr__=dict.__setitem__
+  __repr__    = lambda i:printd(i)
+  __getattr__ = dict.get
+  __setattr__ = dict.__setitem__
 
-"""
-Now we can define some constants, to be used later."""
+"""Now we can define some constants, to be used later."""
+
 the = box(p=2)
-"""
-When we read data, we have to turn csv file cells to some Python things."""
+
+"""When we read data, we have to turn csv file cells to 
+some Python things."""
+
 def line2things(file="-"):
   with fileinput.FileInput(file) as src:
     for line in src:
@@ -83,8 +86,7 @@ def str2thing(x):
   try : return ast.literal_eval(x)
   except Exception: return x.strip()
 
-"""
-So now we can read csv files into Python lists, e.g
+"""So now we can read csv files into Python lists, e.g
 
         ["Clndrs","Volume","HpX","Lbs-","Acc+","Model","origin","Mpg+"]
         [ 8,       304.0,   193,  4732   18.5,  70,     1,       10]
@@ -95,11 +97,11 @@ So now we can read csv files into Python lists, e.g
 
 Now we need some place to store a row. My ROWs keep the raw values, as well as their discretized
 values."""
+
 class ROW(obj):
   def __init__(i,a,base): i.raw,i.discretized,i.base,i.alive = a,a[:],base,True
 
-"""
-ROWs know how their distances to other rows. 
+"""ROWs know how their distances to other rows. 
 
 
 [^Green22]: Ben Green. 2022. The flaws of policies requiring
