@@ -1,6 +1,6 @@
 #!/usr/bin/env python3 -B
 # vim: set et sts=2 sw=2 ts=2 : 
-from math import abs,log,inf,sqrt 
+from math import log,inf,sqrt 
 import fileinput,random,time,ast,re
 
 class obj: 
@@ -26,20 +26,29 @@ def str2thing(x):
 #--------------------------------------------------------------------------------------------------
 def isNum(s)    : return s[0].isupper()
 def isGoal(s)   : return s[-1] in "+-"
+def isLess(s)   : return s[-1] == "-"
 def isIgnored(s): return s[-1] == "X"
-def numeric(x)   : return isinstance(x,list)
+def numeric(x)  : return isinstance(x,list)
 
 def per(a, p=.5): return a[int(p*len(a))]
 
 def mid(a): 
-  return per(a,.5) if numeric(a) else max(a,key=a.get)
+  return per(a,.5) if numeric(a) else max(a, key=a.get)
 
 def div(a): 
-  return ent(a) if numeric(a) else (per(a,.9) - per(a,.1))/2.56
+  return (per(a,.9) - per(a,.1))/2.56 if numeric(a) else ent(a)
 
 def ent(a):
   n = sum(a.values())
   return - sum(v/n*log(v/n,2) for v in a.values() if v > 0)
+
+def norm(col,x):
+  lo,hi = col[0], col[-1]
+  return x=="?" and x or (x - lo)/(hi - lo + 1E-32)
+
+def dist(cols, fun):
+  tmp = sum(fun(n,col)**the.p for n,col in cols.items())
+  return (tmp / len(cols))**1/the.p
 #--------------------------------------------------------------------------------------------------
 class COLS(obj):
   def __init__(i,a):
@@ -49,66 +58,78 @@ class COLS(obj):
       if isIgnored(s): continue
       (i.y if isGoal(s) else i.x)[n] = col
 
-  def add(i,a):
-    def inc(col,x):
-      if x!="?":
-        if numeric(col): col += [x]
-        else: col[x] = 1 + col.get(x,0)
-    [inc(col, a[n]) for n,col in i.all.items()]
-    return row
+  def adds(i,a):
+    [i.add(col, a[n]) for n,col in i.all.items()]
 
-  def ready(i):
+  def add(i,col,x):
+    if x == "?": return
+    if numeric(col): col += [x]
+    else: col[x] = 1 + col.get(x,0)
+
+  def sorted(i):
     [col.sort() for _,col in i.cols.all if numeric(col)]
 #--------------------------------------------------------------------------------------------------
 class ROW(obj):
-  def __init__(i,a,base): 
+  def __init__(i,a,data): 
       i.raw         = a    # raw values
       i.discretized = a[:] # discretized values, to be found late
-      i._base        = base # source table
+      i._data       = data # source table
       i.alive       = True
 
-  def dist(i,j):
-    def fun(n,col):
-      x,y = i.raw[n], j.raw[n]
-      if x=="?" and y=="?": return 1
-      elif numeric(col):
-          x,y = norm(col,x), norm(col,y(
-          if x=="?": x=1 if y<.5 else 0
-          if y=="?": y=1 if x<.5 else 0
-          return abs(x-y)
+  def __lt__(i,j):
+    def dist1(n,col):
+      x,y = i.raw[n],j.raw[n]
+      if   x=="?" and y=="?" : return 1
+      elif not numeric(col)  : return 0 if x == y else 0
       else:
-        return x != y
-    xs = i._base.cols.x
-    return (sum(fun(n,col)**the.p for n,col in xs.items()) / len(xs))**1/the.p
+        x,y = norm(col, x), norm(col,x)
+        if x=="?": x=1 if y<.5 else 0
+        if y=="?": y=1 if x<.5 else 0
+        return abs(x-y)
+    return dist(i._data.cols.x, dist1)
 
-  def height(i)
-    ys = i._base.cols.y
-    def fun(n,col): abs((0 if i.cols.names[n][-1]=="-" else 1) - norm(col,i.raw[n]))
-    return (sum(fun(n,col)**the.p for n,col in ys.items()))/len(ys))**(1/the.p)
-
-def norm(a,x):
-  return x=="?" and x or (x - a[0])/(a[-1] - a[0] + 1E32)
+  def height(i):
+    def heaven(n): return 0 if isLess(i._data.cols.names[n]) else 1
+    def dist1(n,col): abs(heaven(n) - norm(col,i.raw[n]))
+    return dist(i._data.cols.y, dist1)
 #--------------------------------------------------------------------------------------------------
 class DATA(obj):
-  def __init__(i,src=[]): 
+  def __init__(i, src=[]): 
     i.rows, i.cols = [],None
-    if isinstance(src,str): [i.all(Row(a,i) for a in csv(src]
-    else:                   [i.add(row) for row in src]
-    i.cols.ready()
+    i.adds(src)
+    i.cols.sorted()
     
+  def adds(i,src):
+    if isinstance(src,str): [i.add(Row(a,i)) for a in csv(src)]
+    else:                   [i.add(row)      for row in src]
+
   def add(i,row):
-    if    i.cols: i.cols.add(row.cells); i.rows += [row]
-    else: i.cols = COLS(row.cells)
+    if i.cols: 
+      i.cols.adds(row.cells)
+      i.rows += [row]
+    else: 
+      i.cols = COLS(row.cells)
 
   def stats(i,what=mid,cols=None,dec=2):
     return box(N=len(i.rows), **{k:pretty(what(i.cols.all[n]),dec) 
                                  for n,k in (cols or i.cols.y).items()})
 
-  def ordered(i):
-    return sorted(i.rows,key=height)
+  def clone(i,rows=[]):
+    return DATA([i.cols.names] + rows)
+
+  def heights(i):
+    return sorted(i.rows, key=lambda row: row.height())
 #--------------------------------------------------------------------------------------------------
 def pretty(x, dec=2): 
   return x.__name__+'()' if callable(x) else (round(x,dec) if dec and isinstance(x,float) else x)
 
 def prettyd(d, pre="", dec=2): 
   return pre+'('+' '.join([f":{k} {pretty(d[k],dec)}" for k in d if k[0]=="_"])+')'
+
+def prints(*lst): 
+  print(*[pretty(x) for x in lst],sep="\t")
+
+def printed(*dicts):
+  prints(dicts[0].keys())
+  [prints(d.values()) for d in dicts]
+
