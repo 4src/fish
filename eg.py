@@ -24,19 +24,19 @@ def str2thing(x):
   try : return ast.literal_eval(x)
   except Exception: return x.strip()
 #--------------------------------------------------------------------------------------------------
-def isNum(s)    : return s[0].isupper()
-def isGoal(s)   : return s[-1] in "+-"
-def isLess(s)   : return s[-1] == "-"
-def isIgnored(s): return s[-1] == "X"
-def numeric(x)  : return isinstance(x,list)
+def numString(s)    : return s[0].isupper()
+def goalString(s)   : return s[-1] in "+-"
+def lessString(s)   : return s[-1] == "-"
+def ignoreString(s) : return s[-1] == "X"
+def isNum(x)        : return isinstance(x,list)
 
 def per(a, p=.5): return a[int(p*len(a))]
 
 def mid(a): 
-  return per(a,.5) if numeric(a) else max(a, key=a.get)
+  return per(a,.5) if isNum(a) else max(a, key=a.get)
 
 def div(a): 
-  return (per(a,.9) - per(a,.1))/2.56 if numeric(a) else ent(a)
+  return (per(a,.9) - per(a,.1))/2.56 if isNum(a) else ent(a)
 
 def ent(a):
   n = sum(a.values())
@@ -54,20 +54,20 @@ class COLS(obj):
   def __init__(i,a):
     i.names,i.x,i.y,i.all = a,{},{},{}
     for n,s in enumerate(a):
-      col = i.all[n] = [] if isNum(s) else {}
-      if isIgnored(s): continue
-      (i.y if isGoal(s) else i.x)[n] = col
+      col = i.all[n] = [] if numString(s) else {}
+      if ignoreString(s): continue
+      (i.y if goalString(s) else i.x)[n] = col
 
   def adds(i,a):
     [i.add(col, a[n]) for n,col in i.all.items()]
 
   def add(i,col,x):
     if x == "?": return
-    if numeric(col): col += [x]
+    if isNum(col): col += [x]
     else: col[x] = 1 + col.get(x,0)
 
   def sorted(i):
-    [col.sort() for _,col in i.cols.all if numeric(col)]
+    [col.sort() for _,col in i.cols.all if isNum(col)]
 #--------------------------------------------------------------------------------------------------
 class ROW(obj):
   def __init__(i,a,data): 
@@ -80,7 +80,7 @@ class ROW(obj):
     def dist1(n,col):
       x,y = i.raw[n],j.raw[n]
       if   x=="?" and y=="?" : return 1
-      elif not numeric(col)  : return 0 if x == y else 0
+      elif not isNum(col)    : return 0 if x == y else 0
       else:
         x,y = norm(col, x), norm(col,x)
         if x=="?": x=1 if y<.5 else 0
@@ -89,7 +89,7 @@ class ROW(obj):
     return dist(i._data.cols.x, dist1)
 
   def height(i):
-    def heaven(n): return 0 if isLess(i._data.cols.names[n]) else 1
+    def heaven(n): return 0 if lessString(i._data.cols.names[n]) else 1
     def dist1(n,col): abs(heaven(n) - norm(col,i.raw[n]))
     return dist(i._data.cols.y, dist1)
 #--------------------------------------------------------------------------------------------------
@@ -111,8 +111,8 @@ class DATA(obj):
       i.cols = COLS(row.cells)
 
   def stats(i,what=mid,cols=None,dec=2):
-    return box(N=len(i.rows), **{k:pretty(what(i.cols.all[n]),dec) 
-                                 for n,k in (cols or i.cols.y).items()})
+    return box(N=len(i.rows), **{i.cols.names[n] : pretty(what(col),dec) 
+                                 for n,col in (cols or i.cols.y).items()})
 
   def clone(i,rows=[]):
     return DATA([i.cols.names] + rows)
