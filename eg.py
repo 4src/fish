@@ -2,6 +2,9 @@
 # vim: set et sts=2 sw=2 ts=2 : 
 from math import log,inf,sqrt 
 import fileinput,random,time,ast,re
+from contextlib import contextmanager
+from functools import wraps
+from collections import Counter
 
 class obj: 
   def __repr__(i): return prettyd(i.__dict__, i.__class__.__name__)
@@ -13,8 +16,17 @@ class box(dict):
 #--------------------------------------------------------------------------------------------------
 the = box(p     =  2,  # coeffecient on distance calculation 
           cohen = .35, # "difference" means more than .35*std 
+          min = .5,
           Far = .9,
           seed = 1234567891)
+
+def cli(d):
+   for k, v in d.items():
+      s = str(v)
+      for j, x in enumerate(sys.argv):
+         if ("-"+k[0])==x or ("--"+k)==x:
+            d[k] = coerce("True" if s=="False" else ("False" if s=="True" else sys.argv[j+1]))
+   return d
 
 def csv(file="-"):
   with fileinput.FileInput(file) as src:
@@ -51,6 +63,38 @@ def norm(col,x):
 def dist(cols, fun):
   tmp = sum(fun(n,col)**the.p for n,col in cols.items())
   return (tmp / len(cols))**1/the.p
+
+def cuts(n,klasses,unsuper=True):
+  xys   = sorted([(row.raw[n],klass) for klass in klasses for row in klass if row.raw[n] !="?"],
+                 key=lambda xy: xy[0])
+  size  = len(xys)//(the.bins -1)
+  sd    = (per(xys,.9)[0] - per(xys,.1)[0])/2.56
+  small = sd*the.cohen
+  cut   = xy[0][0]
+  xs,ys = Counter(), Counter()
+  for j,(x,y) in enumerate(xys):
+    if xs[cut] >= size and x - cut >= small:  # want to cut
+      if j < len(xys)-size and x != xys[j+1][0]: # and i can cut
+        cut=x
+    xs[cut] += 1
+    ys[cut] += 1
+  tmp = xs if unsuper else merge(ys)
+  return sorted(tmp.keys())
+
+def merge(d)
+  tmp,j,keys = {}, 0, sorted(d.keys())
+  while j < len(keys):
+     key = keys[j]
+     a   = d[key]
+     if j < len(keys)-1:
+       after = keys[j+1]
+       b     = d[ after ]
+       na,nb = a.total(),b.total()
+       if ent(a+b) <= (ent(a) * na + ent(b) * nb)/(na+nb):
+         a,key,j = a+b,after,j + 1
+     tmp[key] = a
+     j = j + 1
+  return d if len(tmp)==len(d) else merge(tmp)
 #--------------------------------------------------------------------------------------------------
 class COLS(obj):
   def __init__(i,a):
@@ -126,8 +170,8 @@ class DATA(obj):
       i.cols = COLS(row.cells)
 
   def stats(i,what=mid,cols=None,dec=2):
-    return box(N=len(i.rows), **{i.cols.names[n] : pretty(what(col),dec) 
-                                 for n,col in (cols or i.cols.y).items()})
+    return box(N=len(i.rows), 
+               **{i.cols.names[n]:pretty(what(col),dec) for n,col in (cols or i.cols.y).items()})
 
   def clone(i,rows=[]):
     return DATA([i.cols.names] + rows)
@@ -152,3 +196,19 @@ def prints(*lst):
 def printed(*dicts):
   prints(dicts[0].keys())
   [prints(d.values()) for d in dicts]
+
+egs={}
+def eg(fun) 
+  @wraps(fun)
+  def worker():
+    saved = {k:v for k,v in settings.items()}
+    random.seed(settings.seed)
+    out = fun()
+    for k,v in saved.items(): settings[k]=v
+    return out
+  egs[fun.__name__] = worker
+  return worker
+
+if __name__ == "__main__":
+  the = cli(the)
+  sys.exit(sum([egs[x]()==False for x in sys.argv() if x in egs]))
