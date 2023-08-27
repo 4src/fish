@@ -47,6 +47,32 @@ the PROMISE community has the necessary skills and experience to
 redefine and simplify and improve the relationship between humans and
 AI.
 
+```mermaid
+classDiagram
+    note "From Duck till Zebra"
+    Animal <|-- Duck
+    note for Duck "can fly\ncan swim\ncan dive\ncan help in debugging"
+    Animal <|-- Fish
+    Animal <|-- Zebra
+    Animal : +int age
+    Animal : +String gender
+    Animal: +isMammal()
+    Animal: +mate()
+    class Duck{
+        +String beakColor
+        +swim()
+        +quack()
+    }
+    class Fish{
+        -int sizeInFeet
+        -canEat()
+    }
+    class Zebra{
+        +bool is_wild
+        +run()
+    }
+```
+
 ### Preliminaries 
 To begin, we need some set up (load some libraries, improve printing
 of instances, simplify dictionary access."""
@@ -99,8 +125,7 @@ def str2thing(x):
         [ 8,       318,     210,  4382   13.5,  70,     1,       10]
         ...
 
-Now we need some place to store a row. My ROWs keep the raw values, as well as their discretized
-values."""
+These """
 
 class ROW(obj):
   def __init__(i,a,base): i.raw,i.discretized,i.base,i.alive = a,a[:],base,True
