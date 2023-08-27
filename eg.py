@@ -135,7 +135,7 @@ class DATA(obj):
   def bicluster(i,rows,sort=False):
     some  = rows if len(rows) <= the.Halves else random.sample(rows,k=the.Halves)
     a,b,C = random.choice(some).faraway(some)
-    if sort and b < a: a,b = b,a
+    if sort and b < a:  a,b=b,a
     rows  = sorted(rows, key= lambda r: ((r-a)**2 + C**2 - (r-b)**2)/(2*C))
     mid   = len(rows)//2 
     return a,b,rows[:mid], rows[mid:]
