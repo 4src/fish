@@ -42,21 +42,30 @@ redefine and simplify and improve the relationship between humans and
 AI.
 
 ### Preliminaries 
-To begin, we need some set up (load some libraries, improve how
-Python3 prints its instances, and  Simplify dictionary access.
+To begin, we need some set up (load some libraries, improve printing
+of instances, simplify dictionary access.
 
 ```python
 from math import log,inf,sqrt 
 import fileinput,random,time,ast,re
 
-def pretty(x, dec=2): # pretty print functions, floats and other things
+def pretty(x, dec=2): 
+  "pretty print functions, floats and other things"
   return x.__name__+'()' if callable(x) else (round(x,dec) if dec and isinstance(x,float) else x)
 
-def prettyd(d, pre="", dec=2): # pretty print dict values, ignore private slots (marked with '_')
+def prettyd(d, pre="", dec=2): 
+  "pretty print dict values, ignore private slots (marked with '_')"
   return pre+'('+' '.join([f":{k} {pretty(d[k],dec)}" for k in d if k[0]=="_"])+')'
 
-class obj(object): __repr__= lambda i:prettyd(i.__dict__, i.__class__.__name__)
-class box(dict)  : __repr__= lambda i:printd(i); __getattr__=dict.get; __setattr__=dict.__setitem__
+class obj(object): 
+  "fix Python's weak presentation of instances"
+  __repr__= lambda i:prettyd(i.__dict__, i.__class__.__name__)
+
+class box(dict):
+  "simplify dictionary access, improve dictionary printing"
+  __repr__= lambda i:printd(i)
+  __getattr__=dict.get
+  __setattr__=dict.__setitem__
 
 ```
 
