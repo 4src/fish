@@ -71,34 +71,34 @@ def dist(cols, fun):
   return (tmp / len(cols))**1/the.p
 
 def cuts(n,klasses,supervised=False):
-  xys   = sorted([(row.raw[n],klass) for klass in klasses
-                                     for row in klass if row.raw[n] !="?"],
-                 key=lambda xy: xy[0])
-  size  = len(xys)//(the.bins -1)
-  sd    = (per(xys,.9)[0] - per(xys,.1)[0])/2.56
-  small = sd*the.cohen
-  cut   = xy[0][0]
-  xs,ys = Counter(), {}
-  ys[cut] = Counter()
-  for j,(x,y) in enumerate(xys):
-    if xs[cut] >= size and x - cut >= small:  # want to cut
-      if j < len(xys)-size and x != xys[j+1][0]: # and i can cut
-        cut=x
-        ys[cut] = Counter()
-    xs[cut] += 1
-    ys[cut][y] += 1
-  tmp = merge(ys) if supervised else xs
-  return sorted(tmp.keys())
+  def _unsuper(xys, size, small):
+    cut   = xys[0][0]
+    xs,ys = Counter(), {}
+    ys[cut] = Counter()
+    for j,(x,y) in enumerate(xys):
+      if xs[cut] >= size and x - cut >= small:  # want to cut
+        if j < len(xys)-size and x != xys[j+1][0]: # and i can cut
+          cut=x
+          ys[cut] = Counter()
+      xs[cut] += 1
+      ys[cut][y] += 1
+    return xs,ys
+  #-------------
+  def _merge(d):
+    out,b4,cut = {},None,None
+    for key,now in sorted(d.items()):
+      if combined := merged(b4,now):
+        out[cut] = b4 = combined
+      else:
+        cut = key
+        out[cut] = b4 = now
+    return out
+  #-----------
+  xys = sorted([(row.raw[n],y) for y,rows in klasses.items() for row in rows if row.raw[n] !="?"])
+  sd  = (per(xys,.9)[0] - per(xys,.1)[0])/2.56
+  xcounts,ycounts = _unsuper(xys, len(xys)//(the.bins -1),sd *the.cohen)
+  return sorted((_merge(ycounts) if supervised else xcounts).keys())
 
-def merged(d):
-  out,b4,cut = {},None,None
-  for key,now in sorted(d.items()):
-    if combined := merged(b4,now):
-      out[cut] = b4 = combined
-    else:
-      cut = key
-      out[cut] = b4 = now
-  return out
 #--------------------------------------------------------------------------------------------------
 class COLS(obj):
   def __init__(i,a):
