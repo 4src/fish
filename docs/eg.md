@@ -57,24 +57,26 @@ def pretty(x, dec=2):
   return x.__name__+'()' if callable(x) else (round(x,dec) if dec and isinstance(x,float) else x)
 
 def prettyd(d, pre="", dec=2): 
-  "pretty print dict values, ignore private slots (marked with '_')"
+  "pretty print dict values, skipping private slots (those marked with '_')"
   return pre+'('+' '.join([f":{k} {pretty(d[k],dec)}" for k in d if k[0]=="_"])+')'
 
 class obj(object): 
-  "fix Python's weak presentation of instances"
-  __repr__ = lambda i:prettyd(i.__dict__, i.__class__.__name__)
+  "improve Python's presentation of instances"
+  def __repr__(i): return prettyd(i.__dict__, i.__class__.__name__)
 
 class box(dict):
   "simplify dictionary access, improve dictionary printing"
-  __repr__    = lambda i:printd(i)
-  __getattr__ = dict.get
-  __setattr__ = dict.__setitem__
+  def __repr__(i): return printd(i)
+  __setattr__ = dict.__setitem__ # instead of d["slot"]=1, allow d.slot=1
+  __getattr__ = dict.get         # instead of d["slot"],   allow d.slot  
 ```
 
 Now we can define some constants, to be used later.
 
 ```python
-the = box(p=2)
+the = box(p     =  2,  # coeffecient on distance calculation 
+          cohen = .35  # "difference" means more than .35*std 
+         )
 ```
 
 When we read data, we have to turn csv file cells to 
