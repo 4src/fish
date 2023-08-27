@@ -12,7 +12,9 @@ class box(dict):
   __getattr__ = dict.get         # instead of d["slot"],   allow d.slot  
 #--------------------------------------------------------------------------------------------------
 the = box(p     =  2,  # coeffecient on distance calculation 
-          cohen = .35) # "difference" means more than .35*std 
+          cohen = .35, # "difference" means more than .35*std 
+          Far = .9,
+          seed = 1234567891)
 
 def csv(file="-"):
   with fileinput.FileInput(file) as src:
@@ -30,20 +32,20 @@ def lessString(s)   : return s[-1] == "-"
 def ignoreString(s) : return s[-1] == "X"
 def isNum(x)        : return isinstance(x,list)
 
-def per(a, p=.5): return a[int(p*len(a))]
+def per(lst, p=.5): return lst[int(p*len(lst))]
 
-def mid(a): 
-  return per(a,.5) if isNum(a) else max(a, key=a.get)
+def mid(col): 
+  return per(col,.5) if isNum(col) else max(col, key=a.get)
 
-def div(a): 
-  return (per(a,.9) - per(a,.1))/2.56 if isNum(a) else ent(a)
+def div(col): 
+  return (per(col,.9) - per(col,.1))/2.56 if isNum(col) else ent(col)
 
-def ent(a):
-  n = sum(a.values())
-  return - sum(v/n*log(v/n,2) for v in a.values() if v > 0)
+def ent(d):
+  n = sum(d.values())
+  return sum( -v/n*log(v/n,2) for v in d.values() if v > 0)
 
 def norm(col,x):
-  lo,hi = col[0], col[-1]
+  lo,hi = col[0],col[-1]
   return x=="?" and x or (x - lo)/(hi - lo + 1E-32)
 
 def dist(cols, fun):
@@ -97,6 +99,14 @@ class ROW(obj):
     def dist1(n,col): abs(heaven(n) - norm(col,i.raw[n]))
     i.evalled = True
     return dist(i._data.cols.y, dist1)
+
+  def far(i,rows):
+    return sorted(rows,key=lambda j: j - i)[int(the.Far*len(rows))]
+
+  def faraway(i,rows):
+    x = i.far(rows)
+    y = x.far(rows)
+    return x,y, x - y
 #--------------------------------------------------------------------------------------------------
 class DATA(obj):
   def __init__(i, src=[]): 
@@ -121,6 +131,14 @@ class DATA(obj):
 
   def clone(i,rows=[]):
     return DATA([i.cols.names] + rows)
+
+  def bicluster(i,rows,sort=False):
+    some  = rows if len(rows) <= the.Halves else random.sample(rows,k=the.Halves)
+    a,b,C = random.choice(some).faraway(some)
+    if sort and b < a: a,b = b,a
+    rows  = sorted(rows, key= lambda r: ((r-a)**2 + C**2 - (r-b)**2)/(2*C))
+    mid   = len(rows)//2 
+    return a,b,rows[:mid], rows[mid:]
 #--------------------------------------------------------------------------------------------------
 def pretty(x, dec=2): 
   return x.__name__+'()' if callable(x) else (round(x,dec) if dec and isinstance(x,float) else x)
@@ -134,4 +152,3 @@ def prints(*lst):
 def printed(*dicts):
   prints(dicts[0].keys())
   [prints(d.values()) for d in dicts]
-
