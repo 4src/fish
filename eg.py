@@ -56,6 +56,12 @@ def ent(d):
   n = sum(d.values())
   return sum( -v/n*log(v/n,2) for v in d.values() if v > 0)
 
+def merged(a,b):
+  if a and b:
+    n1,n2 = a.total(),b.total)
+    c = a+b
+    if ent(c) <= (ent(a)*n1 + ent(b)*n2)/(n1+n2): return c
+
 def norm(col,x):
   lo,hi = col[0],col[-1]
   return x=="?" and x or (x - lo)/(hi - lo + 1E-32)
@@ -64,37 +70,35 @@ def dist(cols, fun):
   tmp = sum(fun(n,col)**the.p for n,col in cols.items())
   return (tmp / len(cols))**1/the.p
 
-def cuts(n,klasses,unsuper=True):
-  xys   = sorted([(row.raw[n],klass) for klass in klasses for row in klass if row.raw[n] !="?"],
+def cuts(n,klasses,supervised=False):
+  xys   = sorted([(row.raw[n],klass) for klass in klasses
+                                     for row in klass if row.raw[n] !="?"],
                  key=lambda xy: xy[0])
   size  = len(xys)//(the.bins -1)
   sd    = (per(xys,.9)[0] - per(xys,.1)[0])/2.56
   small = sd*the.cohen
   cut   = xy[0][0]
-  xs,ys = Counter(), Counter()
+  xs,ys = Counter(), {}
+  ys[cut] = Counter()
   for j,(x,y) in enumerate(xys):
     if xs[cut] >= size and x - cut >= small:  # want to cut
       if j < len(xys)-size and x != xys[j+1][0]: # and i can cut
         cut=x
+        ys[cut] = Counter()
     xs[cut] += 1
-    ys[cut] += 1
-  tmp = xs if unsuper else merge(ys)
+    ys[cut][y] += 1
+  tmp = merge(ys) if supervised else xs
   return sorted(tmp.keys())
 
-def merge(d)
-  tmp,j,keys = {}, 0, sorted(d.keys())
-  while j < len(keys):
-     key = keys[j]
-     a   = d[key]
-     if j < len(keys)-1:
-       after = keys[j+1]
-       b     = d[ after ]
-       na,nb = a.total(),b.total()
-       if ent(a+b) <= (ent(a) * na + ent(b) * nb)/(na+nb):
-         a,key,j = a+b,after,j + 1
-     tmp[key] = a
-     j = j + 1
-  return d if len(tmp)==len(d) else merge(tmp)
+def merged(d):
+  out,b4,cut = {},None,None
+  for key,now in sorted(d.items()):
+    if combined := merged(b4,now):
+      out[cut] = b4 = combined
+    else:
+      cut = key
+      out[cut] = b4 = now
+  return out
 #--------------------------------------------------------------------------------------------------
 class COLS(obj):
   def __init__(i,a):
@@ -153,24 +157,24 @@ class ROW(obj):
     return x,y, x - y
 #--------------------------------------------------------------------------------------------------
 class DATA(obj):
-  def __init__(i, src=[]): 
+  def __init__(i, src=[]):
     i.rows, i.cols = [],None
     i.adds(src)
     i.cols.sorted()
-    
+
   def adds(i,src):
     if isinstance(src,str): [i.add(Row(a,i)) for a in csv(src)]
     else:                   [i.add(row)      for row in src]
 
   def add(i,row):
-    if i.cols: 
+    if i.cols:
       i.cols.adds(row.cells)
       i.rows += [row]
-    else: 
+    else:
       i.cols = COLS(row.cells)
 
   def stats(i,what=mid,cols=None,dec=2):
-    return box(N=len(i.rows), 
+    return box(N=len(i.rows),
                **{i.cols.names[n]:pretty(what(col),dec) for n,col in (cols or i.cols.y).items()})
 
   def clone(i,rows=[]):
@@ -181,16 +185,16 @@ class DATA(obj):
     a,b,C = random.choice(some).faraway(some)
     if sort and b < a:  a,b=b,a
     rows  = sorted(rows, key= lambda r: ((r-a)**2 + C**2 - (r-b)**2)/(2*C))
-    mid   = len(rows)//2 
+    mid   = len(rows)//2
     return a,b,rows[:mid], rows[mid:]
 #--------------------------------------------------------------------------------------------------
-def pretty(x, dec=2): 
+def pretty(x, dec=2):
   return x.__name__+'()' if callable(x) else (round(x,dec) if dec and isinstance(x,float) else x)
 
-def prettyd(d, pre="", dec=2): 
+def prettyd(d, pre="", dec=2):
   return pre+'('+' '.join([f":{k} {pretty(d[k],dec)}" for k in d if k[0]=="_"])+')'
 
-def prints(*lst): 
+def prints(*lst):
   print(*[pretty(x) for x in lst],sep="\t")
 
 def printed(*dicts):
@@ -198,12 +202,13 @@ def printed(*dicts):
   [prints(d.values()) for d in dicts]
 
 egs={}
-def eg(fun) 
+def eg(fun):
   @wraps(fun)
   def worker():
     saved = {k:v for k,v in settings.items()}
     random.seed(settings.seed)
     out = fun()
+    if out==False: print("❌ FAIL ", fun.__name__)
     for k,v in saved.items(): settings[k]=v
     return out
   egs[fun.__name__] = worker
