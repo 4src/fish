@@ -77,9 +77,7 @@ Now we can define some constants, to be used later.
 the = box(p     =  2,  # coeffecient on distance calculation 
           cohen = .35  # "difference" means more than .35*std 
          )
-```
-
-When we read data, we have to turn csv file cells to 
+"""When we read data, we have to turn csv file cells to 
 some Python things.
 
 ```python
