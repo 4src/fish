@@ -13,10 +13,9 @@ def cli(d):
 def run(name,fun):
   saved = {k:v for k,v in  the.items()}
   random.seed(the.seed)
-  try:
-    out = fun()
+  try:   out = fun()
   except Exception as e:
-    out= False
+    out = False
     print(traceback.format_exc())
   if out==False: print("❌ FAIL", name)
   for k,v in saved.items(): the[k]=v
@@ -28,10 +27,10 @@ def eg_fail():     return 1 > 2
 def eg_all():      sys.exit(sum(run(s,fun)==False for s,fun in todo.items() if s!="all"))
 
 def eg_cols(): 
-   c=COLS(["name", "Age", "Weight-"])
-   c.y[2] += [100]
-   print(box(x=c.x, y=c.y, all=c.all, names=c.names))
-   return c.y[2] == c.all[2] 
+  c=COLS(["name", "Age", "Weight-"])
+  c.y[2] += [100]
+  print(box(x=c.x, y=c.y, all=c.all, names=c.names))
+  return c.y[2] == c.all[2] 
 
 the  = cli(the)
 todo = {k[3:]:fun for k,fun in locals().items() if k[:3]=="eg_"}
