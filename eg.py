@@ -166,10 +166,10 @@ class DATA(obj):
 
   def bicluster(i,rows,sort=False):
     n = len(rows)
-    some  = rows if n <= the.Halves else random.sample(rows, k=the.Halves)
+    some = rows if n <= the.Halves else random.sample(rows, k=the.Halves)
     a,b,C = random.choice(some).twoFar(some)
     if sort and b < a:  a,b=b,a
-    rows = sorted(rows, key= lambda r: ((r-a)**2 + C**2 - (r-b)**2)/(2*C))
+    rows = sorted(rows, key=lambda r: ((r-a)**2 + C**2 - (r-b)**2)/(2*C))
     return a,b,rows[:n//2], rows[n//2:]
 
   def discretize(i):
@@ -191,7 +191,7 @@ def discretize(cuts,x):
 def csv(file="-"):
   with fileinput.FileInput(file) as src:
     for line in src:
-      line = re.sub(r'([\t\r"\' ]|#.*)', '', line) # delete spaces and comments
+      line = re.sub(r'([\t\r"\' ]|#.*)', '', line) 
       if line: yield [coerce(x) for x in line.split(",")]
 
 def coerce(x):
@@ -200,10 +200,11 @@ def coerce(x):
 
 def pretty(x, dec=2):
   return x.__name__+'()' if callable(x) else (
-                            round(x,dec) if dec and isinstance(x,float) else x)
+         round(x,dec) if dec and isinstance(x,float) else x)
 
 def prettyd(d, pre="", dec=2):
-  return pre+'('+' '.join([f":{k} {pretty(d[k],dec)}" for k in d if k[0]!="_"])+')'
+  return pre+'('+' '.join([f":{k} {pretty(d[k],dec)}" 
+                           for k in d if k[0]!="_"])+')'
 
 def prints(*lst):
   print(*[pretty(x) for x in lst],sep="\t")
