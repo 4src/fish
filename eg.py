@@ -1,9 +1,20 @@
-#!/usr/bin/env python3 -B
-# vim: set et sts=2 sw=2 ts=2 : 
+"""
+eg: a demonstrator for less is more analytics
+(c) Tim Menzies <timm@ieee.org>, BSD-2 license
+
+OPTIONS:
+  -b --bins        initial number of bins = 8
+  -f --file        csv data file          = "../data/auto93.csv"
+  -F --Far         how far to look        = .85
+  -H --Halves      where to find for far  = 512
+  -m --min         min size               = .5
+  -p --p           distance coefficient   = 2
+  -s --seed        random number seed     = 1234567891
+"""
 from math import log,inf,sqrt 
 import fileinput,random,time,ast,re
+from ast import literal_eval as literal
 from contextlib import contextmanager
-from functools import wraps
 from collections import Counter
 
 class obj: 
@@ -13,30 +24,8 @@ class box(dict):
   def __repr__(i): return prettyd(i)
   __setattr__ = dict.__setitem__ # instead of d["slot"]=1, allow d.slot=1
   __getattr__ = dict.get         # instead of d["slot"],   allow d.slot  
-#--------------------------------------------------------------------------------------------------
-the = box(p     =  2,  # coeffecient on distance calculation 
-          cohen = .35, # "difference" means more than .35*std 
-          min = .5,
-          Far = .9,
-          seed = 1234567891)
 
-def cli(d):
-   for k, v in d.items():
-      s = str(v)
-      for j, x in enumerate(sys.argv):
-         if ("-"+k[0])==x or ("--"+k)==x:
-            d[k] = coerce("True" if s=="False" else ("False" if s=="True" else sys.argv[j+1]))
-   return d
-
-def csv(file="-"):
-  with fileinput.FileInput(file) as src:
-    for line in src:
-      line = re.sub(r'([\t\r"\' ]|#.*)', '', line) # delete spaces and comments
-      if line: yield [coerce(x) for x in line.split(",")]
-
-def coerce(x):
-  try : return ast.literal_eval(x)
-  except Exception: return x.strip()
+the=box(**{m[1]:literal(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #--------------------------------------------------------------------------------------------------
 def numString(s)    : return s[0].isupper()
 def goalString(s)   : return s[-1] in "+-"
@@ -58,7 +47,7 @@ def ent(d):
 
 def merged(a,b):
   if a and b:
-    n1,n2 = a.total(),b.total)
+    n1,n2 = a.total(),b.total()
     c = a+b
     if ent(c) <= (ent(a)*n1 + ent(b)*n2)/(n1+n2): 
       return c
@@ -72,34 +61,28 @@ def dist(cols, fun):
   return (tmp / len(cols))**1/the.p
 
 def cuts(n,klasses,supervised=False):
-  def _unsuper(xys, size, small):
-    cut   = xys[0][0]
-    xs,ys = Counter(), {}
-    ys[cut] = Counter()
-    for j,(x,y) in enumerate(xys):
-      if xs[cut] >= size and x - cut >= small:  # want to cut
-        if j < len(xys)-size and x != xys[j+1][0]: # and i can cut
-          cut=x
-          ys[cut] = Counter()
-      xs[cut] += 1
-      ys[cut][y] += 1
-    return xs,ys
-  #-------------
-  def _merge(d):
-    out,b4,cut = {},None,None
-    for key,now in sorted(d.items()):
-      if combined := merged(b4,now):
-        out[cut] = b4 = combined
-      else:
-        cut = key
-        out[cut] = b4 = now
-    return out
-  #-----------
-  xys = sorted([(row.raw[n],y) for y,row in klasses.items() for row in rows if row.raw[n] !="?"])
-  sd  = (per(xys,.9)[0] - per(xys,.1)[0])/2.56
-  xcounts,ycounts = _unsuper(xys, len(xys)//(the.bins -1),sd *the.cohen)
-  return sorted((_merge(ycounts) if supervised else xcounts).keys())
-
+  xys     = sorted([(r.raw[n],y) for y,rows in klasses.items() for r in rows if r.raw[n] !="?"])
+  small   = the.cohen*(per(xys,.9)[0] - per(xys,.1)[0])/2.56
+  size    = len(xys)//(the.bins -1)
+  cut     = xys[0][0]
+  xs,ys   = Counter(), {}
+  ys[cut] = Counter()
+  last    = None
+  for j,(x,y) in enumerate(xys):
+    if xs[cut] >= size and x - cut >= small and j < len(xys)-size and x != xys[j+1][0]:
+      if supervised:
+        if combined := merged(ys[last],ys[cut]):
+          del xs[cut]
+          del ys[cut]
+          ys[last] = combined
+        else:
+          last = cut
+      cut = x
+      xs[cut] = 0
+      ys[cut] = Counter()     
+    xs[cut] += 1
+    ys[cut][y] += 1
+  return sorted(xs.keys())
 #--------------------------------------------------------------------------------------------------
 class COLS(obj):
   def __init__(i,a):
@@ -204,11 +187,21 @@ def discretize(cuts,x):
     lo=hi
   return n+1
 #--------------------------------------------------------------------------------------------------
+def csv(file="-"):
+  with fileinput.FileInput(file) as src:
+    for line in src:
+      line = re.sub(r'([\t\r"\' ]|#.*)', '', line) # delete spaces and comments
+      if line: yield [coerce(x) for x in line.split(",")]
+
+def coerce(x):
+  try : return literal(x)
+  except Exception: return x.strip()
+
 def pretty(x, dec=2):
   return x.__name__+'()' if callable(x) else (round(x,dec) if dec and isinstance(x,float) else x)
 
 def prettyd(d, pre="", dec=2):
-  return pre+'('+' '.join([f":{k} {pretty(d[k],dec)}" for k in d if k[0]=="_"])+')'
+  return pre+'('+' '.join([f":{k} {pretty(d[k],dec)}" for k in d if k[0]!="_"])+')'
 
 def prints(*lst):
   print(*[pretty(x) for x in lst],sep="\t")
@@ -217,19 +210,4 @@ def printed(*dicts):
   prints(dicts[0].keys())
   [prints(d.values()) for d in dicts]
 
-egs={}
-def eg(fun):
-  @wraps(fun)
-  def worker():
-    saved = {k:v for k,v in settings.items()}
-    random.seed(settings.seed)
-    out = fun()
-    if out==False: print("❌ FAIL ", fun.__name__)
-    for k,v in saved.items(): settings[k]=v
-    return out
-  egs[fun.__name__] = worker
-  return worker
 
-if __name__ == "__main__":
-  the = cli(the)
-  sys.exit(sum([egs[x]()==False for x in sys.argv() if x in egs]))
