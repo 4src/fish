@@ -61,24 +61,24 @@ def dist(cols, fun):
   return (tmp / len(cols))**1/the.p
 
 def cuts(n,klasses,supervised=False):
-  xys       = sorted([(r.raw[n],y) for y,rows in klasses.items() for r in rows if r.raw[n] !="?"])
-  small     = the.cohen*(per(xys,.9)[0] - per(xys,.1)[0])/2.56
-  size      = len(xys)//(the.bins -1)
-  xs,y,last = {} {},None
+  xys   = sorted([(r.raw[n],y) for y,rows in klasses.items() for r in rows if r.raw[n] !="?"])
+  size  = len(xys) // (the.bins - 1)
+  small = the.cohen * (per(xys,.9)[0] - per(xys,.1)[0])/2.56
+  xs,y,last = {},{},None
   cut=xys[0][0]; xs[cut]=0; ys[cut]=Counter()
-  ignore=[]
+  ignore = set()
   for j,(x,y) in enumerate(xys):
     if xs[cut] >= size and x - cut >= small and j < len(xys)-size and x != xys[j+1][0]:
       if supervised:
         if combined := merged(ys[last],ys[cut]):
-          ignore += [cut]
+          ignore.add(cut)
           ys[last] = combined
         else:
           last = cut
       cut=x; xs[cut]=0; ys[cut]=Counter()
     xs[cut] += 1
     ys[cut][y] += 1
-  return sorted(x for x in xs.keys() if x not in ignore)
+  return sorted(xs.keys - ignore)
 #--------------------------------------------------------------------------------------------------
 class COLS(obj):
   def __init__(i,a):
