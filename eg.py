@@ -25,7 +25,8 @@ class box(dict):
   __setattr__ = dict.__setitem__ # instead of d["slot"]=1, allow d.slot=1
   __getattr__ = dict.get         # instead of d["slot"],   allow d.slot  
 
-the=box(**{m[1]:literal(m[2]) for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
+the=box(**{m[1]:literal(m[2]) 
+        for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #--------------------------------------------------------------------------------------------------
 def numString(s)    : return s[0].isupper()
 def goalString(s)   : return s[-1] in "+-"
@@ -61,14 +62,16 @@ def dist(cols, fun):
   return (tmp / len(cols))**1/the.p
 
 def cuts(n,klasses,supervised=False):
-  xys   = sorted([(r.raw[n],y) for y,rows in klasses.items() for r in rows if r.raw[n] !="?"])
+  xys   = sorted([(r.raw[n],y) for y,rows in klasses.items() 
+                 for r in rows if r.raw[n] !="?"])
   size  = len(xys) // (the.bins - 1)
   small = the.cohen * (per(xys,.9)[0] - per(xys,.1)[0])/2.56
   xs,y,last = {},{},None
   cut=xys[0][0]; xs[cut]=0; ys[cut]=Counter()
   ignore = set()
   for j,(x,y) in enumerate(xys):
-    if xs[cut] >= size and x - cut >= small and j < len(xys)-size and x != xys[j+1][0]:
+    if (xs[cut] >= size and x - cut >= small and 
+        j < len(xys)-size and x != xys[j+1][0]):
       if supervised:
         if combined := merged(ys[last],ys[cut]):
           ignore.add(cut)
@@ -155,7 +158,8 @@ class DATA(obj):
 
   def stats(i,what=mid,cols=None,dec=2):
     return box(N=len(i.rows),
-               **{i.cols.names[n]:pretty(what(col),dec) for n,col in (cols or i.cols.y).items()})
+               **{i.cols.names[n]:pretty(what(col),dec) 
+                  for n,col in (cols or i.cols.y).items()})
 
   def clone(i,rows=[]):
     return DATA([i.cols.names] + rows)
@@ -169,12 +173,13 @@ class DATA(obj):
     return a,b,rows[:n//2], rows[n//2:]
 
   def discretize(i):
-    for n,s in enumerate(i.cols.names):
-      if numericString(s):
-        lst = cuts(n,dist(all=i.rows))
-        for row in i.rows:
-          old = row.bins[n]
-          row.bins[n] = old if old=="?" else discretize(lst,old)
+    if False:
+      for n,s in enumerate(i.cols.names):
+        if numericString(s):
+          lst = cuts(n,dist(all=i.rows))
+          for row in i.rows:
+            old = row.bins[n]
+            row.bins[n] = old if old=="?" else discretize(lst,old)
 
 def discretize(cuts,x):
   lo = -inf
@@ -194,7 +199,8 @@ def coerce(x):
   except Exception: return x.strip()
 
 def pretty(x, dec=2):
-  return x.__name__+'()' if callable(x) else (round(x,dec) if dec and isinstance(x,float) else x)
+  return x.__name__+'()' if callable(x) else (
+                            round(x,dec) if dec and isinstance(x,float) else x)
 
 def prettyd(d, pre="", dec=2):
   return pre+'('+' '.join([f":{k} {pretty(d[k],dec)}" for k in d if k[0]!="_"])+')'
