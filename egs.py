@@ -19,8 +19,14 @@ def run(name,fun):
   return out
  
 def eg_settings(): print(the)
-def eg_fail(): return 1 > 2
-def eg_all(): sys.exit(sum(run(s,fun)==False for s,fun in todo.items() if s!="all"))
+def eg_fail():     return 1 > 2
+def eg_all():      sys.exit(sum(run(s,fun)==False for s,fun in todo.items() if s!="all"))
+
+def eg_cols(): 
+   c=COLS(["name", "Age", "Weight-"])
+   c.y[2] += [100]
+   print(box(x=c.x, y=c.y, all=c.all, names=c.names))
+   return c.y[2] == c.all[2] 
 
 the = cli(the)
 todo = {k[3:]:fun for k,fun in locals().items() if k[:3]=="eg_"}
