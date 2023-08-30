@@ -37,7 +37,7 @@ def isNum(x)        : return isinstance(x,list)
 def per(lst, p=.5): return lst[int(p*len(lst))]
 
 def mid(col):
-  return per(col,.5) if isNum(col) else max(col, key=a.get)
+  return per(col,.5) if isNum(col) else max(col, key=col.get)
 
 def div(col):
   return (per(col,.9) - per(col,.1))/2.56 if isNum(col) else ent(col)
@@ -212,5 +212,3 @@ def prints(*lst):
 def printed(*dicts):
   prints(dicts[0].keys())
   [prints(d.values()) for d in dicts]
-
-

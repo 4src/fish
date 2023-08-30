@@ -30,6 +30,16 @@ def eg_cols():
   print(box(x=c.x, y=c.y, all=c.all, names=c.names))
   return c.y[2] == c.all[2] 
 
+def eg_sym():
+  d = dict(a=1,c=2,d=4)
+  return "d" == mid(d) and 1.3 < div(d) < 1.4
+
+def eg_num():
+  a=[]
+  for _ in range(1000): a += [random.gauss(10,2)]
+  a=sorted(a)
+  return 9.9 < mid(a) < 10.1 and 1.9 < div(a) < 2.1
+
 the = cli(the)
 todo = {k[3:]:fun for k,fun in locals().items() if k[:3]=="eg_"}
 [run(x, todo[x]) for x in sys.argv if x in todo]
