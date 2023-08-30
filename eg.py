@@ -1,19 +1,23 @@
 """
-eg: a demonstrator for less is more analytics
-(c) Tim Menzies <timm@ieee.org>, BSD-2 license
+EG: a demonstrator for less is more analytics
+(c) Tim Menzies <timm@ieee.org>, BSD.2 license
 
+USAGE:
+  python3 -B egs.py [OPTIONS] [ACTIONS]
+  
 OPTIONS:
   -b --bins        initial number of bins = 8
   -f --file        csv data file          = "../data/auto93.csv"
   -F --Far         how far to look        = .85
   -H --Halves      where to find for far  = 512
+  -h --help        show help              = False
   -m --min         min size               = .5
   -p --p           distance coefficient   = 2
   -s --seed        random number seed     = 1234567891
 """
 from math import log,inf,sqrt 
 import fileinput,random,time,ast,re
-from ast import literal_eval as literal
+from ast import literal_eval as this
 from contextlib import contextmanager
 from collections import Counter
 
@@ -25,8 +29,8 @@ class box(dict):
   __setattr__ = dict.__setitem__ # instead of d["slot"]=1, allow d.slot=1
   __getattr__ = dict.get         # instead of d["slot"],   allow d.slot  
 
-the=box(**{m[1]:literal(m[2]) 
-        for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
+the=box(**{m[1]:this(m[2]) 
+           for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #--------------------------------------------------------------------------------------------------
 def numString(s)    : return s[0].isupper()
 def goalString(s)   : return s[-1] in "+-"
@@ -195,7 +199,7 @@ def csv(file="-"):
       if line: yield [coerce(x) for x in line.split(",")]
 
 def coerce(x):
-  try : return literal(x)
+  try : return this(x)
   except Exception: return x.strip()
 
 def pretty(x, dec=2):
