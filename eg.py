@@ -3,7 +3,10 @@ EG: a demonstrator for less is more analytics
 (c) Tim Menzies <timm@ieee.org>, BSD.2 license
 
 USAGE:
-  python3 -B egs.py [OPTIONS] [ACTIONS]
+  import eg
+
+EXAMPLES:
+  python3 -B egs.py s[OPTIONS] [ACTIONS]
   
 OPTIONS:
   -b --bins        initial number of bins = 8
@@ -29,7 +32,7 @@ class box(dict):
   __setattr__ = dict.__setitem__ # instead of d["slot"]=1, allow d.slot=1
   __getattr__ = dict.get         # instead of d["slot"],   allow d.slot  
 
-the=box(**{m[1]:this(m[2]) 
+the=box(**{m[1]:this(m[2]) # create 'the' settings by parsing __doc__ string.
            for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #--------------------------------------------------------------------------------------------------
 def numString(s)    : return s[0].isupper()
@@ -216,3 +219,7 @@ def prints(*lst):
 def printed(*dicts):
   prints(dicts[0].keys())
   [prints(d.values()) for d in dicts]
+
+def btw(*l,**k):
+ print(*l,**k, end="",flush=True)
+ 
