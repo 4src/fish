@@ -65,6 +65,8 @@ def norm(col,x):
   return x=="?" and x or (x - lo)/(hi - lo + 1E-32)
 
 def dist(cols, fun):
+  print("")
+  [print(fun(n,col)) for n,col in cols.items()]
   tmp = sum(fun(n,col)**the.p for n,col in cols.items())
   return (tmp / len(cols))**1/the.p
 
@@ -107,10 +109,10 @@ class COLS(obj):
     else: col[x] = 1 + col.get(x,0)
 
   def sorted(i):
-    [col.sort() for _,col in i.cols.all if isNum(col)]
+    [col.sort() for col in i.all if isNum(col)]
 #--------------------------------------------------------------------------------------------------
 class ROW(obj):
-  def __init__(i,a,data): 
+  def __init__(i,a,data=None): 
     i.raw   = a    # raw values
     i.bins  = a[:] # discretized values, to be calculated later
     i._data = data # source table
@@ -133,8 +135,8 @@ class ROW(obj):
     return i.height() < j.height()
 
   def height(i):
-    def heaven(n): return 0 if lessString(i._data.cols.names[n]) else 1
-    def dist1(n,col): abs(heaven(n) - norm(col,i.raw[n]))
+    def heaven(n):    return 0 if lessString(i._data.cols.names[n]) else 1
+    def dist1(n,col): return abs(heaven(n) - norm(col,i.raw[n]))
     i.evalled = True
     return dist(i._data.cols.y, dist1)
 
@@ -153,15 +155,15 @@ class DATA(obj):
     i.cols.sorted()
 
   def adds(i,src):
-    if isinstance(src,str): [i.add(Row(a,i)) for a in csv(src)]; self.discretize()
+    if isinstance(src,str): [i.add(ROW(a,i)) for a in csv(src)]; i.discretize()
     else:                   [i.add(row)      for row in src]
 
   def add(i,row):
     if i.cols:
-      i.cols.adds(row.cells)
+      i.cols.adds(row.raw)
       i.rows += [row]
     else:
-      i.cols = COLS(row.cells)
+      i.cols = COLS(row.raw)
 
   def stats(i,what=mid,cols=None,dec=2):
     return box(N=len(i.rows),
@@ -169,7 +171,7 @@ class DATA(obj):
                   for n,col in (cols or i.cols.y).items()})
 
   def clone(i,rows=[]):
-    return DATA([i.cols.names] + rows)
+    return DATA([ROW(i.cols.names)] + rows)
 
   def bicluster(i,rows,sort=False):
     n = len(rows)
@@ -213,6 +215,7 @@ def prettyd(d, pre="", dec=2):
   return pre+'('+' '.join([f":{k} {pretty(d[k],dec)}" 
                            for k in d if k[0]!="_"])+')'
 
+def printd(d): print(prettyd(d))
 def prints(*lst):
   print(*[pretty(x) for x in lst],sep="\t")
 
