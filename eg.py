@@ -43,11 +43,13 @@ def isNum(x)        : return isinstance(x,list)
 def per(lst, p=.5): return lst[int(p*len(lst))]
 
 def mid(col):
-  return per(col,.5) if isNum(col) else max(col, key=col.get)
+  return median(col) if isNum(col) else max(col, key=col.get)
 
 def div(col):
   return (per(col,.9) - per(col,.1))/2.56 if isNum(col) else ent(col)
 
+def median(lst): return per(lst,.5)
+def mean(lst):   return sum(lst)/len(lst)
 def ent(d):
   n = sum(d.values())
   return sum( -v/n*log(v/n,2) for v in d.values() if v > 0)
@@ -61,11 +63,9 @@ def merged(a,b):
 
 def norm(col,x):
   lo,hi = col[0],col[-1]
-  return x=="?" and x or (x - lo)/(hi - lo + 1E-32)
-
+  return  x=="?" and x or (x - lo)/(hi - lo + 1E-32)
+  
 def dist(cols, fun):
-  print("")
-  [print(fun(n,col)) for n,col in cols.items()]
   tmp = sum(fun(n,col)**the.p for n,col in cols.items())
   return (tmp / len(cols))**1/the.p
 
@@ -108,7 +108,8 @@ class COLS(obj):
     else: col[x] = 1 + col.get(x,0)
 
   def sorted(i):
-    [col.sort() for col in i.all if isNum(col)]
+    [col.sort() for _,col in i.all.items() if isNum(col)]
+
 #--------------------------------------------------------------------------------------------------
 class ROW(obj):
   def __init__(i,a,data=None): 
@@ -221,7 +222,3 @@ def prints(*lst):
 def printed(*dicts):
   prints(dicts[0].keys())
   [prints(d.values()) for d in dicts]
-
-def btw(*l,**k):
- print(*l,**k, end="",flush=True)
- 

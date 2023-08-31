@@ -85,8 +85,9 @@ def test_dataSort():
   "asd"
   d=DATA(the.file)
   rows=sorted(d.rows) 
-  print( d.clone(rows[:20]).stats()  )
-  print( d.clone(rows[-20:]).stats() )
+  n = int(len(rows)**the.min)
+  print( d.clone(rows[:n]).stats()  )
+  print( d.clone(rows[-n:]).stats() )
   
 if __name__ == "__main__":
   the = cli(the)
