@@ -34,22 +34,15 @@ class box(dict):
 the=box(**{m[1]:this(m[2]) # create 'the' settings by parsing __doc__ string.
            for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
 #--------------------------------------------------------------------------------------------------
-def numString(s)    : return s[0].isupper()
-def goalString(s)   : return s[-1] in "+-"
-def lessString(s)   : return s[-1] == "-"
-def ignoreString(s) : return s[-1] == "X"
-def isNum(x)        : return isinstance(x,list)
+def isNum(x)     : return isinstance(x,list)
+def per(a, p=.5) : return a[int(p*len(a))]
 
-def per(lst, p=.5): return lst[int(p*len(lst))]
+def mid(col)     : return median(col) if isNum(col) else max(col, key=col.get)
+def div(col)     : return (per(col,.9) - per(col,.1))/2.56 if isNum(col) else ent(col)
+def median(a)    : return per(a,.5)
+def mean(a)      : return sum(a)/len(a)
+def norm(col,x)  : return  x=="?" and x or (x - col[0])/(col[-1] - col[0] + 1E-32)
 
-def mid(col):
-  return median(col) if isNum(col) else max(col, key=col.get)
-
-def div(col):
-  return (per(col,.9) - per(col,.1))/2.56 if isNum(col) else ent(col)
-
-def median(lst): return per(lst,.5)
-def mean(lst):   return sum(lst)/len(lst)
 def ent(d):
   n = sum(d.values())
   return sum( -v/n*log(v/n,2) for v in d.values() if v > 0)
@@ -60,37 +53,38 @@ def merged(a,b):
     c = a+b
     if ent(c) <= (ent(a)*n1 + ent(b)*n2)/(n1+n2): 
       return c
-
-def norm(col,x):
-  lo,hi = col[0],col[-1]
-  return  x=="?" and x or (x - lo)/(hi - lo + 1E-32)
   
-def dist(cols, fun):
+def minkowski(cols, fun):
   tmp = sum(fun(n,col)**the.p for n,col in cols.items())
   return (tmp / len(cols))**1/the.p
 
-def cuts(n,klasses,supervised=False):
-  xys   = sorted([(r.raw[n],y) for y,rows in klasses.items() 
-                 for r in rows if r.raw[n] !="?"])
-  size  = len(xys) // (the.bins - 1)
-  small = the.cohen * (per(xys,.9)[0] - per(xys,.1)[0])/2.56
-  xs,y,last = {},{},None
-  cut=xys[0][0]; xs[cut]=0; ys[cut]=Counter()
+def cuts(n, klasses, supervised=False, get=lambda lst,n: lst[n]):
+  xs,ys,cut,b4 = {},{},None None
+  def _new(z): cut=z; xs[z]=0; ys[z]=Counter()
+  xys    = sorted([(get(eg,n), klass) for klass,egs in klasses.items() 
+                   for eg in egs if get(eg,n) !="?"])
+  small  = the.cohen * (per(xys,.9)[0] - per(xys,.1)[0])/2.56
+  size   = len(xys) // (the.bins - 1)
   ignore = set()
+  _new(xs[0][0])
   for j,(x,y) in enumerate(xys):
-    if (xs[cut] >= size and x - cut >= small and 
-        j < len(xys)-size and x != xys[j+1][0]):
+    if (xs[cut] >= size and x - cut >= small and j < len(xys)-size and x != xys[j+1][0]):
       if supervised:
-        if combined := merged(ys[last],ys[cut]):
-          ignore.add(cut)
-          ys[last] = combined
-        else:
-          last = cut
-      cut=x; xs[cut]=0; ys[cut]=Counter()
+           if combined := merged(ys[b4],ys[cut]):
+              ignore.add(cut)
+              ys[b4] = combined
+           else:
+              b4 = cut
+      _new(x)
     xs[cut] += 1
     ys[cut][y] += 1
   return sorted(xs.keys - ignore)
 #--------------------------------------------------------------------------------------------------
+def numString(s)    : return s[0].isupper()
+def goalString(s)   : return s[-1] in "+-"
+def lessString(s)   : return s[-1] == "-"
+def ignoreString(s) : return s[-1] == "X"
+
 class COLS(obj):
   def __init__(i,a):
     i.names,i.x,i.y,i.all = a,{},{},{}
@@ -98,19 +92,16 @@ class COLS(obj):
       col = i.all[n] = [] if numString(s) else {}
       if ignoreString(s): continue
       (i.y if goalString(s) else i.x)[n] = col
-
-  def adds(i,a):
-    [i.add(col, a[n]) for n,col in i.all.items()]
+  def adds(i,a): [i.add(col, a[n]) for n,col in i.all.items()]
 
   def add(i,col,x):
     if x == "?": return
     if isNum(col): col += [x]
     else: col[x] = 1 + col.get(x,0)
 
-  def sorted(i):
-    [col.sort() for _,col in i.all.items() if isNum(col)]
+  def sorted(i):[col.sort() for _,col in i.all.items() if isNum(col)]
 
-#--------------------------------------------------------------------------------------------------
+#------------------------------------------------------------------------------------------------
 class ROW(obj):
   def __init__(i,a,data=None): 
     i.raw   = a    # raw values
@@ -120,7 +111,7 @@ class ROW(obj):
     i.evalled = False
 
   def __sub__(i,j):
-    def dist1(n,col):
+    def _dist(n,col):
       x,y = i.raw[n],j.raw[n]
       if   x=="?" and y=="?" : return 1
       elif not isNum(col)    : return 0 if x == y else 0
@@ -129,24 +120,17 @@ class ROW(obj):
         if x=="?": x=1 if y<.5 else 0
         if y=="?": y=1 if x<.5 else 0
         return abs(x-y)
-    return dist(i._data.cols.x, dist1)
+    return minkowski(i._data.cols.x, _dist)
 
-  def __lt__(i,j):
-    return i.height() < j.height()
+  def __lt__(i,j): return i.height() < j.height()
 
   def height(i):
-    def heaven(n):    return 0 if lessString(i._data.cols.names[n]) else 1
-    def dist1(n,col): return abs(heaven(n) - norm(col,i.raw[n]))
+    def _heaven(n):   return 0 if lessString(i._data.cols.names[n]) else 1
+    def _dist(n,col): return abs(_heaven(n) - norm(col,i.raw[n]))
     i.evalled = True
-    return dist(i._data.cols.y, dist1)
+    return minkowski(i._data.cols.y, _dist)
 
-  def far(i,rows):
-    return sorted(rows,key=lambda j: j - i)[int(the.Far*len(rows))]
-
-  def twoFar(i,rows):
-    x = i.far(rows)
-    y = x.far(rows)
-    return x,y, x - y
+  def neighbors(i,rows): sorted(rows, key=lambda j: j - i)
 #--------------------------------------------------------------------------------------------------
 class DATA(obj):
   def __init__(i, src=[]):
@@ -155,8 +139,9 @@ class DATA(obj):
     i.cols.sorted()
 
   def adds(i,src):
-    if isinstance(src,str): [i.add(ROW(a,i)) for a in csv(src)]; i.discretize()
-    else:                   [i.add(row)      for row in src]
+    if isinstance(src,list): return [i.add(row) for row in src]
+    [i.add(ROW(a,i)) for a in csv(src)]
+    i.discretize()
 
   def add(i,row):
     if i.cols:
@@ -170,13 +155,15 @@ class DATA(obj):
                **{i.cols.names[n]:pretty(what(col),dec) 
                   for n,col in (cols or i.cols.y).items()})
 
-  def clone(i,rows=[]):
-    return DATA([ROW(i.cols.names)] + rows)
+  def clone(i,rows=[]): return DATA([ROW(i.cols.names)] + rows)
 
   def bicluster(i,rows,sort=False):
-    n = len(rows)
-    some = rows if n <= the.Halves else random.sample(rows, k=the.Halves)
-    a,b,C = random.choice(some).twoFar(some)
+    n    = len(rows)
+    some = random.sample(rows, k=min(n,the.Halves))
+    far  = int(the.Far*len(some))
+    a    = some[0].neighbors(some)[far]
+    b    = a.neighbors(some)[far]
+    C    = a - b
     if sort and b < a:  a,b=b,a
     rows = sorted(rows, key=lambda r: ((r-a)**2 + C**2 - (r-b)**2)/(2*C))
     return a,b,rows[:n//2], rows[n//2:]
@@ -184,11 +171,11 @@ class DATA(obj):
   def discretize(i):
     if False:
       for n,s in enumerate(i.cols.names):
-        if numericString(s):
-          lst = cuts(n,dist(all=i.rows))
+        if numString(s):
+          a = cuts(n, dict(all=i.rows), get=lambda row,n: row.raw[n])
           for row in i.rows:
             old = row.bins[n]
-            row.bins[n] = old if old=="?" else discretize(lst,old)
+            row.bins[n] = old if old=="?" else discretize(a,old)
 
 def discretize(cuts,x):
   lo = -inf
@@ -216,8 +203,8 @@ def prettyd(d, pre="", dec=2):
                            for k in d if k[0]!="_"])+')'
 
 def printd(d): print(prettyd(d))
-def prints(*lst):
-  print(*[pretty(x) for x in lst],sep="\t")
+def prints(*a):
+  print(*[pretty(x) for x in a],sep="\t")
 
 def printed(*dicts):
   prints(dicts[0].keys())

@@ -37,7 +37,7 @@ def test_all():
   "run all actions"
   def one(s): print(f"▶️  {s}-ing..."); return run(s,todo[s])
   n = sum(one(s)==False for s in todo if s!="all")
-  print(f"📌 {n} fail(s) of {len(todo)}")
+  print(f"📌  {n} failure(s) of {len(todo)}")
   sys.exit(n - 2) # cause i have two deliberate errors in tests
   
 def test_settings(): 
@@ -48,7 +48,7 @@ def test_crash():
   "can an action  crash and we keep going?"
   return a[1]
   
-def test_fail(): 
+def test_fail():  
   "what happens when an action fails?"
   return 1 > 2
 
@@ -74,8 +74,8 @@ def test_num():
 def test_csv():
   "can i read a csv and coerce fields to right things?"
   n=0
-  for lst in csv(the.file): n += len(lst)
-  return n == 3192 and isinstance(lst[0],int) 
+  for a in csv(the.file): n += len(a)
+  return n == 3192 and isinstance(a[0],int) 
 
 def test_data():
   "can i read a csv and coerce fields to right things?"
