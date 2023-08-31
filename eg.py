@@ -18,11 +18,10 @@ OPTIONS:
   -p --p           distance coefficient   = 2
   -s --seed        random number seed     = 1234567891
 """
-from math import log,inf,sqrt 
-import fileinput,random,time,ast,re
 from ast import literal_eval as this
-from contextlib import contextmanager
+import fileinput,random,time,ast,re
 from collections import Counter
+from math import log,inf,sqrt
 
 class obj: 
   def __repr__(i): return prettyd(i.__dict__, i.__class__.__name__)
