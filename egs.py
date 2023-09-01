@@ -40,7 +40,7 @@ def test_all():
   print(f"📌  {n} failure(s) of {len(todo)}")
   sys.exit(n - 2) # cause i have two deliberate errors in tests
   
-def test_settings(): 
+def test_the(): 
   "show settings"
   print(the)
   

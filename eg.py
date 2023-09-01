@@ -37,11 +37,12 @@ the=box(**{m[1]:this(m[2]) # create 'the' settings by parsing __doc__ string.
 def isNum(x)     : return isinstance(x,list)
 def per(a, p=.5) : return a[int(p*len(a))]
 
-def mid(col)     : return median(col) if isNum(col) else max(col, key=col.get)
-def div(col)     : return (per(col,.9) - per(col,.1))/2.56 if isNum(col) else ent(col)
-def median(a)    : return per(a,.5)
-def mean(a)      : return sum(a)/len(a)
-def norm(col,x)  : return  x=="?" and x or (x - col[0])/(col[-1] - col[0] + 1E-32)
+
+def median(a)   : return per(a,.5)
+def mean(a)     : return sum(a)/len(a)
+def mid(col)    : return median(col) if isNum(col) else max(col, key=col.get)
+def norm(col,x) : return  x=="?" and x or (x - col[0])/(col[-1] - col[0] + 1E-32)
+def div(col)    : return (per(col,.9) - per(col,.1))/2.56 if isNum(col) else ent(col)
 
 def ent(d):
   n = sum(d.values())
@@ -59,7 +60,7 @@ def minkowski(cols, fun):
   return (tmp / len(cols))**1/the.p
 
 def cuts(n, klasses, supervised=False, get=lambda lst,n: lst[n]):
-  xs,ys,cut,b4 = {},{},None None
+  xs,ys,cut,b4 = {},{},None, None
   def _new(z): cut=z; xs[z]=0; ys[z]=Counter()
   xys    = sorted([(get(eg,n), klass) for klass,egs in klasses.items() 
                    for eg in egs if get(eg,n) !="?"])
