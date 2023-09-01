@@ -1,96 +1,106 @@
+"""
+OPTIONS:
+  -f --file where to load data = "../data/auto93.csv"
+  -s --seed random number seed = 1234567891
+"""
 from collections import Counter
-import fileinput,ast
+import fileinput,random,ast,re
+from math import inf
 
-
-class box(dict): __setattr__ = dict.__setitem__; __getattr__ = dict.get  
-class obj      : __repr__ = lambda i: return str(i.__dict__)
-
-def items(x,cols): 
-  if nump(x):
-    for c,v in enumerate(x): yield c, our.names[c], v 
-  else
-    for c,(name,v) in enumerate(x.items()): yield c,name,v
+class box(dict): __setattr__=dict.__setitem__; __getattr__=dict.get; __repr__=lambda i:prettyd(i)  
+class obj      : __repr__   =lambda i: prettyd(i.__dict__, i.__class__.__name__)
 
 def coerce(x):
   try : return ast.literal_eval(x)
   except Exception: return x.strip()
 
-# spit them out in random order
-
-def rows(file="-", use=None):
-  with fileinput.FileInput(file) as src:
-    for line in src: 
-      line = [x.strip() for x in line.split(",")]
-      use  = use or [n for n,s in enumerate(line) if s[-1] ~= "X")]
-      yield [coerce(line[n]) for n in use]
-
+the=box(**{m[1]:coerce(m[2]) # create 'the' settings by parsing __doc__ p.
+           for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
+#------- --------- --------- --------- --------- --------- --------- --------- ---------- ---------
 class COLS(obj):
   def __init__(i,names, inits=[]):
     i.names, i.all, i.x, i.y = names,{},{},{}
     for n,s in enumerate(names):
-      i.all[n] = (i.y if s[-1] in "+-") else i.x)[n] = (NUM if s[0].isupper()  else SYM)(n,s) 
-    [i.add(a) for a in inits]
+      i.all[n] = (i.y if s[-1] in "+-" else i.x)[n] = (NUM if s[0].isupper()  else SYM)(at=n,name=s) 
+    [add(a,i) for a in inits]
       
-  def add(i,a)           : [col.add(a[n]) for n,col in i.all.items()]; return a
-  def clone(i, inits=[]) : return COLS(i.names, inits)
+  def add(i,a)      : [col.add(a[n]) for n,col in i.all.items()]; return a
+  def clone(i, a=[]): return COLS(i.names, a)
+
+  def stats(i, what=lambda z:z.mid(), cols=None, dec=2):
+    return box(N= i.all[0].n,
+               **{i.names[n]:pretty(what(col),dec) for n,col in (cols or i.y).items()})
+#------- --------- --------- --------- --------- --------- --------- --------- ---------- ---------
+class COL(obj):
+  def __init__(i,at=0, name=""): i.n,i.at,i.name = 0,at,name
+  def add(i,x) :
+    if x != "?": i.n += 1; i.add1(x)
+#------- --------- --------- --------- --------- --------- --------- --------- ---------- ---------   
+class NUM(COL):
+  def __init__(i,**kw):
+    super().__init__(**kw)
+    i.mu, i.m2, i.lo, i.hi = 0,0,inf,-inf
+
+  def add1(i,x):
+    i.lo  = min(x, i.lo)
+    i.hi  = max(x, i.hi)
+    d     = x - i.mu
+    i.mu += d/i.n
+    i.m2 += d*(x - i.mu)
+
+  def mid(i)   : return i.mu
+  def div(i)   : return (i.m2/(i.n - 1))**.5
+  def norm(i,x): return x=="?" and x or (x - i.lo)/(i.hi - i.lo + 1E-32)
+#------- --------- --------- --------- --------- --------- --------- --------- ---------- ---------
+class SYM(COL):
+  def __init__(i,**kw):
+    super().__init__(**kw)
+    i.mode,i.most,i.has = None,0,{}
+
+  def add1(i,x):
+    n = i.has[x] = i.has.get(x,0) + 1
+    if n > i.most: i.mode,i.most = x, n
+
+  def mid(i): return i.mode
+  def div(i): return ent(i.has)
+#------- --------- --------- --------- --------- --------- --------- --------- ---------- ---------
+def csv(file="-", use=None):
+  with fileinput.FileInput(file) as src:
+    for line in src: 
+      line = [x.strip() for x in line.split(",")]
+      use  = use or [n for n,s in enumerate(line) if s[-1] != "X"]
+      yield [coerce(line[n]) for n in use]
   
 def eras(src, size=20):
   era,cache,cols = 0,[],None
-  def dump(): 
-    random.shuffle(cache)
-    for a in cache: yield cols.add(x), era+1
-  #------------
   for a in src:
     if cols:  
       cache += [a]
       if len(cache) >= size:
-        for era1,a1 in dump(): yield era1,a1,cols
-        era,cache = era1,[]
+        era += 1
+        for a1 in shuffle(cache): yield era, cols.add(a1), cols
+        cache = []
     else:
       cols = COLS(a)
   if cache:
-    for era1,a1 in dump(): yield era1,a1,cols
-  
-# def per(a, n=.5) : return a[int(n*len(a))]
-# def median(a)    : return per(a,.5)
-# def sd(a)        : return (pera,)
-# def mean(a)      : return sum(a) / len(a)
-# 
-# def ent(d):
-  # n = sum(d.values())
-  # return sum( -v/n*log(v/n,2) for v in d.values() if v > 0)
-  # 
-# class box(dict): __setattr__ = dict.__setitem__; __getattr__ = dict.get         # instead of d["slot"],   allow d.slot
-# 
-# def NUM(a=[]): return adds(box(this=NUM, _has=[], ok=True), a)
-# def SYM(a=[]): return adds(box(this=SYM, _has=Counter()),   a)
-# 
-# def adds(i,l=[]): [i.add(x) for x in l]; return i
-# def add(i,x):
-  # if x=="?"        : return x
-  # if i.this is SYM : i._has[x] += 1
-  # if i.this is NUM : i._has += [x]; i.ok=False
-# 
-# def has(i):
-  # if i.this is NUM and not i.ok: i._has.sort(); i.ok=True
-  # return i._has
-# 
-# def size(col)   : return length(i._has) if i.this is NUM else i._has.total()
-# 
-# def mid(col)    : return median(has(hum)) if isNum(col) else max(col, key=col.get)
-# def norm(col,x) : return  x=="?" and x or (x - col[0])/(col[-1] - col[0] + 1E-32)
-# def div(col)    : return (per(col,.9) - per(col,.1))/2.56 if isNum(col) else ent(col)
-# 
-# 
-# 
-# 
-# case "Rishabh" if user in allowedDataBaseUsers:
-# cuts={}
-# cols={}
-# nump=lambda s:s[0].isupper()
-# 
-# def row(row):
-  # if not cols:
-     # if nump(s)
+    for a1 in shuffle(cache):  yield era+1, cols.add(a1), cols
+#------- --------- --------- --------- --------- --------- --------- --------- ---------- ---------
+def ent(d):
+  n = sum(d.values())
+  return -sum(v/n * log(v/n,2) for v in d.values() if v>9)
 
+def shuffle(a): random.shuffle(a); return a
 
+def prettyd(d, pre="", dec=2):
+  return pre+'('+' '.join([f":{k} {pretty(d[k],dec)}" 
+                           for k in d if k[0]!="_"])+')'
+
+def pretty(x, dec=2):
+  return x.__name__+'()' if callable(x) else (
+         round(x,dec) if dec and isinstance(x,float) else x)
+         
+def items(x,cols): 
+  if nump(x):
+    for c,v in enumerate(x): yield c, our.names[c], v 
+  else:
+    for c,(name,v) in enumerate(x.items()): yield c,name,v
