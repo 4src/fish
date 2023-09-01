@@ -1,279 +1,240 @@
-#!/usr/bin/env python3 -B
-# <!--- vim: set et sts=3 sw=3 ts=3 : --->
 """
-es.py : see it, or glimpse it
-(c) 2023, Tim Menzies <timm@ieee.org>, BSD-2
+ESPY: a demonstrator for less is more analytics
+(c) Tim Menzies <timm@ieee.org>, BSD.2 license
 
 USAGE:
-  ./es.py [OPTIONS] [-e ACTION]
+  import es
 
+EXAMPLES:
+  python3 -B eg.py [OPTIONS] [ACTIONS]
+  
 OPTIONS:
-  -F  --Far     how far to search for poles      = .9
-  -H  --Halves  how many items to search across  = 256
-  -h  --help    show help                        = False
-  -b  --bins    initial number of bin            = 16
-  -c  --cohen   definition of same               = .35
-  -e  --eg      start up action                  = "nothing"
-  -f  --file    data file                        = "../data/auto93.csv"
-  -m  --min     min size of sample               = .5
-  -p  --p       distance calculation coefficient = 2
-  -s  --seed    random number seed               = 11234567891
+  -b --bins    initial number of bins  = 8
+  -c --cohen   small effect size       = .35
+  -f --file    csv data file           = "../data/auto93.csv"
+  -F --Far     how far to look         = .85
+  -H --Halves  where to find for far   = 512
+  -h --help    show help               = False
+  -m --min     min size                = .5
+  -p --p       distance coefficient    = 2
+  -s --seed    random number seed      = 1234567891
 """
-import fileinput, random, time, sys, re
-from ast import literal_eval as make
+from ast import literal_eval as this
+import fileinput,random,time,ast,re
 from collections import Counter
-from copy import deepcopy
-from math import sqrt,log,cos,pi
+from math import log,inf,sqrt
 
-class obj(object):
-    def __repr__(i): return showd(i.__dict__,i.__class__.__name__)
+class obj: 
+  def __repr__(i): return prettyd(i.__dict__, i.__class__.__name__)
 
 class box(dict):
-   __setattr__ = dict.__setitem__
-   __getattr__ = dict.get
-   __repr__    = lambda i:showd(i)
+  def __repr__(i): return prettyd(i)
+  __setattr__ = dict.__setitem__ # instead of d["slot"]=1, allow d.slot=1
+  __getattr__ = dict.get         # instead of d["slot"],   allow d.slot  
 
-the= box(**{m[1]:make(m[2]) for m in
-            re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
-#---------------------------------------------
-class COL(obj):
-  def __init__(i,at=0,name=" "): i.at,i.name,i.n = at,name,0
-  def adds(i,lst=[]): [i.add(x) for x in lst]; return i
-  def dist(i,x,y):
-     return 1 if x=="?" and y=="?" else i.dist1(x,y)
-#---------------------------------------------
-class SYM(COL):
-  def __init__(i,*l,**kw):
-    super().__init__(*l,**kw)
-    i.has = Counter()
-  def mid(i)  : return mode(i._has)
-  def ent(i)  : return ent(i._has)
-  def add(i,x):
-     if x != "?": i.n+=1 ; i.has[x] += 1
-  def dist1(i,x,y) : return 0 if x==y else 1
-  #---------------------------------------------
-class NUM(COL):
-   def __init__(i,*l,**kw):
-      super().__init__(*l,**kw)
-      i.ok, i._has = True, []
-      i.heaven = 0 if i.name[-1]=="-" else 1
-   def mid(i)  : return mean(i.has)
-   def div(i)  : return sd(i.has)
-   def add(i,x):
-      if x != "?": i.n += 1; i._has += [x]; i.ok= False
-   @property
-   def has(i):
-      if not i.ok: i._has.sort(); i.ok = True
-      return i._has
-   def norm(i,x):
-      a = i.has
-      return x if x=="?" else (x-a[0])/(a[-1] - a[0] + 1E-30)
-   def dist1(i,x,y):
-      x, y = i.norm(x), i.norm(y)
-      if x=="?": x= 0 if y > .5 else 1
-      if y=="?": y= 0 if x > .5 else 1
-      return abs(x - y)
-   def d2h(i,row): return abs(i.heaven - i.norm(row[i.at]))
-#---------------------------------------------
-class COLS(obj):
-   def __init__(i,a):
-      i.x, i.y, i.names = [], [], a
-      i.all = [(NUM if s[0].isupper() else SYM)(at=n,name=s) for n,s in enumerate(a)]
-      for col in i.all:
-         if col.name[-1] != "X":
-            (i.y if col.name[-1] in "+-!" else i.x).append(col)
+the=box(**{m[1]:this(m[2]) # create 'the' settings by parsing __doc__ p.
+           for m in re.finditer( r"\n\s*-\w+\s*--(\w+).*=\s*(\S+)",__doc__)})
+#--------------------------------------------------------------------------------------------------
+def isNum(x)     : return isinstance(x,list)
+def per(a, p=.5) : return a[int(p*len(a))]
 
-   def add(i,a):
-      [col.add(a[col.at]) for cols in [i.x, i.y] for col in cols]
-#---------------------------------------------
-class SHEET(obj):
-   def __init__(i, src):
-     i.rows, i.cols = [],  None
-     [i.add(row) for row in src]
 
-   def add(i,row):
-      if    i.cols: i.cols.add(row); i.rows += [row]
-      else: i.cols = COLS(row)
-
-   def clone(i, rows=[]):
-      return SHEET([i.cols.names] + rows)
-
-   def stats(i, cols="y", decs=2, want="mid"):
-      return box(N=len(i.rows),
-                   **{c.name:show(c.div() if want=="div" else c.mid(),decs)
-                      for c in (i.cols.y if cols=="y" else i.cols.x)})
-
-   def d2h(i,row):
-      return (sum((col.d2h(row)**the.p for col in i.cols.y))/len(i.cols.y))**(1/the.p)
-
-   def dist(i,row1,row2):
-      return (sum(c.dist(row1[c.at],row2[c.at])**the.p
-                  for c in i.cols.x )/len(i.cols.x))**(1/the.p)
-
-   def far(i,rows,x):
-      return sorted(rows,key=lambda y:i.dist(x,y))[int(len(rows)*the.Far)]
-
-   def halve(i,rows, assess=False):
-      some = rows if len(rows) <= the.Halves else random.sample(rows,k=the.Halves)
-      D    = lambda row1,row2: i.dist(row1,row2)
-      a    = i.far(some, random.choice(some))
-      b    = i.far(some, a)
-      C    = D(a,b)
-      half1, half2 = [],[]
-      if assess and i.d2h(b) < i.d2h(a):
-        a,b=b,a
-      rows = sorted(rows, key=lambda r: (D(r,a)**2 + C**2 - D(r,b)**2)/(2*C))
-      mid  = len(rows)//2
-      return a,b,rows[:mid],rows[mid:]
-
-def tree(sheet0, assess=False):
-  stop = len(sheet0.rows)**the.min
-  def grow(sheet):
-     node = box(here=sheet, lefts=None, rights=None)
-     if len(sheet.rows) >= 2*stop:
-        _,__,lefts,rights = sheet0.halve(sheet.rows,assess=assess)
-        node.lefts  = grow(sheet0.clone(lefts))
-        node.rights = grow(sheet0.clone(rights))
-     return node
-  return grow(sheet0)
-
-def isLeaf(node): return not node.lefts and not node.rights
-
-def nodes(node,depth=1):
-   if node:
-      yield node, depth
-      for tmp in [node.lefts, node.rights]:
-         for node1,depth1 in nodes(tmp, depth+1):
-            yield node1,depth1
-#---------------------------------------------
-def select(rows,at,use):
-    return [row.cells[at] for row in rows if id(row) in use and row.cells[i.at] != "?"]
-
-def cuts(xs, ordered=False):
-   "fast discretizer: leaps across sorted data, once per bin"
-   if not ordered: xs = sorted(xs)
-   cut, bins = xs[0], Counter()
-   bins[cut] = n = njump = int(len(xs)/(the.bins - 1))
-   small = sd(xs)*the.cohen
-   while n < len(xs):
-      if n < len(xs) - njump and xs[n] != xs[n+1] and xs[n]-cut >= small:
-         cut = xs[n]
-         bins[cut] = njump
-         n += njump
-      else:
-         bins[cut] += 1
-         n += 1
-   return bins
-
-def cli(d):
-   for k, v in d.items():
-      s = str(v)
-      for j, x in enumerate(sys.argv):
-         if ("-"+k[0])==x or ("--"+k)==x:
-            d[k] = coerce("True" if s=="False" else ("False" if s=="True" else sys.argv[j+1]))
-   return d
-
-R=random.random
-def normal(mu=0, sd=1):
-   return mu + sd*sqrt(-2*log(R())) * cos(2*pi*R())
-
-def coerce(x):
-   try : return make(x)
-   except Exception: return x.strip()
-
-def csv(file="-"):
-   with  fileinput.FileInput(file) as src:
-      for line in src:
-         line = re.sub(r'([\n\t\r"\' ]|#.*)', '', line)
-         if line: yield [coerce(x) for x in line.split(",")]
-
-def showds(*ds):
-   prints(*ds[0].keys())
-   [prints(*d.values()) for d in ds]
-
-def showd(d,pre=""):
-   s = " ".join([f":{k} {show(v,3)}" for k,v in d.items() if k[0] != "_"])
-   return pre +"{" + s + "}"
-
-def show(x,decs=3):
-  return x.__name__ if callable(x) else(round(x,decs) if decs and isinstance(x,float) else x)
-
-def prints(*l): print(*[show(x) for x in l],sep="\t")
-
-def mode(d): return max(d, key=d.get)
+def median(a)   : return per(a,.5)
+def mean(a)     : return sum(a)/len(a)
+def mid(col)    : return median(col) if isNum(col) else max(col, key=col.get)
+def norm(col,x) : return  x=="?" and x or (x - col[0])/(col[-1] - col[0] + 1E-32)
+def div(col)    : return (per(col,.9) - per(col,.1))/2.56 if isNum(col) else ent(col)
 
 def ent(d):
-   n = sum(d.values())
-   return - sum(m/n*log(m/n,2) for m in d.values() if m > 0)
+  n = sum(d.values())
+  return sum( -v/n*log(v/n,2) for v in d.values() if v > 0)
 
-def per(a,p=.5): return a[int(p*len(a))]
-def median(a):   return per(a,.5)
-def mean(a):     return sum(a)/len(a)
-def sd(a):       return (per(a,.9) - per(a,.1))/2.56
-#---------------------------------------------
-class EGS:
-   _egs = locals()
-   def All():
-      "run all"
-      sys.exit(sum((EGS._one(k) for k in EGS._egs if k!="all" and k[0].islower())))
+def merged(a,b):
+  if a and b:
+    n1,n2 = a.total(),b.total()
+    c = a+b
+    if ent(c) <= (ent(a)*n1 + ent(b)*n2)/(n1+n2): 
+      return c
+  
+def minkowski(cols, fun):
+  tmp = sum(fun(n,col)**the.p for n,col in cols.items())
+  return (tmp / len(cols))**(1/the.p)
 
-   def _one(k):
-      if the.help: EGS._help()
-      elif k in EGS._egs:
-         b4 = deepcopy(the)
-         random.seed(the.seed)
-         status = EGS._egs[k]()
-         for k in b4: the[k] = b4[k]
-         return status==False
+def cuts(n, klasses, supervised=False, get=lambda lst,n: lst[n]):
+  xys = sorted([(get(z,n), klass) for klass,lst in klasses.items() for z in lst if get(z,n) !="?"])
+  size = len(xys) // (the.bins - 1)
+  small = the.cohen * (per(xys,.9)[0] - per(xys,.1)[0])/2.56
+  xs, ys, ignore, b4 = {}, {}, set(),  None
+  cut=xys[0][0]; xs[cut]=0; ys[cut]=Counter()
+  for j,(x,y) in enumerate(xys):
+    if (xs[cut] >= size and x - cut >= small and j < len(xys)-size and x != xys[j+1][0]):
+      if supervised:
+           if combined := merged(ys[b4],ys[cut]):
+              ignore.add(cut)
+              ys[b4] = combined
+           else:
+              b4 = cut
+      cut=x; xs[cut]=0; ys[cut]=Counter()
+    xs[cut] += 1
+    ys[cut][y] += 1
+  return sorted(xs.keys() - ignore)
+#--------------------------------------------------------------------------------------------------
+def nump(s)    : return s[0].isupper()
+def goalp(s)   : return s[-1] in "+-"
+def lessp(s)   : return s[-1] == "-"
+def ignorep(s) : return s[-1] == "X"
+
+class COLS(obj):
+  def __init__(i,a):
+    i.names,i.x,i.y,i.all = a,{},{},{}
+    for n,s in enumerate(a):
+      col = i.all[n] = [] if nump(s) else {}
+      if ignorep(s): continue
+      (i.y if goalp(s) else i.x)[n] = col
+  def adds(i,a): [i.add(col, a[n]) for n,col in i.all.items()]
+
+  def add(i,col,x):
+    if x == "?": return
+    if isNum(col): col += [x]
+    else: col[x] = 1 + col.get(x,0)
+
+  def sorted(i):[col.sort() for _,col in i.all.items() if isNum(col)]
+#------------------------------------------------------------------------------------------------
+class ROW(obj):
+  def __init__(i,a,data=None): 
+    i.raw   = a    # raw values
+    i.bins  = a[:] # discretized values, to be calculated later
+    i._data = data # source table
+    i.alive = True
+    i.evalled = False
+
+  def __sub__(i,j):
+    def _dist(n,col):
+      x,y = i.raw[n],j.raw[n]
+      if   x=="?" and y=="?" : return 1
+      elif not isNum(col)    : return 0 if x == y else 0
       else:
-         print("usage: ./es.py -e help")
+        x,y = norm(col, x), norm(col,y)
+        if x=="?": x=1 if y<.5 else 0
+        if y=="?": y=1 if x<.5 else 0
+        return abs(x-y)
+    return minkowski(i._data.cols.x, _dist)
 
-   def _help():
-      "show help"
-      print(__doc__+"\nACTIONS:")
-      [print(f"  -e {k:10} {f.__doc__}") for k,f in EGS._egs.items() if k[0] !="_"]
+  def __lt__(i,j): return i.height() < j.height()
 
-   def the(): 
-      "what do the settings look like?"
-      print(the)
+  def height(i):
+    def _heaven(n):   return 0 if lessp(i._data.cols.names[n]) else 1
+    def _dist(n,col): return abs(_heaven(n) - norm(col,i.raw[n]))
+    i.evalled = True
+    return minkowski(i._data.cols.y, _dist)
 
-   def num():
-      "nums work?"
-      n=NUM().adds([2,1,3,2,4])
-      print(box(mid=n.mid(), div=n.div()))
+  def neighbors(i,rows): return sorted(rows, key=lambda j: j - i)
+#--------------------------------------------------------------------------------------------------
+class DATA(obj):
+  def __init__(i, src=[]):
+    i.rows, i.cols = [],None
+    i.adds(src)
+    i.cols.sorted()
 
-   def csv():
-      "can I load a csv file?"
-      print(SHEET(csv(the.file)).cols.x)
+  def adds(i,src):
+    if isinstance(src,list): return [i.add(row) for row in src]
+    [i.add(ROW(a,i)) for a in csv(src)]
+    i.discretize()
 
-   def dist():
-      "do I know distances?"
-      s = SHEET(csv(the.file))
-      rows = sorted(s.rows, key=s.d2h)
-      print(rows[0])
-      for j in range(1, len(rows), 30):
-         print(rows[j], s.dist(rows[1], rows[j]))
+  def add(i,row):
+    if i.cols:
+      i.cols.adds(row.raw)
+      i.rows += [row]
+    else:
+      i.cols = COLS(row.raw)
 
-   def clone():
-      "can i find a best region?"
-      s = SHEET(csv(the.file))
-      rows = sorted(s.rows, key=s.d2h)
-      n = int(len(rows)**the.min)
-      showds(s.clone(rows[:n]).stats(),
-             s.clone(rows[-n:]).stats())
+  def stats(i,what=mid,cols=None,dec=2):
+    return box(N=len(i.rows),
+               **{i.cols.names[n]:pretty(what(col),dec) 
+                  for n,col in (cols or i.cols.y).items()})
 
-   def tree():
-      "can i recursively clusters?"
-      s = SHEET(csv(the.file))
-      for n,d in nodes(tree(s,True)):
-         print(('|.. '*d)+str(n.here.stats() if isLeaf(n) else ""))
-      print("\n"+('    '*d)+str(s.stats()))
+  def clone(i,rows=[]): return DATA([ROW(i.cols.names)] + rows)
 
-   def cuts():
-      a= [normal(5,1) + normal(15,1) for _ in range(1000)]
-      c= cuts(a)
-      [print(k,round(v,2)) for v,k in sorted(c.items())]
+  def discretize(i):
+    if False:
+      for n,s in enumerate(i.cols.names):
+        if nump(s):
+          a = cuts(n, dict(all=i.rows), get=lambda row,n: row.raw[n])
+          for row in i.rows:
+            old = row.bins[n]
+            row.bins[n] = old if old=="?" else discretize(a,old)
+#--------------------------------------------------------------------------------------------------
+def discretize(cuts,x):
+  lo = -inf
+  for n,hi in enumerate(cuts):
+    if lo <= x < hi: return n
+    lo=hi
+  return n+1
 
-def go(): EGS._one(cli(the).eg)
-#-----------------------------------
-if __name__ == "__main__": go()
+def bicluster(rows,sort=False):
+  n    = len(rows)
+  some = random.sample(rows, k=min(n,the.Halves))
+  far  = int(the.Far*len(some))
+  a    = some[0].neighbors(some)[far]
+  b    = a.neighbors(some)[far]
+  C    = a - b
+  if sort and b < a:  a,b=b,a
+  rows = sorted(rows, key=lambda r: ((r-a)**2 + C**2 - (r-b)**2)/(2*C))
+  return a,b,rows[:n//2], rows[n//2:]
+
+def tree(rows, sort=False):
+  data = rows[0]._data
+  stop = len(rows) ** the.min
+  def _grow(rows):
+    here = box(here=data.clone(rows), left=None, right=None)
+    if len(rows) >= 2*stop:
+      _,__,lefts,rights = bicluster(rows,sort)
+      here.lefts  = _grow(lefts)
+      here.rights = _grow(rights)
+    return here
+  return _grow(rows)
+
+def nodes(tree, depth=0):
+  if tree:
+    yield tree,depth
+    for kid in [tree.lefts, tree.rights]:
+      for tree1,depth1 in nodes(kid, depth+1):
+        yield tree1,depth1 
+
+def showTree(tree):
+  def leaf(node): return not (node.lefts or node.rights)
+  stats1 = tree.here.stats()
+  depth1 = int(log(len(tree.here.rows)**the.min,2)) 
+  prints(*["    "*depth1] + list(stats1.keys()))
+  prints(*["    "*depth1] + list(stats1.values()))
+  for node,depth in nodes(tree):
+    if depth > 0: 
+      prints(*["|.. "*depth] + (list(node.here.stats().values()) if leaf(node) else []))
+   
+#--------------------------------------------------------------------------------------------------
+def csv(file="-"):
+  with fileinput.FileInput(file) as src:
+    for line in src:
+      line = re.sub(r'([\t\r"\' ]|#.*)', '', line) 
+      if line: yield [coerce(x) for x in line.split(",")]
+
+def coerce(x):
+  try : return this(x)
+  except Exception: return x.strip()
+
+def pretty(x, dec=2):
+  return x.__name__+'()' if callable(x) else (
+         round(x,dec) if dec and isinstance(x,float) else x)
+
+def prettyd(d, pre="", dec=2):
+  return pre+'('+' '.join([f":{k} {pretty(d[k],dec)}" 
+                           for k in d if k[0]!="_"])+')'
+
+def printd(d): print(prettyd(d))
+def prints(*a):
+  print(*[pretty(x) for x in a],sep="\t")
+
+def printed(*dicts):
+  prints(dicts[0].keys())
+  [prints(d.values()) for d in dicts]
+
