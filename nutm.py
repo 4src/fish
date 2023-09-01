@@ -1,12 +1,9 @@
 from collections import Counter
+import fileinput,ast
 
-def isGoal(s)   : return s[-1] in "+-"
-def isNum(s)    : return s[0].isupper()
-def isIgnores(s): return s[-1] = "X"
 
 class box(dict): __setattr__ = dict.__setitem__; __getattr__ = dict.get  
-
-
+class obj      : __repr__ = lambda i: return str(i.__dict__)
 
 def items(x,cols): 
   if nump(x):
@@ -14,23 +11,45 @@ def items(x,cols):
   else
     for c,(name,v) in enumerate(x.items()): yield c,name,v
 
-def using(src, use=None):
-  "yields just the columns we are using, coercing values"
+def coerce(x):
+  try : return ast.literal_eval(x)
+  except Exception: return x.strip()
+
+# spit them out in random order
+
+def rows(file="-", use=None):
+  with fileinput.FileInput(file) as src:
+    for line in src: 
+      line = [x.strip() for x in line.split(",")]
+      use  = use or [n for n,s in enumerate(line) if s[-1] ~= "X")]
+      yield [coerce(line[n]) for n in use]
+
+class COLS(obj):
+  def __init__(i,names, inits=[]):
+    i.names, i.all, i.x, i.y = names,{},{},{}
+    for n,s in enumerate(names):
+      i.all[n] = (i.y if s[-1] in "+-") else i.x)[n] = (NUM if s[0].isupper()  else SYM)(n,s) 
+    [i.add(a) for a in inits]
+      
+  def add(i,a)           : [col.add(a[n]) for n,col in i.all.items()]; return a
+  def clone(i, inits=[]) : return COLS(i.names, inits)
+  
+def eras(src, size=20):
+  era,cache,cols = 0,[],None
+  def dump(): 
+    random.shuffle(cache)
+    for a in cache: yield cols.add(x), era+1
+  #------------
   for a in src:
-    use = use or [n for n,x in enumerate(a) if not isIgnored(x)]
-    yield [coerce(a[n]) for n in use]
-       
-def rowCols(src, cols=None)
-  "yields each row and the cols, after row1. Row1  builds the cols; other rows update cols"
-  for n,a in enumerate(using(src)):
-    if cols: 
-      [col.add(a[n]) for n,col in cols.all.items()]
-      yield n-1,a,cols
-    else:  
-      names,all,x,y = a,{},{},{}
-      for n,name in enumerate(names):
-         all[n] = (y if isGoal(name) else x)[n] = (NUM if isNum(name) else SYM)(n,name) 
-      cols = box(names=names, all=all, x=x, y=y)
+    if cols:  
+      cache += [a]
+      if len(cache) >= size:
+        for era1,a1 in dump(): yield era1,a1,cols
+        era,cache = era1,[]
+    else:
+      cols = COLS(a)
+  if cache:
+    for era1,a1 in dump(): yield era1,a1,cols
   
 # def per(a, n=.5) : return a[int(n*len(a))]
 # def median(a)    : return per(a,.5)
