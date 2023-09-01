@@ -1,21 +1,37 @@
 from collections import Counter
 
-def isNum(x): return isinstance(x,list)
-def goalp(s): return s[-1] in "+-"
-def nump(s):  return s[0].isupper()
+def isGoal(s)   : return s[-1] in "+-"
+def isNum(s)    : return s[0].isupper()
+def isIgnores(s): return s[-1] = "X"
 
-def slots(x): 
-  if isNum(x):
-    for n,v in enumerate(x): yield meta(n),v 
+class box(dict): __setattr__ = dict.__setitem__; __getattr__ = dict.get  
+
+
+
+def items(x,cols): 
+  if nump(x):
+    for c,v in enumerate(x): yield c, our.names[c], v 
   else
-    for name,v in x.items(x): yield meta4(name),v
+    for c,(name,v) in enumerate(x.items()): yield c,name,v
 
-def cols(x, fun=lambda _:True):
-  for k,v in slots(x): 
-      if fun(k): yield k,v 
-    
-for k,v in cols(dict(Aa=1,b=2)): print(k,v)
-
+def using(src, use=None):
+  "yields just the columns we are using, coercing values"
+  for a in src:
+    use = use or [n for n,x in enumerate(a) if not isIgnored(x)]
+    yield [coerce(a[n]) for n in use]
+       
+def rowCols(src, cols=None)
+  "yields each row and the cols, after row1. Row1  builds the cols; other rows update cols"
+  for n,a in enumerate(using(src)):
+    if cols: 
+      [col.add(a[n]) for n,col in cols.all.items()]
+      yield n-1,a,cols
+    else:  
+      names,all,x,y = a,{},{},{}
+      for n,name in enumerate(names):
+         all[n] = (y if isGoal(name) else x)[n] = (NUM if isNum(name) else SYM)(n,name) 
+      cols = box(names=names, all=all, x=x, y=y)
+  
 # def per(a, n=.5) : return a[int(n*len(a))]
 # def median(a)    : return per(a,.5)
 # def sd(a)        : return (pera,)
