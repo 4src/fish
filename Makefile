@@ -35,6 +35,9 @@ trees:
 branches: 
 	$(foreach f,$(Data), (echo $f; ./l4.py -s $$RANDOM  -f ../data/${f}.csv -e branches;);)
 
+%.awk : %.gold
+	gawk '{  print gensub(/\.([^0-9])([a-zA-Z0-9_]*)/, "[\"\\1\\2\"]","g",$$0)} ' $^ > $@
+  
 docs/%.html: %.py
 	python3 -Bm pdoc -c sort_identifiers=False  -c  show_inherited_members=False \
 		       --template-dir docs --force --html -o docs   $^
