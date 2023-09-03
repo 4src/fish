@@ -1,8 +1,15 @@
-local the = {p=2,decimals=2,k=2,m=1}
+local the = {
+	act      = "nothing",
+	decimals = 2, 
+	k        = 2, 
+	m        = 1, 
+	p        = 2,
+	seed     = 937162211
+}
 -----------------------------------------------------------------------
 local objects={}
 local function obj(s) local x={}; objects[s]=x; return x end
-local Num,Sym = obj"Num", obj"Sym"
+local Data,Num,Row,Sym = obj"Data", obj"Num",  obj"Row", obj"Sym"
 
 local function like(i,...) return i._is.like(i,...) end
 local function dist(i,...) return i._is.dist(i,...) end
@@ -27,6 +34,17 @@ function stat.rnd(n,  nPlaces,     mult)
 -----------------------------------------------------------------------  
 local list={}
 function list.sort(t,fun) table.sort(t,fun); return t end
+function list.push(t,x)   t[1+#t] = x; return x end
+-----------------------------------------------------------------------  
+local rand={}
+rand.seed = 937162211
+
+function rand.rint(nlo,nhi) return floor(0.5 + rand.rand(nlo,nhi)) end
+
+function rand.rand(nlo,nhi)
+  nlo,nhi=nlo or 0, nhi or 1
+  rand.seed = (16807 * rand.seed) % 2147483647
+  return nlo + (nhi-nlo) * rand.seed / 2147483647 end
 -----------------------------------------------------------------------
 local str={}
 function str.o(x,    t)
@@ -52,8 +70,33 @@ function str.csv(sFilename,fun,      src,s,cells)
   src = io.input(sFilename)
   while true do
     s = io.read(); if s then fun(_cells(s,{})) else return io.close(src) end end end
+ -----------------------------------------------------------------------
+local eg={}
+function eg.run(fun,name,    b4,result,out)
+  b4={}; for k,v in pairs(the) b4[k]=v end
+  math.randomseed(the.seed)
+  rand.seed  = the.seed
+  ok, result = pcall(fun)
+  out        = ok and result or false
+  if not ok then print("❌ FAIL ",result) end
+  for k,v in pairs(b4) do the[k]=v end
+  return out end
 
-local o,oo,sort =str.o,str.oo,list.sort
+function eg.runs(funs)
+  the  = run.cli(the)
+  for k,fun in pairs(egs) do
+    if k:find("^"..the.act..":") eg.run(k,fun) end end
+
+function egs.cli(t)
+  for k,v in pairs(t) do
+    v = tostring(v)
+    for n,x in ipairs(arg) do
+      if x=="-"..(k:sub(1,1)) or x=="--"..k then
+        v = v=="false" and "true" or v=="true" and "false" or arg[n+1] end end
+    t[k] = str.coerce(v) end
+  return t end
+
+local o, oo, push, sort = str.o, str.oo, list.push, list.sort
 -----------------------------------------------------------------------
 function Num.new(at,txt)
   return {_is=Num, n=0, at=at or 0, txt=txt or "",
@@ -73,7 +116,6 @@ function Num.add(i,n,     d)
 function Num.mid(i)      return i.mu end
 function Num.div(i)      return i.sd end
 function Num.like(i,x,_) return exp(-.5*((x - i.mu)/i.sd)^2) / (i.sd*((2*pi)^0.5)) end 
-
 -----------------------------------------------------------------------
 function Sym.new(at,txt)
   return {_is=Sym, n=0, at=at or 0, txt=txt or "",has ={}, most=0, mode=None} end
@@ -87,10 +129,47 @@ function Sym.add(i,s,     d)
 function Sym.mid(i)          return i.mode end
 function Sym.div(i)          return stat.entropy(i.has) end
 function Sym.like(i,x,prior) return ((i.has[x] or 0) + the.m*prior)/(i.n+the.m) end
+-----------------------------------------------------------------------
+function Cols.new(t,    col,i,what)
+  i = {_is=Cols, x={}, y={}, all={}, names=t}
+  for at,txt in pairs(t) do
+    col = push(i.cols, (txt:find"^[A-Z]" and NUM or SYM).new(at,txt))
+    if not col.txt:find"X$" then
+      push(col.txt:find"[+-]$" and i.y or i.x, col) end end
+  return i end
 
+function Cols.add(i,t)
+  for _,xy in pairs{i.x, i.y} do for _,j in pairs(xy) do add(j, t[c.at]) end end
+  return row end
+-----------------------------------------------------------------------
+function Row.new(t) 
+  u={}; for k,v in pairs(t) u[k]=v end
+  return {i._is=Row, raw=t, bins=u} end
+
+function Row.classify(i, datas)
+  max,out = -big, datas[1]
+  nrows=0; for _,data in pairs(datas) do nrows = nrows + #data.rows end
+  for _,data in pairs(datas) do 
+    tmp = like(data, i, #datas, nrows) 
+    if tmp > max then max,out = tmp,data end
+  return out,max end
+-----------------------------------------------------------------------
+function Data.new(src,inits,      i)
+  i = {_is=Data, rows={}}
+  if type(src)=="string" then csv(src, function(t) add(i,Row(t,i) end) else 
+    for _,rowin pairs(rows or {}) add(i, row) end end 
+  return i end
+
+function Data.add(i,row)
+  if i.cols then push(i.rows, add(i.cols, row)) else i.cols = Cols.new(row.raw) end end
   
-
-
- 
+function Data.like(i,row,nh,nrows,     prior,out,x)
+  prior = (#i.rows + the.k) / (nrows + the.k * nh)
+  out   = log(prior) 
+  for _,col in pairs(i.cols.x) do
+    x   = row.raw[col.at]
+    out = out + (x=="?"and 0 or log(like(col,x,prior))  end end
+  return out end
+-----------------------------------------------------------------------
   
 
