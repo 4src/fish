@@ -71,8 +71,15 @@ function str.csv(sFilename,fun,      src,s,cells)
   while true do
     s = io.read(); if s then fun(_cells(s,{})) else return io.close(src) end end end
  -----------------------------------------------------------------------
-local eg={}
-function eg.run(fun,name,    b4,result,out)
+local egs={order={}, index={}}
+function eg(s,fun)
+  tag,doc = s:match"([^:]+):(.*)"
+  egs.index[tag] = push(egs.order, {tag=tag,doc=doc,fun=fun}) end
+
+eg("all:run all examples",function()  
+ for _,x in pairs(egs.order) do egs.run(x.fun,x.tag) end)
+
+function egs.run(fun,name,    ok,b4,result,out)
   b4={}; for k,v in pairs(the) b4[k]=v end
   math.randomseed(the.seed)
   rand.seed  = the.seed
@@ -82,10 +89,10 @@ function eg.run(fun,name,    b4,result,out)
   for k,v in pairs(b4) do the[k]=v end
   return out end
 
-function eg.runs(funs)
-  the  = run.cli(the)
-  for k,fun in pairs(egs) do
-    if k:find("^"..the.act..":") eg.run(k,fun) end end
+function egs.runs()
+  the = run.cli(the)
+  todo = egs.index[the.act]
+  if todo then egs.run(todo.fun, todo.tag) end end
 
 function egs.cli(t)
   for k,v in pairs(t) do
@@ -148,16 +155,18 @@ function Row.new(t)
 
 function Row.classify(i, datas)
   max,out = -big, datas[1]
-  nrows=0; for _,data in pairs(datas) do nrows = nrows + #data.rows end
+  ndata,nrows=0,0
+  for _,data in pairs(datas) do ndata = ndata+1, nrows = nrows + #data.rows end
   for _,data in pairs(datas) do 
-    tmp = like(data, i, #datas, nrows) 
-    if tmp > max then max,out = tmp,data end
+    tmp = like(data, i, ndata, nrows) 
+    if tmp > max then max,out = tmp,data end end
   return out,max end
 -----------------------------------------------------------------------
 function Data.new(src,inits,      i)
   i = {_is=Data, rows={}}
-  if type(src)=="string" then csv(src, function(t) add(i,Row(t,i) end) else 
-    for _,rowin pairs(rows or {}) add(i, row) end end 
+  if   type(src)=="string" 
+  then csv(src, function(t) add(i,Row(t,i) end) 
+  else for _,rowin pairs(rows or {}) add(i, row) end end 
   return i end
 
 function Data.add(i,row)
@@ -171,5 +180,3 @@ function Data.like(i,row,nh,nrows,     prior,out,x)
     out = out + (x=="?"and 0 or log(like(col,x,prior))  end end
   return out end
 -----------------------------------------------------------------------
-  
-
